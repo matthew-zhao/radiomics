@@ -72,5 +72,5 @@ def analyze(arr_arg):
     result.append(math.sqrt(energy / arr.size))
     # Standard Deviation
     result.append(np.std(arr, ddof=1))
-    
+    #change
     return result
