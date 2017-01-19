@@ -7,6 +7,7 @@ import numpy as np
 from scipy import stats
 from scipy import ndimage
 from oauth2client.service_account import ServiceAccountCredentials
+from skimage.feature import greycomatrix
 
 def retrieve(event):
     client = dropbox.Dropbox(event["auth_token"])
@@ -72,5 +73,7 @@ def analyze(arr_arg):
     result.append(math.sqrt(energy / arr.size))
     # Standard Deviation
     result.append(np.std(arr, ddof=1))
-    #change
     return result
+
+def second_order(arr_arg, values):
+    glcm = greycomatrix(arr_arg, 1, )
