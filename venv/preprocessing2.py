@@ -3,16 +3,22 @@ import base64
 import scipy
 import numpy as np
 import boto3
+import boto
+from boto.s3.key import Key
 import uuid
 from scipy import stats
 from scipy import ndimage
 
-s3_client = boto3.client('s3')
+#s3_client = boto3.client('s3')
 
 def retrieve(event):
     client = dropbox.Dropbox(event["auth_token"])
-    f, metadata = client.files_download(event["from_url"])
-    f_shape, metadata_shape = client.files_download(event["from_url"].strip(".txt") +"_shape.txt")
+    image = event["from_url"]
+    f, metadata = client.files_download(image)
+    str_array = image.split('/')
+    image_name = str_array[-1]
+    path = '/'.join(str_array[:-1])
+    f_shape, metadata_shape = client.files_download(path + "/shape/" + image_name.strip(".txt") +"_shape.txt")
     data = metadata.content
 
     metadata_shape = metadata_shape.content
@@ -28,17 +34,23 @@ def retrieve(event):
     return result_array
 
 def preprocess(event, context):
-    bucket = event['Records'][0]['s3']['bucket']['name']
-    key = event['Records'][0]['s3']['object']['key']
+    #bucket = event['Records'][0]['s3']['bucket']['name']
+    #key = event['Records'][0]['s3']['object']['key']
+    number = event['number']
+    conn = boto.connect_s3()
+    b = conn.get_bucket('training-array')
+    k = b.new_key('matrix' + str(number) + '.npy')
+
     np_array = retrieve(event)
     values = analyze(np_array, event)
 
-    download_path = '/tmp/{}{}'.format(uuid.uuid4(), key)
-    upload_path = '/tmp/resized-{}'.format(key)
+    #download_path = '/tmp/{}{}'.format(uuid.uuid4(), key)
+    upload_path = '/tmp/resized-{}'.format(k)
 
     #s3_client.download_file(bucket, key, download_path)
     np.save(upload_path, values)
-    s3_client.upload_file(upload_path, '{}resized'.format(bucket), key)
+    k.set_contents_from_filename(upload_path)
+    #s3_client.upload_file(upload_path, '{}resized'.format(bucket), key)
     return 0
 
 def analyze(arr_arg, event):
@@ -47,7 +59,7 @@ def analyze(arr_arg, event):
     h = scipy.histogram(arr, 256)
     dim = len(arr.shape)
 
-    filter_size = event['filter_size']
+    filter_size = int(event['filter_size'])
 
     mean = scipy.ndimage.generic_filter(arr, scipy.mean, size = filter_size, mode = 'constant')
     
