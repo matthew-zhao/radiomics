@@ -8,7 +8,7 @@ from boto.s3.key import Key
 import uuid
 from scipy import stats
 from scipy import ndimage
-import pandas
+import csv
 from PIL import Image
 from StringIO import StringIO
 
@@ -25,10 +25,10 @@ def retrieve(event):
         if content['is_dir'] == False:
             paths.append(content['path'])
 
-    reader = pandas.read_csv("trainLabels.csv")
-    # TODO: find way not to hardcode this
-    images = list(reader.image)
-    levels = list(reader.level)
+    c_reader = csv.reader((open('trainLabels.csv', 'r'), delimiter = ','))
+    columns = list(zip(*c_reader))
+    images = columns[0][1:]
+    levels = list(map(int, columns[1][1:]))
 
     label_dict = dict(zip(images, levels))
 
