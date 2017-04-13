@@ -19,8 +19,9 @@ import json
 def preprocess(event, context):
     conn = boto.connect_s3()
     b = conn.get_bucket('training-array')
+    b2 = conn.get_bucket('training-labels')
     k = b.new_key('matrix' + str(event["image"]) + '.npy')
-    k2 = b.new_key('matrix' + str(event["image"]) + '-label.npy')
+    k2 = b2.new_key('matrix' + str(event["image"]) + '.npy')
 
     img = event['image']
     label = event['label']
@@ -36,7 +37,7 @@ def preprocess(event, context):
     k2.set_contents_from_filename(upload_path_labels)
 
     if (last_bool) {
-        msg = {"bucket_from" : "training-array"}
+        msg = {"bucket_from" : "training-array", "bucket_from_labels" : "training-labels"}
         lambda_client = boto3_client('lambda')
         lambda_client.invoke(FunctionName="preprocessing3", InvocationType='Event', Payload=json.dumps(msg))
     }
