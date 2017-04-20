@@ -59,7 +59,7 @@ def invoke_lambda(event, context):
 
 
             #lambdaclient.invoke()
-            args = {"image_path": image_path, "image_name": actual_name, "label": label, "last": last, "filter_size": filter_size}
+            args = {"image_path": image_path, "image_name": actual_name, "label": label, "last": last, "filter_size": filter_size, "auth_token": event["auth_token"]}
             invoke_response = lambda_client.invoke(FunctionName="preprocessing2", InvocationType='Event', Payload=json.dumps(args))
 
             counter += 1
