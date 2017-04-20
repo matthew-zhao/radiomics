@@ -45,7 +45,7 @@ def invoke_lambda(event, context):
 
             actual_name, extension = image_name.split(".")
 
-            if !label_dict.has_key(actual_name):
+            if not label_dict.has_key(actual_name):
                 paths.remove(image_name)
 
         total_count = len(paths)
