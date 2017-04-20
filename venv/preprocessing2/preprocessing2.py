@@ -13,14 +13,33 @@ from StringIO import StringIO
 from boto3 import client as boto3_client
 import json
 
+
+
 def preprocess(event, context):
+    client = dropbox.Dropbox(event["auth_token"])
+    image_path = event["image_path"]
+    f, metadata = client.files_download(image_path)
+    data = metadata.content
+
+    actual_name, extension = image_name.split(".")
+
+    if extension == "dcm":
+        f2 = open("/tmp/response_content.dcm", "wb")
+        f2.write(data)
+        f2.close()
+        f2 = open("/tmp/response_content.dcm", "rb")
+        ds = dicom.read_file(f2)
+        img = ds.pixel_array
+        f2.close()
+    else:
+        img = scipy.array(Image.open(StringIO(data)))
+
     conn = boto.connect_s3()
     b = conn.get_bucket('training-array')
     b2 = conn.get_bucket('training-labels')
-    k = b.new_key('matrix' + str(event["image"]) + '.npy')
-    k2 = b2.new_key('matrix' + str(event["image"]) + '.npy')
+    k = b.new_key('matrix' + str(event["image_name"]) + '.npy')
+    k2 = b2.new_key('matrix' + str(event["image_name"]) + '.npy')
 
-    img = event['image']
     label = event['label']
     last_bool = event['last']
     value_matrix, labels = analyze((img, label), event)
