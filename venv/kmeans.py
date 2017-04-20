@@ -7,12 +7,13 @@ from oauth2client.service_account import ServiceAccountCredentials
 
 def cluster(event, context):
     key = event['key']
-    scopes = ['https://spreadsheets.google.com/feeds']
-    credentials = ServiceAccountCredentials.from_json_keyfile_name('Unknown.json', scopes=scopes)
-    gc = gspread.authorize(credentials)
-    worksheet = gc.open_by_key(key).sheet1
     
-    arr = np.array(worksheet.get_all_values())
+    # scopes = ['https://spreadsheets.google.com/feeds']
+    # credentials = ServiceAccountCredentials.from_json_keyfile_name('Unknown.json', scopes=scopes)
+    # gc = gspread.authorize(credentials)
+    # worksheet = gc.open_by_key(key).sheet1
+    
+    # arr = np.array(worksheet.get_all_values())
     X = arr[1:, :-1]
 
     X_converted = X.astype(np.float)
