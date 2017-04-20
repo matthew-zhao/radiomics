@@ -6,6 +6,8 @@ import json
 import dropbox
 import csv
 import scipy
+from PIL import Image
+from StringIO import StringIO
 
 lambda_client = boto3.client('lambda')
 
@@ -36,17 +38,18 @@ def invoke_lambda(event, context):
 
         image_list = []
 
-        for image_name in paths:
-            image = folder_path + "/" + image_name
+        for image_paths in paths:
             shape_dir = None
 
-            f, metadata = client.files_download(image)
+            f, metadata = client.files_download(image_paths)
             data = metadata.content
+
+            image_name = image_paths.split("/")[-1]
 
             actual_name, extension = image_name.split(".")
 
             if not label_dict.has_key(actual_name):
-                paths.remove(image_name)
+                paths.remove(image_paths)
 
         total_count = len(paths)
         counter = 1
@@ -57,11 +60,12 @@ def invoke_lambda(event, context):
             if counter == total_count:
                 last = True
 
-            image_name = key
-            image = folder_path + "/" + image_name
+            image_paths = key
+            image_name = image_paths.split("/")[-1]
+
             shape_dir = None
 
-            f, metadata = client.files_download(image)
+            f, metadata = client.files_download(image_paths)
             data = metadata.content
 
             actual_name, extension = image_name.split(".")
@@ -82,7 +86,7 @@ def invoke_lambda(event, context):
 
 
             #lambdaclient.invoke()
-            args = {"image": img, "label": label, "last": last, "filter_size": filter_size}
+            args = {"image": img.tolist(), "label": label, "last": last, "filter_size": filter_size}
             invoke_response = lambda_client.invoke(FunctionName="preprocessing2", InvocationType='Event', Payload=json.dumps(args))
 
             counter += 1
