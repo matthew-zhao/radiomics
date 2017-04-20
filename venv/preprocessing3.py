@@ -34,7 +34,7 @@ def squish(event, context):
 
     # Create new buckets for the array and its corresponding labels
     b2 = conn.get_bucket('training-arrayfinal')
-    labels2 = conn.get_bucket('training_labelsfinal')
+    labels2 = conn.get_bucket('training-labelsfinal')
     k = b2.new_key('ready_matrix.npy')
     k2 = labels2.new_key('ready_labels.npy')
 
