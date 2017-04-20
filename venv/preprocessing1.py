@@ -6,8 +6,7 @@ import json
 import dropbox
 import csv
 import scipy
-from PIL import Image
-from StringIO import StringIO
+
 
 lambda_client = boto3.client('lambda')
 
@@ -35,58 +34,31 @@ def invoke_lambda(event, context):
         levels = list(map(int, columns[1][1:]))
         label_dict = dict(zip(images, levels))
 
-
         image_list = []
 
         for image_paths in paths:
-            shape_dir = None
-
-            f, metadata = client.files_download(image_paths)
-            data = metadata.content
-
             image_name = image_paths.split("/")[-1]
-
             actual_name, extension = image_name.split(".")
 
             if not label_dict.has_key(actual_name):
                 paths.remove(image_paths)
 
+
+
         total_count = len(paths)
         counter = 1
 
-
         for key in paths: #key has extension
-
             if counter == total_count:
                 last = True
 
-            image_paths = key
-            image_name = image_paths.split("/")[-1]
-
-            shape_dir = None
-
-            f, metadata = client.files_download(image_paths)
-            data = metadata.content
-
+            image_path = key
             actual_name, extension = image_name.split(".")
-
             label = label_dict[actual_name]
-
-            if extension == "dcm":
-                f2 = open("/tmp/response_content.dcm", "wb")
-                f2.write(data)
-                f2.close()
-
-                f2 = open("/tmp/response_content.dcm", "rb")
-                ds = dicom.read_file(f2)
-                img = ds.pixel_array
-                f2.close()
-            else:
-                img = scipy.array(Image.open(StringIO(data)))
 
 
             #lambdaclient.invoke()
-            args = {"image": img.tolist(), "label": label, "last": last, "filter_size": filter_size}
+            args = {"image_path": image_path, "label": label, "last": last, "filter_size": filter_size}
             invoke_response = lambda_client.invoke(FunctionName="preprocessing2", InvocationType='Event', Payload=json.dumps(args))
 
             counter += 1
