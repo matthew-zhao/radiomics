@@ -37,8 +37,8 @@ def invoke_lambda(event, context):
         image_list = []
 
         #gets rid of image paths who do not have a label in label_dict
-        for image_paths in paths:
-            image_name = image_paths.split("/")[-1]
+        for image_path in paths:
+            image_name = image_path.split("/")[-1]
             actual_name, extension = image_name.split(".")
 
             if not label_dict.has_key(actual_name):
@@ -54,12 +54,13 @@ def invoke_lambda(event, context):
                 last = True
 
             image_path = key
+            image_name = image_path.split("/")[-1]
             actual_name, extension = image_name.split(".")
             label = label_dict[actual_name]
 
 
             #lambdaclient.invoke()
-            args = {"image_path": image_path, "image_name": actual_name, "label": label, "last": last, "filter_size": filter_size}
+            args = {"image_path": image_path, "image_name": actual_name, "label": label, "last": last, "filter_size": filter_size, "auth_token": event["auth_token"]}
             invoke_response = lambda_client.invoke(FunctionName="preprocessing2", InvocationType='Event', Payload=json.dumps(args))
 
             counter += 1
