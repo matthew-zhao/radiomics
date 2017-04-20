@@ -1,18 +1,24 @@
 from sklearn.neural_network import MLPClassifier
 import pickle
-import gspread
 import numpy as np
-from oauth2client.service_account import ServiceAccountCredentials
+import boto
 
+from boto.s3.key import Key
+
+# Uses MLP Neural Net classifier to train a model
 def classify(event, context):
-    key = event['key']
-    scopes = ['https://spreadsheets.google.com/feeds']
-    credentials = ServiceAccountCredentials.from_json_keyfile_name('Unknown.json', scopes=scopes)
-    gc = gspread.authorize(credentials)
-    worksheet = gc.open_by_key(key).sheet1
-    arr = np.array(worksheet.get_all_values())
-    X = arr[1:, :-1]
-    y = arr[1:, -1]
+    conn = boto.connect_s3()
+    b = conn.get_bucket(event['bucket_from'])
+    labels = conn.get_bucket(event['bucket_from_labels'])
+
+    X_key = b.get_key('ready_matrix.npy')
+    Y_key = labels.get_key('ready_labels.npy')
+
+    X_key.get_contents_to_filename('/tmp/ready_matrix.npy')
+    Y_key.get_contents_to_filename('/tmp/ready_labels.npy')
+
+    X = np.load('/tmp/ready_matrix.npy')
+    y = np.load('/tmp/ready_labels.npy')
 
     X_converted = X.astype(np.float)
     y_converted = y.astype(np.float)
@@ -23,7 +29,10 @@ def classify(event, context):
 
     s = pickle.dumps(clf)
 
-    worksheet2 = gc.open_by_key(key).get_worksheet(1)
-    worksheet2.update_acell('A1', s)
+    model_bucket = conn.get_bucket('models')
+    model_k = model_bucket.new_key(event['model_name'])
+    model_k.set_contents_from_filename(s)
+
+    model_k.make_public()
     return 1
 
