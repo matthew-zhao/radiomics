@@ -12,6 +12,7 @@ from PIL import Image
 from StringIO import StringIO
 from boto3 import client as boto3_client
 import json
+import dropbox
 
 
 
