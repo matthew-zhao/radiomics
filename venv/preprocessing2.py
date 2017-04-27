@@ -3,6 +3,7 @@ import scipy
 import numpy as np
 import boto3
 import boto
+from boto.s3.connection import S3Connection
 from boto.s3.key import Key
 import uuid
 from scipy import stats
@@ -45,8 +46,8 @@ def preprocess(event, context):
     last_bool = event['last']
     value_matrix, labels = analyze((img, label), event)
 
-    upload_path = '/tmp/resized-{}'.format(k)
-    upload_path_labels = '/tmp/resized-{}'.format(k2)
+    upload_path = '/tmp/matrix' + str(event["image_name"]) + '.npy'
+    upload_path_labels = '/tmp/matrix' + str(event["image_name"]) + '-labels.npy'
 
     np.save(upload_path, value_matrix)
     np.save(upload_path_labels, labels)
