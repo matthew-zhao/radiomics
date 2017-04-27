@@ -3,7 +3,6 @@ import scipy
 import numpy as np
 import boto3
 import boto
-from boto.s3.connection import S3Connection
 from boto.s3.key import Key
 import uuid
 from scipy import stats
@@ -23,7 +22,7 @@ def preprocess(event, context):
     f, metadata = client.files_download(image_path)
     data = metadata.content
 
-    actual_name, extension = image_path.split(".")
+    actual_name, extension = image_name.split(".")
 
     if extension == "dcm":
         f2 = open("/tmp/response_content.dcm", "wb")
@@ -36,7 +35,7 @@ def preprocess(event, context):
     else:
         img = scipy.array(Image.open(StringIO(data)))
 
-    conn = boto.connect_s3("AKIAIMQLHJNMP6DOUM4A","8dJAfPZlTjMR1SOcOetImclAmT+G02VkQiuHefdY")
+    conn = boto.connect_s3()
     b = conn.get_bucket('training-array')
     b2 = conn.get_bucket('training-labels')
     k = b.new_key('matrix' + str(event["image_name"]) + '.npy')
@@ -46,15 +45,15 @@ def preprocess(event, context):
     last_bool = event['last']
     value_matrix, labels = analyze((img, label), event)
 
-    upload_path = '/tmp/matrix' + str(event["image_name"]) + '.npy'
-    upload_path_labels = '/tmp/matrix' + str(event["image_name"]) + '-labels.npy'
+    upload_path = '/tmp/resized-{}'.format(k)
+    upload_path_labels = '/tmp/resized-{}'.format(k2)
 
     np.save(upload_path, value_matrix)
     np.save(upload_path_labels, labels)
     k.set_contents_from_filename(upload_path)
     k2.set_contents_from_filename(upload_path_labels)
 
-    if last_bool:
+    if (last_bool):
         msg = {"bucket_from" : "training-array", "bucket_from_labels" : "training-labels"}
         lambda_client = boto3_client('lambda')
         lambda_client.invoke(FunctionName="preprocessing3", InvocationType='Event', Payload=json.dumps(msg))
