@@ -49,8 +49,8 @@ def preprocess(event, context):
     upload_path = '/tmp/matrix' + str(event["image_name"]) + '.npy'
     upload_path_labels = '/tmp/matrix' + str(event["image_name"]) + '-labels.npy'
 
-    np.save(upload_path, np.asfortranarray(value_matrix))
-    np.save(upload_path_labels, np.asfortranarray(labels))
+    np.save(upload_path, value_matrix)
+    np.save(upload_path_labels, labels)
     k.set_contents_from_filename(upload_path)
     k2.set_contents_from_filename(upload_path_labels)
 
