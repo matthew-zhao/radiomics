@@ -36,7 +36,7 @@ def preprocess(event, context):
     else:
         img = scipy.array(Image.open(StringIO(data)))
 
-    conn = boto.connect_s3()
+    conn = boto.connect_s3("AKIAIMQLHJNMP6DOUM4A","8dJAfPZlTjMR1SOcOetImclAmT+G02VkQiuHefdY")
     b = conn.get_bucket('training-array')
     b2 = conn.get_bucket('training-labels')
     k = b.new_key('matrix' + str(event["image_name"]) + '.npy')
@@ -118,5 +118,4 @@ def analyze(arr_arg, event):
         total_size = x * y
     label_arr = np.full((1,total_size), label)
     return result, label_arr
-
 
