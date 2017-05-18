@@ -16,18 +16,21 @@ def squish(event, context):
     for l in bucket_list:
         # Save content of file into tempfile on lambda
         # TODO: this step may cause issues b/c of .npy data lost?
-        l.get_contents_to_filename("/tmp/" + str(l.key))
-
-        if l.key[-4:] == ".npy":
-
+        #if l.key[-4:] == ".npy":
+        if l.key == "matrix10_left.npy":
+            l.get_contents_to_filename("/tmp/" + str(l.key))
             label_matrix = labels.get_key(str(l.key))
             label_matrix.get_contents_to_filename("/tmp/labels-" + str(l.key))
 
             # Load the numpy array from the tempfile and add it to list of np arrays
-            training_arr = None
-            label_arr = None
-            training_arr = np.load("/tmp/" + str(l.key))
-            label_arr = np.load("/tmp/labels-" + str(l.key))
+            #training_arr = None
+            #label_arr = None
+            #training_arr = np.load("/tmp/" + str(l.key))
+            #label_arr = np.load("/tmp/labels-" + str(l.key))
+            with open("/tmp/" + str(l.key), "rb") as npy:
+                training_arr = np.load(npy)
+            with open("/tmp/labels-" + str(l.key), "rb") as npy_label:
+                label_arr = np.load(npy_label)
             arr_list.append(training_arr)
             labels_list.append(label_arr)
 
