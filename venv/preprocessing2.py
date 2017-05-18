@@ -119,4 +119,3 @@ def analyze(arr_arg, event):
     label_arr = np.full((1,total_size), label)
     return result, label_arr
 
-

@@ -5,7 +5,7 @@ from boto.s3.key import Key
 # Function to be called by lambda2 when all images are done being preprocessed
 # to squish them together
 def squish(event, context):
-    conn = boto.connect_s3()
+    conn = boto.connect_s3("AKIAIMQLHJNMP6DOUM4A","8dJAfPZlTjMR1SOcOetImclAmT+G02VkQiuHefdY")
     b = conn.get_bucket(event['bucket_from'])
     labels = conn.get_bucket(event['bucket_from_labels'])
     bucket_list = b.list()
@@ -18,12 +18,18 @@ def squish(event, context):
         # TODO: this step may cause issues b/c of .npy data lost?
         l.get_contents_to_filename("/tmp/" + str(l.key))
 
-        label_matrix = labels.get_key(str(l.key))
-        label_matrix.get_contents_to_filename("/tmp/labels-" + str(l.key))
+        if l.key[-4:] == ".npy":
 
-        # Load the numpy array from the tempfile and add it to list of np arrays
-        arr_list.append(np.load("/tmp/" + str(l.key)))
-        labels_list.append(np.load("/tmp/labels-" + str(l.key)))
+            label_matrix = labels.get_key(str(l.key))
+            label_matrix.get_contents_to_filename("/tmp/labels-" + str(l.key))
+
+            # Load the numpy array from the tempfile and add it to list of np arrays
+            training_arr = None
+            label_arr = None
+            training_arr = np.load("/tmp/" + str(l.key))
+            label_arr = np.load("/tmp/labels-" + str(l.key))
+            arr_list.append(training_arr)
+            labels_list.append(label_arr)
 
     # Concatenate all numpy arrays representing a single image together
     concat = np.concatenate(arr_list, axis=1)
