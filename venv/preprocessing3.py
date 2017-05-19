@@ -18,7 +18,7 @@ def squish(event, context):
         # TODO: this step may cause issues b/c of .npy data lost?
         l.get_contents_to_filename("/tmp/" + str(l.key))
 
-        if l.key[-4:] == ".npy":
+        if l.key == "matrix10_left.npy":
 
             label_matrix = labels.get_key(str(l.key))
             label_matrix.get_contents_to_filename("/tmp/labels-" + str(l.key))
