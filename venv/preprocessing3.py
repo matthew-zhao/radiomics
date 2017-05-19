@@ -12,6 +12,7 @@ def squish(event, context):
     arr_list = []
     labels_list = []
 
+    i = 0
     # Go through each individual array in the list
     for l in bucket_list:
         # Save content of file into tempfile on lambda
@@ -33,13 +34,17 @@ def squish(event, context):
                 label_arr = np.load(npy_label)
             arr_list.append(training_arr)
             labels_list.append(label_arr)
+            print(i)
+        i += 1
 
+    print("here")
     # Concatenate all numpy arrays representing a single image together
-    concat = np.concatenate(arr_list, axis=1)
+    concat = np.concatenate(arr_list)
+    print("concatenated")
 
     # Concatenate all label arrays representing a single image together in the same
     # order that the images were concatenated
-    concat_labels = np.concatenate(labels_list)
+    concat_labels = np.concatenate(labels_list, axis=1)
 
     # Create new buckets for the array and its corresponding labels
     b2 = conn.get_bucket('training-arrayfinal')
