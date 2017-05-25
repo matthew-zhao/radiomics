@@ -8,7 +8,6 @@ def squish(event, context):
     conn = boto.connect_s3("AKIAIMQLHJNMP6DOUM4A","8dJAfPZlTjMR1SOcOetImclAmT+G02VkQiuHefdY")
     b = conn.get_bucket(event['bucket_from'])
     labels = conn.get_bucket(event['bucket_from_labels'])
-    training = event['train']
     bucket_list = b.list()
     arr_list = []
     labels_list = []
