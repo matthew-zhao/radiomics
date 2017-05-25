@@ -1,10 +1,12 @@
 from sklearn.neural_network import MLPClassifier
 import pickle
-import gspread
 import numpy as np
-from oauth2client.service_account import ServiceAccountCredentials
+import boto
+
+from boto.s3.key import Key
 
 def predict(event, context):
+    conn = boto.connect_s3("AKIAIMQLHJNMP6DOUM4A","8dJAfPZlTjMR1SOcOetImclAmT+G02VkQiuHefdY")
     key = event['key']
     classifier = event['classifier']
     scopes = ['https://spreadsheets.google.com/feeds']

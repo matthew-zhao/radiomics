@@ -8,35 +8,45 @@ def squish(event, context):
     conn = boto.connect_s3("AKIAIMQLHJNMP6DOUM4A","8dJAfPZlTjMR1SOcOetImclAmT+G02VkQiuHefdY")
     b = conn.get_bucket(event['bucket_from'])
     labels = conn.get_bucket(event['bucket_from_labels'])
+    training = event['train']
     bucket_list = b.list()
     arr_list = []
     labels_list = []
+    is_train = event["is_train"]
 
+    i = 0
     # Go through each individual array in the list
     for l in bucket_list:
         # Save content of file into tempfile on lambda
         # TODO: this step may cause issues b/c of .npy data lost?
-        l.get_contents_to_filename("/tmp/" + str(l.key))
-
-        if l.key == "matrix10_left.npy":
-
+        if l.key[-4:] == ".npy":
+        #if l.key == "matrix10_left.npy":
+            l.get_contents_to_filename("/tmp/" + str(l.key))
             label_matrix = labels.get_key(str(l.key))
             label_matrix.get_contents_to_filename("/tmp/labels-" + str(l.key))
 
             # Load the numpy array from the tempfile and add it to list of np arrays
-            training_arr = None
-            label_arr = None
-            training_arr = np.load("/tmp/" + str(l.key))
-            label_arr = np.load("/tmp/labels-" + str(l.key))
+            #training_arr = None
+            #label_arr = None
+            #training_arr = np.load("/tmp/" + str(l.key))
+            #label_arr = np.load("/tmp/labels-" + str(l.key))
+            with open("/tmp/" + str(l.key), "rb") as npy:
+                training_arr = np.load(npy)
+            with open("/tmp/labels-" + str(l.key), "rb") as npy_label:
+                label_arr = np.load(npy_label)
             arr_list.append(training_arr)
             labels_list.append(label_arr)
+            print(i)
+        i += 1
 
+    print("here")
     # Concatenate all numpy arrays representing a single image together
-    concat = np.concatenate(arr_list, axis=1)
+    concat = np.concatenate(arr_list)
+    print("concatenated")
 
     # Concatenate all label arrays representing a single image together in the same
     # order that the images were concatenated
-    concat_labels = np.concatenate(labels_list)
+    concat_labels = np.concatenate(labels_list, axis=1)
 
     # Create new buckets for the array and its corresponding labels
     b2 = conn.get_bucket('training-arrayfinal')

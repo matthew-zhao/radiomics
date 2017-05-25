@@ -1,6 +1,3 @@
-# http://stackoverflow.com/questions/31714788/can-an-aws-lambda-function-call-another
-# Lambda 1
-
 import boto3
 import json
 import dropbox
@@ -14,6 +11,7 @@ def invoke_lambda(event, context):
     dclient = dropbox.client.DropboxClient(event["auth_token"])
     client = dropbox.Dropbox(event["auth_token"])
     metadata = dclient.metadata(event["folder_name"])
+    is_train = event["is_train"]
     paths = []
     folder_name = event["folder_name"]
     auth_token = event["auth_token"]
@@ -60,11 +58,9 @@ def invoke_lambda(event, context):
 
 
             #lambdaclient.invoke()
-            args = {"image_path": image_path, "image_name": actual_name, "label": label, "last": last, "filter_size": filter_size, "auth_token": event["auth_token"]}
+            args = {"image_path": image_path, "image_name": actual_name, "label": label, "last": last, "filter_size": filter_size, "auth_token": event["auth_token"], "is_train": event["is_train"]}
             invoke_response = lambda_client.invoke(FunctionName="preprocessing2", InvocationType='Event', Payload=json.dumps(args))
 
             counter += 1
-
-
 
 

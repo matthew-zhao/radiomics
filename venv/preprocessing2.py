@@ -22,6 +22,7 @@ def preprocess(event, context):
     image_path = event["image_path"]
     f, metadata = client.files_download(image_path)
     data = metadata.content
+    is_train = event["is_train"]
 
     actual_name, extension = image_path.split(".")
 
@@ -55,7 +56,7 @@ def preprocess(event, context):
     k2.set_contents_from_filename(upload_path_labels)
 
     if last_bool:
-        msg = {"bucket_from" : "training-array", "bucket_from_labels" : "training-labels"}
+        msg = {"bucket_from": "training-array", "bucket_from_labels": "training-labels", "is_train": is_train}
         lambda_client = boto3_client('lambda')
         lambda_client.invoke(FunctionName="preprocessing3", InvocationType='Event', Payload=json.dumps(msg))
 
@@ -118,4 +119,3 @@ def analyze(arr_arg, event):
         total_size = x * y
     label_arr = np.full((1,total_size), label)
     return result, label_arr
-

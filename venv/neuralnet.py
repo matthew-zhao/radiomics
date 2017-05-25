@@ -7,31 +7,51 @@ from boto.s3.key import Key
 
 # Uses MLP Neural Net classifier to train a model
 def classify(event, context):
-    conn = boto.connect_s3()
+    print("Hello")
+    conn = boto.connect_s3("AKIAIMQLHJNMP6DOUM4A","8dJAfPZlTjMR1SOcOetImclAmT+G02VkQiuHefdY")
     b = conn.get_bucket(event['bucket_from'])
     labels = conn.get_bucket(event['bucket_from_labels'])
 
-    X_key = b.get_key('ready_matrix.npy')
-    Y_key = labels.get_key('ready_labels.npy')
+    #X_key = b.get_key('ready_matrix.npy')
+    #Y_key = labels.get_key('ready_labels.npy')
+    bucket_list = b.list()
 
-    X_key.get_contents_to_filename('/tmp/ready_matrix.npy')
-    Y_key.get_contents_to_filename('/tmp/ready_labels.npy')
+    for l in bucket_list:
+        if l.key == "ready_matrix.npy":
+            l.get_contents_to_filename('/tmp/ready_matrix.npy')
+            Y_key = labels.get_key('ready_labels.npy')
+            Y_key.get_contents_to_filename('/tmp/ready_labels.npy')
 
-    X = np.load('/tmp/ready_matrix.npy')
-    y = np.load('/tmp/ready_labels.npy')
+    print("finished reading from bucket")
+
+    #X_key.get_contents_to_filename('/tmp/ready_matrix.npy')
+    #Y_key.get_contents_to_filename('/tmp/ready_labels.npy')
+
+    with open("/tmp/ready_matrix.npy", "rb") as ready_matrix:
+        X = np.load(ready_matrix)
+
+    with open("/tmp/ready_labels.npy", "rb") as ready_labels:
+        y = np.load(ready_labels)
 
     X_converted = X.astype(np.float)
     y_converted = y.astype(np.float)
 
+    print("About to train")
+
     clf = MLPClassifier(solver='lbfgs', alpha=1e-5, hidden_layer_sizes=(10, 2), random_state=1)
 
-    clf.fit(X_converted, y_converted)
+    clf.fit(X_converted, y_converted.T)
+
+    print("done training")
 
     s = pickle.dumps(clf)
 
-    model_bucket = conn.get_bucket('models')
+    model_bucket = conn.get_bucket('models-train')
     model_k = model_bucket.new_key(event['model_name'])
-    model_k.set_contents_from_filename(s)
+    with open("/tmp/model.train", "wb") as model:
+        model.write(s)
+    
+    model_k.set_contents_from_filename("/tmp/model.train")
 
     model_k.make_public()
     return 1
