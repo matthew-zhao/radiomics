@@ -62,8 +62,8 @@ def squish(event, context):
     # Save the numpy arrays to temp .npy files on lambda
     upload_path = '/tmp/resized-matrix.npy'
     upload_path_labels = '/tmp/resized-labels.npy'
-    np.save(upload_path, concat)
-    np.save(upload_path_labels, concat_labels)
+    np.save(upload_path, concat_normalized)
+    np.save(upload_path_labels, concat_labels_normalized)
 
     # Take the tempfile that has the concatanated final array and set the contents
     # of the new bucket's key
