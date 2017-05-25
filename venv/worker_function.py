@@ -11,13 +11,20 @@ def worker_handler(event, context):
     c = paramiko.SSHClient()
     c.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
+
+    classifier = event['classifier']
+    bucket_training = event['bucket_training']
+    bucket_labels = event['bucket_labels']
+
+
     host=event['IP']
     print "Connecting to " + host
     c.connect(hostname = host, username = "ec2-user", pkey = k )
     print "Connected to " + host
 
+    command1 = "python" + " " + classifier + ".py" + " " + bucket_training + " " + bucket_labels
     commands = [
-        "python neuralnet.py",
+        command1,
         "chmod 777 /home/ec2-user/HelloWorld.sh",
         "/home/ec2-user/HelloWorld.sh"
         ]
