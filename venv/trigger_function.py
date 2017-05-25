@@ -7,6 +7,11 @@ def trigger_handler(event, context):
             Filters=[{'Name':'tag:Environment','Values':['Dev']}]
         )
 
+
+    classifier = event['classifier']
+    bucket_training = event['bucket_training']
+    bucket_labels = event['bucket_labels']
+
     hostList=[]
     for r in instDict['Reservations']:
         for inst in r['Instances']:
@@ -16,11 +21,12 @@ def trigger_handler(event, context):
     client = boto3.client('lambda')
     for host in hostList:
         print "Invoking worker_function on " + host
+        args = {"IP": host, "classifier": classifier, "bucket_training": bucket_training, "bucket_labels": bucket_labels}
         invokeResponse=client.invoke(
             FunctionName='worker_function',
             InvocationType='Event',
             LogType='Tail',
-            Payload='{"IP":"'+ host +'"}'
+            Payload=json.dumps(args)
         )
         print invokeResponse
 
