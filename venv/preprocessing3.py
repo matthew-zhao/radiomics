@@ -42,9 +42,16 @@ def squish(event, context):
     # Concatenate all numpy arrays representing a single image together
     concat = np.concatenate(arr_list)
 
+    # Normalize the training data
+    concat_normalized = concat / 255.0
+
     # Concatenate all label arrays representing a single image together in the same
     # order that the images were concatenated
     concat_labels = np.concatenate(labels_list, axis=1)
+
+    # Do one hot encoding
+    targets = concat_labels.reshape(-1)
+    concat_labels_normalized = np.eye(5)[targets.astype('int64')]
 
     # Create new buckets for the array and its corresponding labels
     b2 = conn.get_bucket('training-arrayfinal')
