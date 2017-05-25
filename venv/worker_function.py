@@ -22,7 +22,7 @@ def worker_handler(event, context):
     c.connect(hostname = host, username = "ec2-user", pkey = k )
     print "Connected to " + host
 
-    command1 = "python" + " " + classifier + ".py" + " " + bucket_training + " " + bucket_labels
+    command1 = "python" + " " + classifier + ".py" + " -f " + bucket_training + " -b " + bucket_labels
     commands = [
         command1,
         "chmod 777 /home/ec2-user/HelloWorld.sh",
