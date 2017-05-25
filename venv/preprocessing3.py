@@ -39,10 +39,8 @@ def squish(event, context):
             print(i)
         i += 1
 
-    print("here")
     # Concatenate all numpy arrays representing a single image together
     concat = np.concatenate(arr_list)
-    print("concatenated")
 
     # Concatenate all label arrays representing a single image together in the same
     # order that the images were concatenated
@@ -60,7 +58,7 @@ def squish(event, context):
     np.save(upload_path, concat)
     np.save(upload_path_labels, concat_labels)
 
-    # Take the tempfile that has the concated final array and set the contents
+    # Take the tempfile that has the concatanated final array and set the contents
     # of the new bucket's key
     k.set_contents_from_filename(upload_path)
     k2.set_contents_from_filename(upload_path_labels)
@@ -69,4 +67,10 @@ def squish(event, context):
     # using a URL like http://s3.amazonaws.com/bucket_name/key
     k.make_public()
     k2.make_public()
+
+    if is_train:
+        
+    else:
+
+
     return 0
