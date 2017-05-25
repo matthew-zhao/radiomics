@@ -6,7 +6,7 @@ import boto
 from boto.s3.key import Key
 
 # Uses MLP Neural Net classifier to train a model
-def classify(event, context):
+def classify(event):
     print("Hello")
     conn = boto.connect_s3("AKIAIMQLHJNMP6DOUM4A","8dJAfPZlTjMR1SOcOetImclAmT+G02VkQiuHefdY")
     b = conn.get_bucket(event['bucket_from'])
@@ -47,7 +47,11 @@ def classify(event, context):
     s = pickle.dumps(clf)
 
     model_bucket = conn.get_bucket('models-train')
-    model_k = model_bucket.new_key(event['model_name'])
+
+    #model_k = model_bucket.new_key(event['model_name'])
+
+    model_k = model_bucket.new_key('nm')
+
     with open("/tmp/model.train", "wb") as model:
         model.write(s)
     
@@ -55,4 +59,19 @@ def classify(event, context):
 
     model_k.make_public()
     return 1
+
+
+if __name__ == '__main__':
+    
+
+    parser = argparse.ArgumentParser(description='Description of your program')
+
+    parser.add_argument('-f','--bucket_from', help='Description for foo argument', type=int, required=True)
+    parser.add_argument('-b','--bucket_from_labels', help='Description for bar argument', type=int, required=True)
+    args = vars(parser.parse_args())
+
+    classify(args)
+
+
+    print("done training")
 
