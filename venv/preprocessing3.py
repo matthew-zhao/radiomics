@@ -69,8 +69,9 @@ def squish(event, context):
     k2.make_public()
 
     if is_train:
-        
+        invoke_response = lambda_client.invoke(FunctionName="trigger_function", InvocationType='Event')
     else:
-
+        args = {"classifier": "neural", "bucket_from": "training-arrayfinal", "model_bucket": "models-train"}
+        invoke_response = lambda_client.invoke(FunctionName="predict", InvocationType='Event', Payload=json.dumps(args))
 
     return 0
