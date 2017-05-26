@@ -50,7 +50,7 @@ def squish(event, context):
 
     # Do one hot encoding
     targets = concat_labels.reshape(-1)
-    concat_labels_normalized = np.eye(5)[targets.astype('int64')]
+    concat_labels_normalized = np.eye(5)[targets.astype('int8')]
 
     # Create new buckets for the array and its corresponding labels
     b2 = conn.get_bucket('training-arrayfinal')
@@ -61,7 +61,7 @@ def squish(event, context):
     # Save the numpy arrays to temp .npy files on lambda
     upload_path = '/tmp/resized-matrix.npy'
     upload_path_labels = '/tmp/resized-labels.npy'
-    np.save(upload_path, concat_normalized)
+    np.save(upload_path, concat_normalized.astype(np.float32))
     np.save(upload_path_labels, concat_labels_normalized)
 
     # Take the tempfile that has the concatanated final array and set the contents
