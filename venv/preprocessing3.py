@@ -1,5 +1,7 @@
 import numpy as np
 import boto
+import boto3
+import json
 from boto.s3.key import Key
 
 # Function to be called by lambda2 when all images are done being preprocessed
@@ -63,7 +65,7 @@ def squish(event, context):
     # Save the numpy arrays to temp .npy files on lambda
     upload_path = '/tmp/resized-matrix.npy'
     upload_path_labels = '/tmp/resized-labels.npy'
-    np.save(upload_path, concat_normalized.astype(np.float32))
+    np.save(upload_path, concat_normalized.astype(np.float16))
     np.save(upload_path_labels, concat_labels_normalized)
 
     # Take the tempfile that has the concatanated final array and set the contents
