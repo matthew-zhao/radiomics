@@ -10,6 +10,7 @@ def predict(event, context):
     classifier = event['classifier']
     test_bucket = conn.get_bucket(event['bucket_from'])
     model_bucket = conn.get_bucket(event['model_bucket'])
+    result_bucket = conn.get_bucket(event['result_bucket'])
     
     train_key = test_bucket.get_key('ready_matrix.npy')
     train_key.get_contents_to_filename('/tmp/ready_matrix.npy')
@@ -38,4 +39,18 @@ def predict(event, context):
 
     predictions = clf.predict(X_converted)
 
-    return {"predictions": predictions.tolist()} 
+    predictionslist = np.argmax(predictions, axis=1)
+    new_predict_list = []
+    for i in range(10):
+        prediction = np.argmax(np.bincount(predictionslist[77602*i:77602*(i+1)]))
+        new_predict_list.append(prediction)
+
+    result_k = result_bucket.new_key(event['result_name'])
+    with open("/tmp/results", "wb") as results:
+        results.write(new_predict_list)
+
+    result_k.set_contents_from_filename("/tmp/results")
+
+    result_k.make_public()
+
+    return 1 

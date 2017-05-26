@@ -47,16 +47,15 @@ def squish(event, context):
     # Concatenate all numpy arrays representing a single image together
     concat = np.concatenate(arr_list)
 
-    # Normalize the training data
-    concat_normalized = concat / 255.0
-
     # Concatenate all label arrays representing a single image together in the same
     # order that the images were concatenated
     concat_labels = np.concatenate(labels_list, axis=1)
 
-    # Do one hot encoding
-    targets = concat_labels.reshape(-1)
-    concat_labels_normalized = np.eye(5)[targets.astype('int8')]
+    X_converted = concat.astype(np.float16)
+    y_converted = concat_labels.astype(np.float16)
+    X_train = X_converted / 255
+    targets = y_converted.reshape(-1)
+    y_train = np.eye(5)[targets.astype('int8')]
 
     # Create new buckets for the array and its corresponding labels
     b2 = conn.get_bucket('training-arrayfinal')
@@ -67,8 +66,8 @@ def squish(event, context):
     # Save the numpy arrays to temp .npy files on lambda
     upload_path = '/tmp/resized-matrix.npy'
     upload_path_labels = '/tmp/resized-labels.npy'
-    np.save(upload_path, concat_normalized.astype(np.float16))
-    np.save(upload_path_labels, concat_labels_normalized)
+    np.save(upload_path, X_train)
+    np.save(upload_path_labels, y_train)
 
     # Take the tempfile that has the concatanated final array and set the contents
     # of the new bucket's key
@@ -82,7 +81,8 @@ def squish(event, context):
 
     if is_train:
         args = {"classifier": "neural", "bucket_training": "training-arrayfinal", "bucket_labels": "training-labelsfinal"}
-        invoke_response = lambda_client.invoke(FunctionName="trigger_function", InvocationType='Event', Payload=json.dumps(args))
+        invoke_response = lambda_client.invoke(FunctionName="trigger_function", InvocationType='RequestResponse', Payload=json.dumps(args))
+        print(invoke_response)
     else:
         args = {"classifier": "neural", "bucket_from": "training-arrayfinal", "model_bucket": "models-train"}
         invoke_response = lambda_client.invoke(FunctionName="predict", InvocationType='Event', Payload=json.dumps(args))
