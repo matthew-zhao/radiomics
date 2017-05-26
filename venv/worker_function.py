@@ -25,8 +25,7 @@ def worker_handler(event, context):
     command1 = "python" + " " + classifier + ".py" + " -f " + bucket_training + " -b " + bucket_labels
     commands = [
         command1,
-        "chmod 777 /home/ec2-user/HelloWorld.sh",
-        "/home/ec2-user/HelloWorld.sh"
+        "chmod 777 /home/ec2-user/" + classifier + ".py"
         ]
     for command in commands:
         print "Executing {}".format(command)
