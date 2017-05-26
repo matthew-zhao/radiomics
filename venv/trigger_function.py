@@ -1,4 +1,5 @@
 import boto3
+import json
 
 def trigger_handler(event, context):
     #Get IP addresses of EC2 instances

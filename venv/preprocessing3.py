@@ -1,6 +1,8 @@
 import numpy as np
 import boto
 from boto.s3.key import Key
+import json
+import boto3
 
 # Function to be called by lambda2 when all images are done being preprocessed
 # to squish them together
