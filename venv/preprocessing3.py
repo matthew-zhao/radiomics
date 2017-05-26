@@ -4,6 +4,8 @@ from boto.s3.key import Key
 
 # Function to be called by lambda2 when all images are done being preprocessed
 # to squish them together
+lambda_client = boto3.client('lambda')
+
 def squish(event, context):
     conn = boto.connect_s3("AKIAIMQLHJNMP6DOUM4A","8dJAfPZlTjMR1SOcOetImclAmT+G02VkQiuHefdY")
     b = conn.get_bucket(event['bucket_from'])
