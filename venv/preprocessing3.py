@@ -8,7 +8,6 @@ def squish(event, context):
     conn = boto.connect_s3("AKIAIMQLHJNMP6DOUM4A","8dJAfPZlTjMR1SOcOetImclAmT+G02VkQiuHefdY")
     b = conn.get_bucket(event['bucket_from'])
     labels = conn.get_bucket(event['bucket_from_labels'])
-    training = event['train']
     bucket_list = b.list()
     arr_list = []
     labels_list = []
@@ -76,7 +75,8 @@ def squish(event, context):
     k2.make_public()
 
     if is_train:
-        invoke_response = lambda_client.invoke(FunctionName="trigger_function", InvocationType='Event')
+        args = {"classifier": "neural", "bucket_training": "training-arrayfinal", "bucket_labels": "training-labelsfinal"}
+        invoke_response = lambda_client.invoke(FunctionName="trigger_function", InvocationType='Event', Payload=json.dumps(args))
     else:
         args = {"classifier": "neural", "bucket_from": "training-arrayfinal", "model_bucket": "models-train"}
         invoke_response = lambda_client.invoke(FunctionName="predict", InvocationType='Event', Payload=json.dumps(args))
