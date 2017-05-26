@@ -3,6 +3,8 @@ import boto
 import boto3
 import json
 from boto.s3.key import Key
+import json
+import boto3
 
 # Function to be called by lambda2 when all images are done being preprocessed
 # to squish them together
