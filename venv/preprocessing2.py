@@ -66,9 +66,9 @@ def preprocess(event, context):
     k2.set_contents_from_filename(upload_path_labels)
 
     #invoking 5 minute timer to ensure that preprocessing3 is called after all preprocessing2 processes are finished
-    msg = {"is_train": is_train}
-    lambda_client = boto3_client('lambda')
-    lambda_client.invoke(FunctionName="timer", InvocationType='Event', Payload=json.dumps(msg))
+    # msg = {"is_train": is_train}
+    # lambda_client = boto3_client('lambda')
+    # lambda_client.invoke(FunctionName="timer", InvocationType='Event', Payload=json.dumps(msg))
     # if last_bool:
     #     msg = {"bucket_from": "training-array", "bucket_from_labels": "training-labels", "is_train": is_train}
     #     lambda_client = boto3_client('lambda')
