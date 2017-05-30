@@ -52,7 +52,7 @@ def preprocess(event, context):
     k2 = b2.new_key('matrix' + str(event["image_name"]) + '.npy')
 
     label = event['label']
-    last_bool = event['last']
+    # last_bool = event['last']
     value_matrix, labels = analyze((img, label), event)
 
     #creating a temp image numpy file
