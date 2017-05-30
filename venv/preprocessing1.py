@@ -6,6 +6,8 @@ import json
 import dropbox
 import csv
 import scipy
+import boto
+from boto.s3.key import Key
 
 lambda_client = boto3.client('lambda')
 
@@ -23,7 +25,7 @@ def invoke_lambda(event, context):
     last = False
 
     if not has_labels:
-    has_labels = ""
+        has_labels = ""
 
 
     for content in metadata['contents']: 

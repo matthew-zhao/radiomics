@@ -15,13 +15,13 @@ def invoke_lambda(event, context):
     #invoke preprocessing3
 
     # supervised learning
-    if is_train && has_labels:
-        msg = {"bucket_from": "training-array", "bucket_from_labels": "training-labels", "is_train": is_train}
+    if is_train and has_labels:
+        msg = {"bucket_from": "training-array", "bucket_from_labels": "training-labels", "is_train": is_train, "has_labels": has_labels}
     # unsupervised learning
-    elif is_train && !has_labels:
-        msg = {"bucket_from": "training-array", "bucket_from_labels": "", "is_train": is_train}
+    elif is_train and not has_labels:
+        msg = {"bucket_from": "training-array", "bucket_from_labels": "", "is_train": is_train, "has_labels": has_labels}
     # prediction
     else:
-        msg = {"bucket_from": "testing-array", "bucket_from_labels": "", "is_train": is_train}
+        msg = {"bucket_from": "testing-array", "bucket_from_labels": "", "is_train": is_train, "has_labels": has_labels}
 
     lambda_client.invoke(FunctionName="preprocessing3", InvocationType='Event', Payload=json.dumps(msg))
