@@ -8,8 +8,8 @@ def trigger_handler(event, context):
     conn = boto.ec2.connect_to_region("us-west-2", aws_access_key_id='AKIAJNKBSOROJ44BVHBQ', \
         aws_secret_access_key='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')
 
-    images = conn.get_all_images()
-    img = images[0]
+    #images = conn.get_all_images()
+    img = "ami-5cc6a43c"
     
     reservation = conn.run_instances(img)
     instance = reservation.instances[0]
