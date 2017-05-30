@@ -9,6 +9,11 @@ def invoke_lambda(event, context):
     is_train = event["is_train"]
     has_labels = event["has_labels"]
 
+    if has_labels:
+        print("there are labels")
+    else:
+        print("no labels")
+
     # 4mins 50secs = 290 secs
     time.sleep(290)
 

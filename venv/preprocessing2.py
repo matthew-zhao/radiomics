@@ -49,9 +49,8 @@ def preprocess(event, context):
     conn = boto.connect_s3("AKIAIMQLHJNMP6DOUM4A","8dJAfPZlTjMR1SOcOetImclAmT+G02VkQiuHefdY")
     if is_train:
         b = conn.get_bucket('training-array')
-        if has_labels:
-            b2 = conn.get_bucket('training-labels')
-            k2 = b2.new_key('matrix' + str(event["image_name"]) + '.npy')
+        b2 = conn.get_bucket('training-labels')
+        k2 = b2.new_key('matrix' + str(event["image_name"]) + '.npy')
     else:
         b = conn.get_bucket('testing-array')
 
@@ -59,8 +58,10 @@ def preprocess(event, context):
 
 
     label = event['label']
+
     # last_bool = event['last']
     value_matrix, labels = analyze((img, label), event, has_labels)
+    print(labels)
 
     #creating a temp image numpy file
     upload_path = '/tmp/matrix' + str(event["image_name"]) + '.npy'
@@ -70,7 +71,7 @@ def preprocess(event, context):
 
     k.set_contents_from_filename(upload_path)
 
-    if labels:
+    if is_train and has_labels:
         upload_path_labels = '/tmp/matrix' + str(event["image_name"]) + '-labels.npy'
         np.save(upload_path_labels, labels)
         k2.set_contents_from_filename(upload_path_labels)
