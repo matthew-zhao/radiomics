@@ -15,13 +15,14 @@ from boto3 import client as boto3_client
 import json
 import dropbox
 
-
-
 def preprocess(event, context):
+    #access the dropbox folder using auth token and image path
     client = dropbox.Dropbox(event["auth_token"])
     image_path = event["image_path"]
     f, metadata = client.files_download(image_path)
     data = metadata.content
+
+    #check whether it is training or testing set
     is_train = event["is_train"]
 
     actual_name, extension = image_path.split(".")
@@ -37,6 +38,7 @@ def preprocess(event, context):
     else:
         img = scipy.array(Image.open(StringIO(data)))
 
+    #connecting to appropriate S3 bucket
     conn = boto.connect_s3("AKIAIMQLHJNMP6DOUM4A","8dJAfPZlTjMR1SOcOetImclAmT+G02VkQiuHefdY")
     b = conn.get_bucket('training-array')
     b2 = conn.get_bucket('training-labels')
@@ -47,21 +49,24 @@ def preprocess(event, context):
     last_bool = event['last']
     value_matrix, labels = analyze((img, label), event)
 
+    #creating a temp image numpy file
     upload_path = '/tmp/matrix' + str(event["image_name"]) + '.npy'
     upload_path_labels = '/tmp/matrix' + str(event["image_name"]) + '-labels.npy'
 
+    #saving image to S3 bucket
     np.save(upload_path, value_matrix)
     np.save(upload_path_labels, labels)
     k.set_contents_from_filename(upload_path)
     k2.set_contents_from_filename(upload_path_labels)
 
-    if last_bool:
-        msg = {"bucket_from": "training-array", "bucket_from_labels": "training-labels", "is_train": is_train}
-        lambda_client = boto3_client('lambda')
-        lambda_client.invoke(FunctionName="preprocessing3", InvocationType='Event', Payload=json.dumps(msg))
+    #invoking 5 minute timer to ensure that preprocessing3 is called after all preprocessing2 processes are finished
+    msg = {"is_train": is_train}
+    lambda_client = boto3_client('lambda')
+    lambda_client.invoke(FunctionName="timer", InvocationType='Event', Payload=json.dumps(msg))
 
     return 0
 
+#calculating all the first-order statistics on all the images
 def analyze(arr_arg, event):
     result = None
     arr = np.array(arr_arg[0])
