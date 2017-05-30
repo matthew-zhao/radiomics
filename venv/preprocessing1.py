@@ -44,22 +44,22 @@ def invoke_lambda(event, context):
             if not label_dict.has_key(actual_name):
                 paths.remove(image_paths)
 
-        total_count = len(paths)
-        counter = 1
+        # total_count = len(paths)
+        # counter = 1
 
         for key in paths: 
-            if counter == total_count:
-                last = True
+            # if counter == total_count:
+            #     last = True
 
             image_path = key
             image_name = image_path.split("/")[-1]
             actual_name, extension = image_name.split(".")
             label = label_dict[actual_name]
 
-            args = {"image_path": image_path, "image_name": actual_name, "label": label, "last": last, "filter_size": filter_size, "auth_token": event["auth_token"], "is_train": event["is_train"]}
+            args = {"image_path": image_path, "image_name": actual_name, "label": label, "filter_size": filter_size, "auth_token": event["auth_token"], "is_train": event["is_train"]}
             invoke_response = lambda_client.invoke(FunctionName="preprocessing2", InvocationType='Event', Payload=json.dumps(args))
 
-            counter += 1
+            # counter += 1
 
 
         #invoke the timer function, which sleeps for 4:50mins before invoking preprocessing3
