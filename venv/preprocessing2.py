@@ -24,6 +24,7 @@ def preprocess(event, context):
 
     #check whether it is training or testing set
     is_train = event["is_train"]
+    has_labels = event["has_labels"]
 
     actual_name, extension = image_path.split(".")
 
@@ -46,24 +47,33 @@ def preprocess(event, context):
 
     #connecting to appropriate S3 bucket
     conn = boto.connect_s3("AKIAIMQLHJNMP6DOUM4A","8dJAfPZlTjMR1SOcOetImclAmT+G02VkQiuHefdY")
-    b = conn.get_bucket('training-array')
-    b2 = conn.get_bucket('training-labels')
+    if is_train:
+        b = conn.get_bucket('training-array')
+        if has_labels:
+            b2 = conn.get_bucket('training-labels')
+            k2 = b2.new_key('matrix' + str(event["image_name"]) + '.npy')
+    else:
+        b = conn.get_bucket('testing-array')
+
     k = b.new_key('matrix' + str(event["image_name"]) + '.npy')
-    k2 = b2.new_key('matrix' + str(event["image_name"]) + '.npy')
+
 
     label = event['label']
     # last_bool = event['last']
-    value_matrix, labels = analyze((img, label), event)
+    value_matrix, labels = analyze((img, label), event, has_labels)
 
     #creating a temp image numpy file
     upload_path = '/tmp/matrix' + str(event["image_name"]) + '.npy'
-    upload_path_labels = '/tmp/matrix' + str(event["image_name"]) + '-labels.npy'
 
     #saving image to S3 bucket
     np.save(upload_path, value_matrix)
-    np.save(upload_path_labels, labels)
+
     k.set_contents_from_filename(upload_path)
-    k2.set_contents_from_filename(upload_path_labels)
+
+    if labels:
+        upload_path_labels = '/tmp/matrix' + str(event["image_name"]) + '-labels.npy'
+        np.save(upload_path_labels, labels)
+        k2.set_contents_from_filename(upload_path_labels)
 
     #invoking 5 minute timer to ensure that preprocessing3 is called after all preprocessing2 processes are finished
     # msg = {"is_train": is_train}
@@ -77,7 +87,7 @@ def preprocess(event, context):
     return 0
 
 #calculating all the first-order statistics on all the images
-def analyze(arr_arg, event):
+def analyze(arr_arg, event, has_labels):
     result = None
     arr = np.array(arr_arg[0])
     label = arr_arg[1]
@@ -132,5 +142,8 @@ def analyze(arr_arg, event):
         x = arr.shape[0] - filter_size + 1
         y = arr.shape[1] - filter_size + 1
         total_size = x * y
-    label_arr = np.full((1,total_size), label)
-    return result, label_arr
+    if has_labels:
+        label_arr = np.full((1,total_size), label)
+        return result, label_arr
+    else:
+        return result, None
