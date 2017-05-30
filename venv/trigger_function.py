@@ -9,17 +9,13 @@ def trigger_handler(event, context):
         aws_secret_access_key='Ic33sjWuZvhAws4leKF6hso66PjG5dQuU01g5xIM')
 
     #images = conn.get_all_images()
-    img = "ami-5cc6a43c"
-    
-    reservation = conn.run_instances(img)
-    instance = reservation.instances[0]
+    id = 'i-085e912626ec91bd6'
+    instance = conn.start_instances(id)[0]
 
     while instance.update() != "running":
         time.sleep(5)
 
-    host = instance['PublicIpAddress']  
-    #host = instance.ip_address
-
+    host = instance.ip_address
 
     classifier = event['classifier']
     bucket_training = event['bucket_training']

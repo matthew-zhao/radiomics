@@ -5,7 +5,12 @@ def worker_handler(event, context):
 
     s3_client = boto3.client('s3')
     #Download private key file from secure S3 bucket
-    s3_client.download_file('s3-keys','ec2-lambda-compute-node.pem', '/tmp/ec2-lambda-compute-node.pem')
+    conn = boto.connect_s3("AKIAIMQLHJNMP6DOUM4A","8dJAfPZlTjMR1SOcOetImclAmT+G02VkQiuHefdY")
+    b = conn.get_bucket(event['s3-keys'])
+    bucket_list = b.list()
+    for l in bucket_list:
+        if l.key[-4:] == ".pem":
+            l.get_contents_to_filename("/tmp/" + str(l.key))
 
     k = paramiko.RSAKey.from_private_key_file("/tmp/ec2-lambda-compute-node.pem")
     c = paramiko.SSHClient()
