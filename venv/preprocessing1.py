@@ -18,52 +18,56 @@ def invoke_lambda(event, context):
     folder_name = event["folder_name"]
     auth_token = event["auth_token"]
     has_labels = event["has_labels"]
-    if not has_labels:
-        has_labels = ""
     shape_dir = None
     filter_size = 3
     last = False
 
-    conn = boto.connect_s3("AKIAIMQLHJNMP6DOUM4A","8dJAfPZlTjMR1SOcOetImclAmT+G02VkQiuHefdY")
-    b = conn.get_bucket(event['bucket_from'])
-
-    csv_key = b.get_key('trainLabels.csv')
-    csv_key.get_contents_to_filename("/tmp/trainLabels.csv")
+    if not has_labels:
+    has_labels = ""
 
 
     for content in metadata['contents']: 
         if content['is_dir'] == False:
             paths.append(content['path']) #adds files to paths
             #paths is list of paths to files, has extensions
-            
-    
-    c_reader = csv.reader(open('/tmp/trainLabels.csv', 'r'), delimiter = ',')
-    columns = list(zip(*c_reader))
-    images = columns[0][1:]
-    levels = list(map(int, columns[1][1:]))
-    label_dict = dict(zip(images, levels))
-
-    image_list = []
-
-    #gets rid of image paths who do not have a label in label_dict
-    for image_path in paths:
-        image_name = image_path.split("/")[-1]
-        actual_name, extension = image_name.split(".")
-
-        if not label_dict.has_key(actual_name):
-            paths.remove(image_paths)
 
 
+    if has_labels:
+
+        conn = boto.connect_s3("AKIAIMQLHJNMP6DOUM4A","8dJAfPZlTjMR1SOcOetImclAmT+G02VkQiuHefdY")
+        b = conn.get_bucket(event['bucket_from'])
+        csv_key = b.get_key('trainLabels.csv')
+        csv_key.get_contents_to_filename("/tmp/trainLabels.csv")
+
+      
+        c_reader = csv.reader(open('/tmp/trainLabels.csv', 'r'), delimiter = ',')
+        columns = list(zip(*c_reader))
+        images = columns[0][1:]
+        levels = list(map(int, columns[1][1:]))
+        label_dict = dict(zip(images, levels))
+
+        image_list = []
+
+
+        #gets rid of image paths who do not have a label in label_dict
+        for image_path in paths:
+            image_name = image_path.split("/")[-1]
+            actual_name, extension = image_name.split(".")
+
+            if not label_dict.has_key(actual_name):
+                paths.remove(image_paths)
+
+
+    #this loop always happens
     for key in paths: 
  
-
-        image_path = key
-        image_name = image_path.split("/")[-1]
-        actual_name, extension = image_name.split(".")
-        label = label_dict[actual_name]
-
         if has_labels:
+            image_path = key
+            image_name = image_path.split("/")[-1]
+            actual_name, extension = image_name.split(".")
+            label = label_dict[actual_name]
             args = {"image_path": image_path, "image_name": actual_name, "label": label, "filter_size": filter_size, "auth_token": event["auth_token"], "is_train": event["is_train"], "has_labels": has_labels}
+
         else:
             args = {"image_path": image_path, "image_name": actual_name, "label": None, "filter_size": filter_size, "auth_token": event["auth_token"], "is_train": event["is_train"], "has_labels": has_labels}
 
