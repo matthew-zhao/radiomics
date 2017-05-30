@@ -1,14 +1,11 @@
 # http://stackoverflow.com/questions/31714788/can-an-aws-lambda-function-call-another
 # Lambda 1
 
-#this is a comment
-
 import boto3
 import json
 import dropbox
 import csv
 import scipy
-
 
 lambda_client = boto3.client('lambda')
 
@@ -47,12 +44,10 @@ def invoke_lambda(event, context):
             if not label_dict.has_key(actual_name):
                 paths.remove(image_paths)
 
-
-
         total_count = len(paths)
         counter = 1
 
-        for key in paths: #
+        for key in paths: 
             if counter == total_count:
                 last = True
 
@@ -61,11 +56,15 @@ def invoke_lambda(event, context):
             actual_name, extension = image_name.split(".")
             label = label_dict[actual_name]
 
-
-            #lambdaclient.invoke()
             args = {"image_path": image_path, "image_name": actual_name, "label": label, "last": last, "filter_size": filter_size, "auth_token": event["auth_token"], "is_train": event["is_train"]}
             invoke_response = lambda_client.invoke(FunctionName="preprocessing2", InvocationType='Event', Payload=json.dumps(args))
 
             counter += 1
+
+
+        #invoke the timer function, which sleeps for 4:50mins before invoking preprocessing3
+        args = {"is_train": is_train}
+        invokeTimer = lambda_client.invoke(FunctionName="timer", InvocationType='Event', Payload=json.dumps(args))
+
 
 

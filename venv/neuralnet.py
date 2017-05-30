@@ -11,7 +11,7 @@ def classify(event):
     print("Hello")
     conn = boto.connect_s3("AKIAIMQLHJNMP6DOUM4A","8dJAfPZlTjMR1SOcOetImclAmT+G02VkQiuHefdY")
     b = conn.get_bucket(event['bucket_from'])
-    labels = conn.get_bucket(event['bucket_from_labels'])
+    labels = conn.get_bucket(event['bucket_from_labels'], validate=False)
 
     #X_key = b.get_key('ready_matrix.npy')
     #Y_key = labels.get_key('ready_labels.npy')

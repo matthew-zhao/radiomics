@@ -5,9 +5,9 @@ def worker_handler(event, context):
 
     s3_client = boto3.client('s3')
     #Download private key file from secure S3 bucket
-    s3_client.download_file('s3-key-bucket','keys/keyname.pem', '/tmp/keyname.pem')
+    s3_client.download_file('s3-keys','ec2-lambda-compute-node.pem', '/tmp/ec2-lambda-compute-node.pem')
 
-    k = paramiko.RSAKey.from_private_key_file("/tmp/keyname.pem")
+    k = paramiko.RSAKey.from_private_key_file("/tmp/ec2-lambda-compute-node.pem")
     c = paramiko.SSHClient()
     c.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
@@ -24,8 +24,10 @@ def worker_handler(event, context):
 
     command1 = "python" + " " + classifier + ".py" + " -f " + bucket_training + " -b " + bucket_labels
     commands = [
-        command1,
-        "chmod 777 /home/ec2-user/" + classifier + ".py"
+        
+        "chmod 777 /usr/local/radiomics/" + classifier + ".py",
+        command1
+        
         ]
     for command in commands:
         print "Executing {}".format(command)
