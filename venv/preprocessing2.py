@@ -55,10 +55,10 @@ def preprocess(event, context):
     k.set_contents_from_filename(upload_path)
     k2.set_contents_from_filename(upload_path_labels)
 
-    if last_bool:
-        msg = {"bucket_from": "training-array", "bucket_from_labels": "training-labels", "is_train": is_train}
-        lambda_client = boto3_client('lambda')
-        lambda_client.invoke(FunctionName="preprocessing3", InvocationType='Event', Payload=json.dumps(msg))
+    # if last_bool:
+    #     msg = {"bucket_from": "training-array", "bucket_from_labels": "training-labels", "is_train": is_train}
+    #     lambda_client = boto3_client('lambda')
+    #     lambda_client.invoke(FunctionName="preprocessing3", InvocationType='Event', Payload=json.dumps(msg))
 
     return 0
 
