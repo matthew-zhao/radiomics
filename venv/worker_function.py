@@ -29,10 +29,10 @@ def worker_handler(event, context):
     c.connect(hostname = host, username = "ec2-user", pkey = k )
     print "Connected to " + host
 
-    command1 = "python" + " " + classifier + ".py" + " -f " + bucket_training + " -b " + bucket_labels
+    command1 = "python" + " /usr/local/radiomics/" + classifier + ".py" + " -f " + bucket_training + " -b " + bucket_labels
     commands = [
         
-        "chmod 777 /usr/local/radiomics/" + classifier + ".py",
+        #"chmod 777 /usr/local/radiomics/" + classifier + ".py",
         command1
         
         ]
