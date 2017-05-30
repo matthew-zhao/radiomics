@@ -1,12 +1,14 @@
-import boto3
+import boto
 import paramiko
+import boto3
+from boto.s3.key import Key
 
 def worker_handler(event, context):
-
     s3_client = boto3.client('s3')
     #Download private key file from secure S3 bucket
     conn = boto.connect_s3("AKIAIMQLHJNMP6DOUM4A","8dJAfPZlTjMR1SOcOetImclAmT+G02VkQiuHefdY")
-    b = conn.get_bucket(event['s3-keys'])
+    bucket_name = 's3-keys'
+    b = conn.get_bucket(bucket_name)
     bucket_list = b.list()
     for l in bucket_list:
         if l.key[-4:] == ".pem":
