@@ -15,8 +15,6 @@ from boto3 import client as boto3_client
 import json
 import dropbox
 
-
-
 def preprocess(event, context):
     client = dropbox.Dropbox(event["auth_token"])
     image_path = event["image_path"]
@@ -32,10 +30,16 @@ def preprocess(event, context):
         f2.close()
         f2 = open("/tmp/response_content.dcm", "rb")
         ds = dicom.read_file(f2)
-        img = ds.pixel_array
+        img_raw = ds.pixel_array
         f2.close()
+        xscale = 324.0 / img_raw.shape[0]
+        yscale = 243.0 / img_raw.shape[1]
+        img = scipy.ndimage.interpolation.zoom(img_raw, [xscale, yscale])
     else:
-        img = scipy.array(Image.open(StringIO(data)))
+        img_raw = Image.open(StringIO(data))
+        img_resized = img_raw.resize((324, 243), Image.ANTIALIAS)
+        img = scipy.array(img_resized)
+
 
     conn = boto.connect_s3("AKIAIMQLHJNMP6DOUM4A","8dJAfPZlTjMR1SOcOetImclAmT+G02VkQiuHefdY")
     b = conn.get_bucket('training-array')
@@ -55,10 +59,10 @@ def preprocess(event, context):
     k.set_contents_from_filename(upload_path)
     k2.set_contents_from_filename(upload_path_labels)
 
-    if last_bool:
-        msg = {"bucket_from": "training-array", "bucket_from_labels": "training-labels", "is_train": is_train}
-        lambda_client = boto3_client('lambda')
-        lambda_client.invoke(FunctionName="preprocessing3", InvocationType='Event', Payload=json.dumps(msg))
+    #if last_bool:
+    #    msg = {"bucket_from": "training-array", "bucket_from_labels": "training-labels", "is_train": is_train}
+    #    lambda_client = boto3_client('lambda')
+    #    lambda_client.invoke(FunctionName="preprocessing3", InvocationType='Event', Payload=json.dumps(msg))
 
     return 0
 
