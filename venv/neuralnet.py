@@ -38,7 +38,7 @@ def classify(event):
 
     clf = MLPClassifier(solver='adam', alpha=1e-5, hidden_layer_sizes=(10, 2), random_state=1)
 
-    clf.fit(X_converted, y_converted)
+    clf.fit(X, y)
 
     print("done training")
 
