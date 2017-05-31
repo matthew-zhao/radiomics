@@ -62,14 +62,12 @@ def invoke_lambda(event, context):
 
     #this loop always happens
     for key in paths: 
- 
+        image_path = key
+        image_name = image_path.split("/")[-1]
+        actual_name, extension = image_name.split(".")
         if has_labels:
-            image_path = key
-            image_name = image_path.split("/")[-1]
-            actual_name, extension = image_name.split(".")
             label = label_dict[actual_name]
             args = {"image_path": image_path, "image_name": actual_name, "label": label, "filter_size": filter_size, "auth_token": event["auth_token"], "is_train": event["is_train"], "has_labels": has_labels}
-
         else:
             args = {"image_path": image_path, "image_name": actual_name, "label": None, "filter_size": filter_size, "auth_token": event["auth_token"], "is_train": event["is_train"], "has_labels": has_labels}
 
