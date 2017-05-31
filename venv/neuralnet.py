@@ -34,14 +34,11 @@ def classify(event):
     with open("ready_labels.npy", "rb") as ready_labels:
         y = np.load(ready_labels)
 
-    X_converted = X.astype(np.float)
-    y_converted = y.astype(np.float)
-
     print("About to train")
 
     clf = MLPClassifier(solver='adam', alpha=1e-5, hidden_layer_sizes=(10, 2), random_state=1)
 
-    clf.fit(X_converted, y_converted.T)
+    clf.fit(X_converted, y_converted)
 
     print("done training")
 
