@@ -11,6 +11,8 @@ def predict(event, context):
     test_bucket = conn.get_bucket(event['bucket_from'])
     model_bucket = conn.get_bucket(event['model_bucket'])
     result_bucket = conn.get_bucket(event['result_bucket'])
+
+    num_items = event['num_items']
     
     train_key = test_bucket.get_key('ready_matrix.npy')
     train_key.get_contents_to_filename('/tmp/ready_matrix.npy')
@@ -41,7 +43,7 @@ def predict(event, context):
 
     predictionslist = np.argmax(predictions, axis=1)
     new_predict_list = []
-    for i in range(10):
+    for i in range(num_items):
         prediction = np.argmax(np.bincount(predictionslist[77602*i:77602*(i+1)]))
         new_predict_list.append(prediction)
 
