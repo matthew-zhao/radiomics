@@ -48,7 +48,6 @@ def trigger_handler(event, context):
         LogType='Tail',
         Payload=json.dumps(args)
     )
-    print invokeResponse
 
     return{
         'message' : "Trigger function finished"

@@ -41,7 +41,6 @@ def predict(event, context):
 
     predictions = clf.predict(X_converted)
     pred = np.array(predictions)
-    print(pred.shape)
     pred.reshape((77602*num_items, 5))
 
     predictionslist = np.argmax(pred, axis=1)

@@ -48,8 +48,6 @@ def squish(event, context):
                 with open("/tmp/labels-" + str(l.key), "rb") as npy_label:
                     label_arr = np.load(npy_label)
                 labels_list.append(label_arr)
-
-            print(i)
         i += 1
 
     # Concatenate all numpy arrays representing a single image together
@@ -99,7 +97,6 @@ def squish(event, context):
     if is_train:
         args = {"classifier": "neuralnet", "bucket_training": "training-arrayfinal", "bucket_labels": "training-labelsfinal"}
         invoke_response = lambda_client.invoke(FunctionName="trigger_function", InvocationType='Event', Payload=json.dumps(args))
-        print(invoke_response)
     else:
         args = {"classifier": "neural", "bucket_from": "testing-arrayfinal", "model_bucket": "models-train", "result_bucket": "result-labels", "num_items": i, "result_name": "neural_result"}
         invoke_response = lambda_client.invoke(FunctionName="predict", InvocationType='Event', Payload=json.dumps(args))

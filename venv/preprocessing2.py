@@ -61,7 +61,6 @@ def preprocess(event, context):
 
     # last_bool = event['last']
     value_matrix, labels = analyze((img, label), event, has_labels)
-    print(labels)
 
     #creating a temp image numpy file
     upload_path = '/tmp/matrix' + str(event["image_name"]) + '.npy'
