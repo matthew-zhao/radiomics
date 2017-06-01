@@ -3,6 +3,8 @@ import pickle
 import numpy as np
 import boto
 import argparse
+import boto3
+import json
 
 from boto.s3.key import Key
 
@@ -12,6 +14,8 @@ def classify(event):
     conn = boto.connect_s3("AKIAIMQLHJNMP6DOUM4A","8dJAfPZlTjMR1SOcOetImclAmT+G02VkQiuHefdY")
     b = conn.get_bucket(event['bucket_from'])
     labels = conn.get_bucket(event['bucket_from_labels'], validate=False)
+
+    instance_id = event['instance_id']
 
     #X_key = b.get_key('ready_matrix.npy')
     #Y_key = labels.get_key('ready_labels.npy')
@@ -56,6 +60,14 @@ def classify(event):
     model_k.set_contents_from_filename("model.train")
 
     model_k.make_public()
+
+
+    #invoke stopper lambda function
+    lambda_client = boto3.client('lambda')
+    args = {"instance_id": instance_id}
+    invoke_response = lambda_client.invoke(FunctionName="stopper", InvocationType='Event', Payload=json.dumps(args))
+
+
     return 1
 
 
@@ -66,6 +78,8 @@ if __name__ == '__main__':
 
     parser.add_argument('-f','--bucket_from', help='Description for foo argument', required=True)
     parser.add_argument('-b','--bucket_from_labels', help='Description for bar argument', required=True)
+    parser.add_argument('-i','--instance_id', help='id of the instance that is going to be stopped', required=True)
+
     args = vars(parser.parse_args())
 
     classify(args)

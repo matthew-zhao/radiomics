@@ -17,10 +17,12 @@ def trigger_handler(event, context):
     else:
         #images = conn.get_all_images()
         #img = images[0]
+
         img = 'ami-5cc6a43c'
         reservation = conn.run_instances(img, instance_type='r4.xlarge', subnet_id='subnet-aab984dd', 
                                  security_group_ids=['sg-70df8f0b'], key_name='ec2-lambda-compute-node')
         instance = reservation.instances[0]
+        instance_id = instance.id
 
     #id = 'i-085e912626ec91bd6'
 
@@ -37,7 +39,9 @@ def trigger_handler(event, context):
     client = boto3.client('lambda')
 
     print "Invoking worker_function on " + host
-    args = {"IP": host, "classifier": classifier, "bucket_training": bucket_training, "bucket_labels": bucket_labels}
+    args = {"IP": host, "classifier": classifier, "bucket_training": bucket_training, 
+            "bucket_labels": bucket_labels, "instance_id": instance_id}
+            
     invokeResponse=client.invoke(
         FunctionName='worker_function',
         InvocationType='Event',

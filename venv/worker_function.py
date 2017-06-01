@@ -22,6 +22,7 @@ def worker_handler(event, context):
     classifier = event['classifier']
     bucket_training = event['bucket_training']
     bucket_labels = event['bucket_labels']
+    instance_id = event['instance_id']
 
 
     host=event['IP']
@@ -30,6 +31,8 @@ def worker_handler(event, context):
     print "Connected to " + host
 
     command1 = "python" + " /usr/local/radiomics/" + classifier + ".py" + " -f " + bucket_training + " -b " + bucket_labels
+                + " -i " + instance_id
+
     commands = [
         
         #"chmod 777 /usr/local/radiomics/" + classifier + ".py",
