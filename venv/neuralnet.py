@@ -19,29 +19,26 @@ def classify(event):
 
     for l in bucket_list:
         if l.key == "ready_matrix.npy":
-            l.get_contents_to_filename('/tmp/ready_matrix.npy')
+            l.get_contents_to_filename('ready_matrix.npy')
             Y_key = labels.get_key('ready_labels.npy')
-            Y_key.get_contents_to_filename('/tmp/ready_labels.npy')
+            Y_key.get_contents_to_filename('ready_labels.npy')
 
     print("finished reading from bucket")
 
     #X_key.get_contents_to_filename('/tmp/ready_matrix.npy')
     #Y_key.get_contents_to_filename('/tmp/ready_labels.npy')
 
-    with open("/tmp/ready_matrix.npy", "rb") as ready_matrix:
+    with open("ready_matrix.npy", "rb") as ready_matrix:
         X = np.load(ready_matrix)
 
-    with open("/tmp/ready_labels.npy", "rb") as ready_labels:
+    with open("ready_labels.npy", "rb") as ready_labels:
         y = np.load(ready_labels)
-
-    X_converted = X.astype(np.float)
-    y_converted = y.astype(np.float)
 
     print("About to train")
 
-    clf = MLPClassifier(solver='lbfgs', alpha=1e-5, hidden_layer_sizes=(10, 2), random_state=1)
+    clf = MLPClassifier(solver='adam', alpha=1e-5, hidden_layer_sizes=(10, 2), random_state=1)
 
-    clf.fit(X_converted, y_converted.T)
+    clf.fit(X, y)
 
     print("done training")
 
@@ -53,10 +50,10 @@ def classify(event):
 
     model_k = model_bucket.new_key('nm')
 
-    with open("/tmp/model.train", "wb") as model:
+    with open("model.train", "wb") as model:
         model.write(s)
     
-    model_k.set_contents_from_filename("/tmp/model.train")
+    model_k.set_contents_from_filename("model.train")
 
     model_k.make_public()
     return 1
