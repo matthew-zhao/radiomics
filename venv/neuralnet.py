@@ -8,13 +8,10 @@ from boto.s3.key import Key
 
 # Uses MLP Neural Net classifier to train a model
 def classify(event):
-    print("Hello")
     conn = boto.connect_s3("AKIAIMQLHJNMP6DOUM4A","8dJAfPZlTjMR1SOcOetImclAmT+G02VkQiuHefdY")
     b = conn.get_bucket(event['bucket_from'])
     labels = conn.get_bucket(event['bucket_from_labels'], validate=False)
 
-    #X_key = b.get_key('ready_matrix.npy')
-    #Y_key = labels.get_key('ready_labels.npy')
     bucket_list = b.list()
 
     for l in bucket_list:
@@ -23,24 +20,15 @@ def classify(event):
             Y_key = labels.get_key('ready_labels.npy')
             Y_key.get_contents_to_filename('ready_labels.npy')
 
-    print("finished reading from bucket")
-
-    #X_key.get_contents_to_filename('/tmp/ready_matrix.npy')
-    #Y_key.get_contents_to_filename('/tmp/ready_labels.npy')
-
     with open("ready_matrix.npy", "rb") as ready_matrix:
         X = np.load(ready_matrix)
 
     with open("ready_labels.npy", "rb") as ready_labels:
         y = np.load(ready_labels)
 
-    print("About to train")
-
     clf = MLPClassifier(solver='adam', alpha=1e-5, hidden_layer_sizes=(10, 2), random_state=1)
 
     clf.fit(X, y)
-
-    print("done training")
 
     s = pickle.dumps(clf)
 
@@ -69,7 +57,4 @@ if __name__ == '__main__':
     args = vars(parser.parse_args())
 
     classify(args)
-
-
-    print("done training")
 
