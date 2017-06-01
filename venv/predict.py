@@ -41,7 +41,12 @@ def predict(event, context):
 
     predictions = clf.predict(X_converted)
 
+    print ("predictions" + predictions)
+
     predictionslist = np.argmax(predictions, axis=1)
+    
+    print("pred list" + predictionslist)
+
     new_predict_list = []
     for i in range(num_items):
         prediction = np.argmax(np.bincount(predictionslist[77602*i:77602*(i+1)]))
