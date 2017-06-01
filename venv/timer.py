@@ -15,7 +15,7 @@ def invoke_lambda(event, context):
         print("no labels")
 
     # 4mins 50secs = 290 secs
-    time.sleep(290)
+    time.sleep(60)
 
     #invoke preprocessing3
 

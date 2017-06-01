@@ -669,7 +669,6 @@ def read_array(fp, allow_pickle=True, pickle_kwargs=None):
             array.shape = shape[::-1]
             array = array.transpose()
         else:
-            print(str(array.shape) + " " + str(shape))
             array.shape = shape
 
     return array

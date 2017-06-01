@@ -41,20 +41,18 @@ def predict(event, context):
 
     predictions = clf.predict(X_converted)
 
-    print ("predictions" + predictions)
-
     predictionslist = np.argmax(predictions, axis=1)
-    
-    print("pred list" + predictionslist)
 
     new_predict_list = []
     for i in range(num_items):
+        print (predictionslist[77602*i:77602*(i+1)])
         prediction = np.argmax(np.bincount(predictionslist[77602*i:77602*(i+1)]))
         new_predict_list.append(prediction)
 
     result_k = result_bucket.new_key(event['result_name'])
     with open("/tmp/results", "wb") as results:
-        results.write(new_predict_list)
+        new_predict = ''.join(str(e) for e in new_predict_list)
+        results.write(new_predict)
 
     result_k.set_contents_from_filename("/tmp/results")
 
