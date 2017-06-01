@@ -40,12 +40,14 @@ def predict(event, context):
     X_converted = X.astype(np.float)
 
     predictions = clf.predict(X_converted)
+    pred = np.array(predictions)
+    print(pred.shape)
+    pred.reshape((77602*num_items, 5))
 
-    predictionslist = np.argmax(predictions, axis=1)
+    predictionslist = np.argmax(pred, axis=1)
 
     new_predict_list = []
     for i in range(num_items):
-        print (predictionslist[77602*i:77602*(i+1)])
         prediction = np.argmax(np.bincount(predictionslist[77602*i:77602*(i+1)]))
         new_predict_list.append(prediction)
 
