@@ -39,8 +39,8 @@ def worker_handler(event, context):
     for command in commands:
         print "Executing {}".format(command)
         stdin , stdout, stderr = c.exec_command(command)
-        print stdout.read()
-        print stderr.read()
+        # print stdout.read()
+        # print stderr.read()
 
     return
     {

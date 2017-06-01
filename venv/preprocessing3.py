@@ -101,7 +101,7 @@ def squish(event, context):
         invoke_response = lambda_client.invoke(FunctionName="trigger_function", InvocationType='Event', Payload=json.dumps(args))
         print(invoke_response)
     else:
-        args = {"classifier": "neuraln", "bucket_from": "testing-arrayfinal", "model_bucket": "models-train"}
+        args = {"classifier": "neural", "bucket_from": "testing-arrayfinal", "model_bucket": "models-train", "result_bucket": "result-labels", "num_items": i+1}
         invoke_response = lambda_client.invoke(FunctionName="predict", InvocationType='Event', Payload=json.dumps(args))
 
     return 0
