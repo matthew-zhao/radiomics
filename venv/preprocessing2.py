@@ -16,11 +16,9 @@ import json
 import dropbox
 
 def preprocess(event, context):
-    #access the dropbox folder using auth token and image path
-    client = dropbox.Dropbox(event["auth_token"])
+    #connecting to appropriate S3 bucket
+    conn = boto.connect_s3("AKIAIMQLHJNMP6DOUM4A","8dJAfPZlTjMR1SOcOetImclAmT+G02VkQiuHefdY")
     image_path = event["image_path"]
-    f, metadata = client.files_download(image_path)
-    data = metadata.content
 
     #check whether it is training or testing set
     is_train = event["is_train"]
@@ -33,10 +31,30 @@ def preprocess(event, context):
 
     actual_name, extension = image_path.split(".")
 
+    if event["is_dropbox"]:
+        #access the dropbox folder using auth token and image path
+        client = dropbox.Dropbox(event["auth_token"])
+        f, metadata = client.files_download(image_path)
+        data = metadata.content
+
+        if extension == "dcm":
+            f2 = open("/tmp/response_content.dcm", "wb")
+            f2.write(data)
+            f2.close()
+        else:
+            img_raw = Image.open(StringIO(data))
+    else:
+        b = conn.get_bucket("train-data")
+        img_key = b.get_key(image_path)
+
+        if extension == "dcm":
+            img_key.get_contents_to_filename('/tmp/response_content.dcm')
+        else:
+            img_key.get_contents_to_filename('/tmp/' + image_path)
+            img_raw = Image.open('/tmp/' + image_path)
+
+
     if extension == "dcm":
-        f2 = open("/tmp/response_content.dcm", "wb")
-        f2.write(data)
-        f2.close()
         f2 = open("/tmp/response_content.dcm", "rb")
         ds = dicom.read_file(f2)
         img_raw = ds.pixel_array
@@ -45,13 +63,9 @@ def preprocess(event, context):
         yscale = 243.0 / img_raw.shape[1]
         img = scipy.ndimage.interpolation.zoom(img_raw, [xscale, yscale])
     else:
-        img_raw = Image.open(StringIO(data))
         img_resized = img_raw.resize((324, 243), Image.ANTIALIAS)
         img = scipy.array(img_resized)
 
-
-    #connecting to appropriate S3 bucket
-    conn = boto.connect_s3("AKIAIMQLHJNMP6DOUM4A","8dJAfPZlTjMR1SOcOetImclAmT+G02VkQiuHefdY")
     if is_train:
         b = conn.get_bucket('training-array')
         b2 = conn.get_bucket('training-labels')
