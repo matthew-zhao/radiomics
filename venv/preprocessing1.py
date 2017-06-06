@@ -12,9 +12,16 @@ from boto.s3.key import Key
 lambda_client = boto3.client('lambda')
 
 def invoke_lambda(event, context):
-    dclient = dropbox.client.DropboxClient(event["auth_token"])
-    client = dropbox.Dropbox(event["auth_token"])
-    metadata = dclient.metadata(event["folder_name"])
+    conn = boto.connect_s3("AKIAIMQLHJNMP6DOUM4A","8dJAfPZlTjMR1SOcOetImclAmT+G02VkQiuHefdY")
+    b = conn.get_bucket("train-data")
+    if event["is_dropbox"]:
+        dclient = dropbox.client.DropboxClient(event["auth_token"])
+        client = dropbox.Dropbox(event["auth_token"])
+        metadata = dclient.metadata(event["folder_name"])
+    else:
+        bucket_list = b.list()
+
+        
     is_train = event["is_train"]
     paths = []
     folder_name = event["folder_name"]
@@ -35,13 +42,9 @@ def invoke_lambda(event, context):
 
 
     if has_labels:
-
-        conn = boto.connect_s3("AKIAIMQLHJNMP6DOUM4A","8dJAfPZlTjMR1SOcOetImclAmT+G02VkQiuHefdY")
-        b = conn.get_bucket(event['bucket_from'])
         csv_key = b.get_key('trainLabels.csv')
         csv_key.get_contents_to_filename("/tmp/trainLabels.csv")
 
-      
         c_reader = csv.reader(open('/tmp/trainLabels.csv', 'r'), delimiter = ',')
         columns = list(zip(*c_reader))
         images = columns[0][1:]
