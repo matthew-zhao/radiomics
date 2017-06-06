@@ -20,6 +20,7 @@ def invoke_lambda(event, context):
     folder_name = event["folder_name"]
     auth_token = event["auth_token"]
     has_labels = event["has_labels"]
+    model_bucket_name = event["model_bucket_name"]
     shape_dir = None
     filter_size = 3
     last = False
@@ -60,6 +61,7 @@ def invoke_lambda(event, context):
                 paths.remove(image_paths)
 
 
+    image_num = 1
     #this loop always happens
     for key in paths: 
         image_path = key
@@ -67,12 +69,14 @@ def invoke_lambda(event, context):
         actual_name, extension = image_name.split(".")
         if has_labels:
             label = label_dict[actual_name]
-            args = {"image_path": image_path, "image_name": actual_name, "label": label, "filter_size": filter_size, "auth_token": event["auth_token"], "is_train": event["is_train"], "has_labels": has_labels}
+            args = {"image_path": image_path, "image_name": actual_name, "label": label, "filter_size": filter_size, "image_num": image_num,
+                    "auth_token": event["auth_token"], "is_train": event["is_train"], "has_labels": has_labels, "model_bucket_name": model_bucket_name}
         else:
-            args = {"image_path": image_path, "image_name": actual_name, "label": None, "filter_size": filter_size, "auth_token": event["auth_token"], "is_train": event["is_train"], "has_labels": has_labels}
+            args = {"image_path": image_path, "image_name": actual_name, "label": None, "filter_size": filter_size, "image_num": image_num,
+                    "auth_token": event["auth_token"], "is_train": event["is_train"], "has_labels": has_labels, "model_bucket_name": model_bucket_name}
 
 
         invoke_response = lambda_client.invoke(FunctionName="preprocessing2", InvocationType='Event', Payload=json.dumps(args))
-
+        image_num += 1
 
 
