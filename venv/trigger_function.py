@@ -38,7 +38,6 @@ def trigger_handler(event, context):
     #Invoke worker function for each IP address
     client = boto3.client('lambda')
 
-    print "Invoking worker_function on " + host
     args = {"IP": host, "classifier": classifier, "bucket_training": bucket_training, 
             "bucket_labels": bucket_labels, "instance_id": instance_id}
             

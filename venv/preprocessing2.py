@@ -25,6 +25,11 @@ def preprocess(event, context):
     #check whether it is training or testing set
     is_train = event["is_train"]
     has_labels = event["has_labels"]
+    image_name = event["image_name"]
+    model_bucket_name = event["model_bucket_name"]
+    image_num = event["image_num"]
+    bucket_from = event["bucket_from"]
+    bucket_from_labels = event["labels"]
 
     actual_name, extension = image_path.split(".")
 
@@ -50,11 +55,11 @@ def preprocess(event, context):
     if is_train:
         b = conn.get_bucket('training-array')
         b2 = conn.get_bucket('training-labels')
-        k2 = b2.new_key('matrix' + str(event["image_name"]) + '.npy')
+        k2 = b2.new_key('matrix' + str(image_name) + '.npy')
     else:
         b = conn.get_bucket('testing-array')
 
-    k = b.new_key('matrix' + str(event["image_name"]) + '.npy')
+    k = b.new_key('matrix' + str(image_name) + '.npy')
 
 
     label = event['label']
@@ -63,7 +68,7 @@ def preprocess(event, context):
     value_matrix, labels = analyze((img, label), event, has_labels)
 
     #creating a temp image numpy file
-    upload_path = '/tmp/matrix' + str(event["image_name"]) + '.npy'
+    upload_path = '/tmp/matrix' + str(image_name) + '.npy'
 
     #saving image to S3 bucket
     np.save(upload_path, value_matrix)
@@ -71,18 +76,13 @@ def preprocess(event, context):
     k.set_contents_from_filename(upload_path)
 
     if is_train and has_labels:
-        upload_path_labels = '/tmp/matrix' + str(event["image_name"]) + '-labels.npy'
+        upload_path_labels = '/tmp/matrix' + str(image_name) + '-labels.npy'
         np.save(upload_path_labels, labels)
         k2.set_contents_from_filename(upload_path_labels)
 
-    #invoking 5 minute timer to ensure that preprocessing3 is called after all preprocessing2 processes are finished
-    # msg = {"is_train": is_train}
-    # lambda_client = boto3_client('lambda')
-    # lambda_client.invoke(FunctionName="timer", InvocationType='Event', Payload=json.dumps(msg))
-    # if last_bool:
-    #     msg = {"bucket_from": "training-array", "bucket_from_labels": "training-labels", "is_train": is_train}
-    #     lambda_client = boto3_client('lambda')
-    #     lambda_client.invoke(FunctionName="preprocessing3", InvocationType='Event', Payload=json.dumps(msg))
+    msg = {"is_train": is_train, "key_name" : image_name, "bucket_from": bucket_from, "has_labels": , "model_bucket_name": model_bucket_name, "image_num": image_num}
+    lambda_client = boto3_client('lambda')
+    lambda_client.invoke(FunctionName="preprocessing3", InvocationType='Event', Payload=json.dumps(msg))
 
     return 0
 

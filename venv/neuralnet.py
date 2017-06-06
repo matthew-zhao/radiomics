@@ -2,7 +2,6 @@ from sklearn.neural_network import MLPClassifier
 import pickle
 import numpy as np
 import boto
-import argparse
 
 from boto.s3.key import Key
 
@@ -46,9 +45,11 @@ def classify(event, context):
 
     model_bucket = conn.get_bucket('models-train')
 
-    #model_k = model_bucket.new_key(event['model_name'])
 
-    model_k = model_bucket.new_key('nm')
+    #user-inputted bucket name 
+    model_bucket_name = event["model_bucket_name"]
+    image_num = event["image_num"]
+    model_k = model_bucket.new_key(model_bucket_name + image_num)
 
     with open("model", "wb") as model:
         model.write(s)
