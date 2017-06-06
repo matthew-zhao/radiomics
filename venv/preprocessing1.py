@@ -76,9 +76,3 @@ def invoke_lambda(event, context):
 
 
 
-    #invoke the timer function, which sleeps for 4:50mins before invoking preprocessing3
-    args = {"is_train": is_train, "has_labels": has_labels}
-    invokeTimer = lambda_client.invoke(FunctionName="timer", InvocationType='Event', Payload=json.dumps(args))
-
-
-
