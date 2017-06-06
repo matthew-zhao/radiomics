@@ -2,7 +2,6 @@ from sklearn.neural_network import MLPClassifier
 import pickle
 import numpy as np
 import boto
-import argparse
 
 from boto.s3.key import Key
 
