@@ -77,15 +77,15 @@ def invoke_lambda(event, context):
             label = label_dict[actual_name]
             args = {"image_path": image_path, "image_name": actual_name, "labels": label, "filter_size": filter_size, "image_num": image_num,
                     "auth_token": event["auth_token"], "is_train": event["is_train"], "has_labels": has_labels, "model_bucket_name": model_bucket_name,
-                    "bucket_from": "train-data", "bucket_from_labels": "train-data-labels"}
+                    "bucket_from": "train-data", "bucket_from_labels": "train-data-labels", "is_dropbox": event["is_dropbox"]}
         elif not has_labels and event["is_train"]:
             args = {"image_path": image_path, "image_name": actual_name, "labels": None, "filter_size": filter_size, "image_num": image_num,
                     "auth_token": event["auth_token"], "is_train": event["is_train"], "has_labels": has_labels, "model_bucket_name": model_bucket_name,
-                    "bucket_from": "train-data", "bucket_from_labels": ""}
+                    "bucket_from": "train-data", "bucket_from_labels": "", "is_dropbox": event["is_dropbox"]}
         else:
             args = {"image_path": image_path, "image_name": actual_name, "labels": None, "filter_size": filter_size, "image_num": image_num,
                     "auth_token": event["auth_token"], "is_train": event["is_train"], "has_labels": has_labels, "model_bucket_name": model_bucket_name,
-                    "bucket_from": "testing-image-data", "bucket_from_labels": ""}
+                    "bucket_from": "testing-image-data", "bucket_from_labels": "", "is_dropbox": event["is_dropbox"]}
 
 
         invoke_response = lambda_client.invoke(FunctionName="preprocessing2", InvocationType='Event', Payload=json.dumps(args))
