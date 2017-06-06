@@ -12,8 +12,6 @@ def classify(event, context):
     b = conn.get_bucket(event['bucket_from'])
     labels = conn.get_bucket(event['bucket_from_labels'], validate=False)
 
-    #X_key = b.get_key('ready_matrix.npy')
-    #Y_key = labels.get_key('ready_labels.npy')
     bucket_list = b.list()
 
     for l in bucket_list:
@@ -21,11 +19,6 @@ def classify(event, context):
             l.get_contents_to_filename('ready_matrix.npy')
             Y_key = labels.get_key('ready_labels.npy')
             Y_key.get_contents_to_filename('ready_labels.npy')
-
-    print("finished reading from bucket")
-
-    #X_key.get_contents_to_filename('/tmp/ready_matrix.npy')
-    #Y_key.get_contents_to_filename('/tmp/ready_labels.npy')
 
     with open("ready_matrix.npy", "rb") as ready_matrix:
         X = np.load(ready_matrix)
@@ -39,14 +32,10 @@ def classify(event, context):
 
     clf.fit(X, y)
 
-    print("done training")
-
     s = pickle.dumps(clf)
 
     model_bucket = conn.get_bucket('models-train')
 
-
-    #user-inputted bucket name 
     model_bucket_name = event["model_bucket_name"]
     image_num = event["image_num"]
     model_k = model_bucket.new_key(model_bucket_name + image_num)

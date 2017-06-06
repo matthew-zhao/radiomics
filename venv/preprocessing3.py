@@ -15,52 +15,40 @@ def squish(event, context):
     b = conn.get_bucket(event['bucket_from'])
     has_labels = event["has_labels"]
     is_train = event["is_train"]
+    image_name = event["image_name"]
+    model_bucket_name = event["model_bucket_name"]
+    image_num = event["image_num"]
+
     bucket_list = b.list()
-    arr_list = []
 
     if has_labels:
         labels = conn.get_bucket(event['bucket_from_labels'])
-        labels_list = []
 
     i = 0
-    # Go through each individual array in the list
+    training_arr = None
+    label_arr = None
+
     for l in bucket_list:
         # Save content of file into tempfile on lambda
         # TODO: this step may cause issues b/c of .npy data lost?
-        if l.key[-4:] == ".npy":
-        #if l.key == "matrix10_left.npy":
+        if l.key is (image_name + ".npy"):
             l.get_contents_to_filename("/tmp/" + str(l.key))
-
-            # Load the numpy array from the tempfile and add it to list of np arrays
-            #training_arr = None
-            #label_arr = None
-            #training_arr = np.load("/tmp/" + str(l.key))
-            #label_arr = np.load("/tmp/labels-" + str(l.key))
 
             with open("/tmp/" + str(l.key), "rb") as npy:
                 training_arr = np.load(npy)
-
-            arr_list.append(training_arr)
 
             if has_labels:
                 label_matrix = labels.get_key(str(l.key))
                 label_matrix.get_contents_to_filename("/tmp/labels-" + str(l.key))
                 with open("/tmp/labels-" + str(l.key), "rb") as npy_label:
                     label_arr = np.load(npy_label)
-                labels_list.append(label_arr)
         i += 1
 
-    # Concatenate all numpy arrays representing a single image together
-    concat = np.concatenate(arr_list)
-
-    X_converted = concat.astype(np.float16)
+    X_converted = training_arr.astype(np.float16)
     X_train = X_converted / 255
 
-    # Concatenate all label arrays representing a single image together in the same
-    # order that the images were concatenated
     if has_labels:
-        concat_labels = np.concatenate(labels_list, axis=1)
-        y_converted = concat_labels.astype(np.float16)
+        y_converted = label_arr.astype(np.float16)
         targets = y_converted.reshape(-1)
         y_train = np.eye(5)[targets.astype('int8')]
 
@@ -70,7 +58,7 @@ def squish(event, context):
     else:
         b2 = conn.get_bucket('testing-arrayfinal')
 
-    k = b2.new_key('ready_matrix.npy')
+    k = b2.new_key(image_name + "-processed.npy")
 
     # Save the numpy arrays to temp .npy files on lambda
     upload_path = '/tmp/resized-matrix.npy'
@@ -86,7 +74,7 @@ def squish(event, context):
 
     if has_labels:
         labels2 = conn.get_bucket('training-labelsfinal')
-        k2 = labels2.new_key('ready_labels.npy')
+        k2 = labels2.new_key(image_name + "label-processed.npy")
 
         upload_path_labels = '/tmp/resized-labels.npy'
         np.save(upload_path_labels, y_train)
@@ -95,8 +83,8 @@ def squish(event, context):
         k2.make_public()
 
     if is_train:
-        args = {"classifier": "neuralnet", "bucket_training": "training-arrayfinal", "bucket_labels": "training-labelsfinal"}
-        invoke_response = lambda_client.invoke(FunctionName="trigger_function", InvocationType='Event', Payload=json.dumps(args))
+        args = {"bucket_from": "training-arrayfinal", "bucket_from_labels" : "training-labelsfinal", "model_bucket_name": model_bucket_name, "image_num": image_num}
+        invoke_response = lambda_client.invoke(FunctionName="neuralnet", InvocationType='Event', Payload=json.dumps(args))
     else:
         args = {"classifier": "neural", "bucket_from": "testing-arrayfinal", "model_bucket": "models-train", "result_bucket": "result-labels", "num_items": i, "result_name": "neural_result"}
         invoke_response = lambda_client.invoke(FunctionName="predict", InvocationType='Event', Payload=json.dumps(args))
