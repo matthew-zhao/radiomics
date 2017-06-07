@@ -82,7 +82,6 @@ def preprocess(event, context):
     with open("/tmp/labels-" + image_path, "rb") as npy:
         label_arr = np.load(npy)
 
-    # last_bool = event['last']
     value_matrix, labels = analyze((img, label_arr), event, has_labels)
 
     #creating a temp image numpy file
