@@ -66,11 +66,17 @@ def preprocess(event, context):
         img_resized = img_raw.resize((243, 324), Image.ANTIALIAS)
         img = scipy.array(img_resized)
 
-    labels_bucket = conn.get_bucket(bucket_from_labels)
-    print(bucket_from_labels)
-    npy_filename = actual_name.split("/")[-1] + ".npy"
-    print(npy_filename)
-    labels_key = labels_bucket.get_key(npy_filename)
+    label_arr = None
+    if has_labels:
+        labels_bucket = conn.get_bucket(bucket_from_labels)
+        print(bucket_from_labels)
+        npy_filename = actual_name.split("/")[-1] + ".npy"
+        print(npy_filename)
+        labels_key = labels_bucket.get_key(npy_filename)
+        labels_key.get_contents_to_filename("/tmp/labels-" + npy_filename)
+
+        with open("/tmp/labels-" + npy_filename, "rb") as npy:
+            label_arr = np.load(npy)
 
     if is_train:
         b = conn.get_bucket('training-array')
@@ -80,10 +86,6 @@ def preprocess(event, context):
         b = conn.get_bucket('testing-array')
 
     k = b.new_key('matrix' + str(image_name) + '.npy')
-
-    labels_key.get_contents_to_filename("/tmp/labels-" + npy_filename)
-    with open("/tmp/labels-" + npy_filename, "rb") as npy:
-        label_arr = np.load(npy)
 
     value_matrix, labels = analyze((img, label_arr), event, has_labels)
 
@@ -116,8 +118,6 @@ def analyze(arr_arg, event, has_labels):
     result = None
     arr = np.array(arr_arg[0])
     label_arr = arr_arg[1]
-    print(arr.shape)
-    print(label_arr.shape)
     h = scipy.histogram(arr, 256)
     dim = len(arr.shape)
     filter_size = int(event['filter_size'])
