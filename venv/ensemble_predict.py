@@ -13,10 +13,9 @@ def predict(event, context):
     test_bucket = conn.get_bucket(event['bucket_from'])
     model_bucket = conn.get_bucket(event['model_bucket'])
     result_bucket = conn.get_bucket(event['result_bucket'])
-
-    num_items = event['num_items']
+    image_name = event["image_name"]
     
-    train_key = test_bucket.get_key('ready_matrix.npy')
+    train_key = test_bucket.get_key(image_name + "-processed.npy")
     train_key.get_contents_to_filename('/tmp/ready_matrix.npy')
 
     model_list = model_bucket.list()
