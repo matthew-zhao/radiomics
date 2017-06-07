@@ -83,7 +83,7 @@ def squish(event, context):
         k2.make_public()
 
     if is_train:
-        args = {"bucket_from": "training-arrayfinal", "bucket_from_labels" : "training-labelsfinal", "model_bucket_name": model_bucket_name, "image_num": image_num}
+        args = {"bucket_from": "training-arrayfinal", "bucket_from_labels" : "training-labelsfinal", "model_bucket_name": model_bucket_name, "image_num": image_num, "image_name": image_name}
         invoke_response = lambda_client.invoke(FunctionName="neuralnet", InvocationType='Event', Payload=json.dumps(args))
     else:
         args = {"classifier": "neural", "bucket_from": "testing-arrayfinal", "model_bucket": "models-train", "result_bucket": "result-labels", "num_items": i, "result_name": image_name + str(image_num)}
