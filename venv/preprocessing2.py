@@ -27,7 +27,7 @@ def preprocess(event, context):
     model_bucket_name = event["model_bucket_name"]
     image_num = event["image_num"]
     bucket_from = event["bucket_from"]
-    bucket_from_labels = event["labels"]
+    bucket_from_labels = event["bucket_from_labels"]
 
     actual_name, extension = image_path.split(".")
 
@@ -66,6 +66,9 @@ def preprocess(event, context):
         img_resized = img_raw.resize((324, 243), Image.ANTIALIAS)
         img = scipy.array(img_resized)
 
+    labels_bucket = conn.get_bucket(bucket_from_labels)
+    labels_key = labels_bucket.get_key(image_path)
+
     if is_train:
         b = conn.get_bucket('training-array')
         b2 = conn.get_bucket('training-labels')
@@ -75,11 +78,12 @@ def preprocess(event, context):
 
     k = b.new_key('matrix' + str(image_name) + '.npy')
 
-
-    label = event['label']
+    labels_key.get_contents_to_filename("/tmp/labels-" + image_path)
+    with open("/tmp/labels-" + image_path, "rb") as npy:
+        label_arr = np.load(npy)
 
     # last_bool = event['last']
-    value_matrix, labels = analyze((img, label), event, has_labels)
+    value_matrix, labels = analyze((img, label_arr), event, has_labels)
 
     #creating a temp image numpy file
     upload_path = '/tmp/matrix' + str(image_name) + '.npy'
@@ -94,7 +98,12 @@ def preprocess(event, context):
         np.save(upload_path_labels, labels)
         k2.set_contents_from_filename(upload_path_labels)
 
-    msg = {"is_train": is_train, "image_name" : image_name, "bucket_from": bucket_from, "has_labels": , "model_bucket_name": model_bucket_name, "image_num": image_num}
+    if is_train and has_labels:
+        msg = {"is_train": is_train, "image_name": image_name, "bucket_from": "training-array", "bucket_from_labels": "training-labels", "has_labels": "True", "model_bucket_name": model_bucket_name, "image_num": image_num}
+    elif is_train and not has_labels:
+        msg = {"is_train": is_train, "image_name": image_name, "bucket_from": "training-array", "bucket_from_labels": "", "has_labels": "", "model_bucket_name": model_bucket_name, "image_num": image_num}
+    else:
+        msg = {"is_train": is_train, "image_name": image_name, "bucket_from": "testing-array", "bucket_from_labels": "", "has_labels": "", "model_bucket_name": model_bucket_name, "image_num": image_num}
     lambda_client = boto3_client('lambda')
     lambda_client.invoke(FunctionName="preprocessing3", InvocationType='Event', Payload=json.dumps(msg))
 
@@ -104,7 +113,7 @@ def preprocess(event, context):
 def analyze(arr_arg, event, has_labels):
     result = None
     arr = np.array(arr_arg[0])
-    label = arr_arg[1]
+    label_arr = arr_arg[1]
     h = scipy.histogram(arr, 256)
     dim = len(arr.shape)
     filter_size = int(event['filter_size'])
@@ -126,6 +135,7 @@ def analyze(arr_arg, event, has_labels):
 
     if dim == 3:
         total = []
+        labels = []
         for i in range(arr.shape[0] - filter_size + 1):
             for j in range(arr.shape[1] - filter_size + 1):
                 for k in range(arr.shape[2] - filter_size + 1):
@@ -135,7 +145,11 @@ def analyze(arr_arg, event, has_labels):
                     row = np.append(row, minimum[i:i+filter_size,j:j+filter_size,k:k+filter_size].flatten())
                     row = np.append(row, energy_val[i:i+filter_size,j:j+filter_size,k:k+filter_size].flatten())
                     row = np.append(row, std_val[i:i+filter_size,j:j+filter_size,k:k+filter_size].flatten())
-                total.append(row)
+                    if has_labels:
+                        label_row = label_arr[i:i+filter_size, j:j+filter_size, k:k+filter_size].flatten()
+                        label = np.argmax(np.bincount(label_row))
+                        labels.append(label)
+                    total.append(row)
         result = np.array(total)
         x = arr.shape[0] - filter_size + 1
         y = arr.shape[1] - filter_size + 1
@@ -145,19 +159,23 @@ def analyze(arr_arg, event, has_labels):
         total = []
         for i in range(arr.shape[0] - filter_size + 1):
             for j in range(arr.shape[1] - filter_size + 1):
-                row = arr[i:i+filter_size, j:j+filter_size, k:k+filter_size].flatten()
-                row = np.append(row, mean[i:i+filter_size,j:j+filter_size,k:k+filter_size].flatten())
-                row = np.append(row, maximum[i:i+filter_size,j:j+filter_size,k:k+filter_size].flatten())
-                row = np.append(row, minimum[i:i+filter_size,j:j+filter_size,k:k+filter_size].flatten())
-                row = np.append(row, energy_val[i:i+filter_size,j:j+filter_size,k:k+filter_size].flatten())
-                row = np.append(row, std_val[i:i+filter_size,j:j+filter_size,k:k+filter_size].flatten())
-            total.append(row)
+                row = arr[i:i+filter_size, j:j+filter_size].flatten()
+                row = np.append(row, mean[i:i+filter_size,j:j+filter_size].flatten())
+                row = np.append(row, maximum[i:i+filter_size,j:j+filter_size].flatten())
+                row = np.append(row, minimum[i:i+filter_size,j:j+filter_size].flatten())
+                row = np.append(row, energy_val[i:i+filter_size,j:j+filter_size].flatten())
+                row = np.append(row, std_val[i:i+filter_size,j:j+filter_size].flatten())
+                if has_labels:
+                    label_row = label_arr[i:i+filter_size, j:j+filter_size].flatten()
+                    label = np.argmax(np.bincount(label_row))
+                    labels.append(label)
+                total.append(row)
         result = np.array(total)
         x = arr.shape[0] - filter_size + 1
         y = arr.shape[1] - filter_size + 1
         total_size = x * y
     if has_labels:
-        label_arr = np.full((1,total_size), label)
-        return result, label_arr
+        final_label_arr = np.array(result)
+        return result, final_label_arr
     else:
         return result, None
