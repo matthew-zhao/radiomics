@@ -161,6 +161,7 @@ def analyze(arr_arg, event, has_labels):
         total_size = x * y * z
     elif dim == 2:
         total = []
+        labels = []
         for i in range(arr.shape[0] - filter_size + 1):
             for j in range(arr.shape[1] - filter_size + 1):
                 row = arr[i:i+filter_size, j:j+filter_size].flatten()
@@ -179,7 +180,7 @@ def analyze(arr_arg, event, has_labels):
         y = arr.shape[1] - filter_size + 1
         total_size = x * y
     if has_labels:
-        final_label_arr = np.array(result)
+        final_label_arr = np.array(labels)
         return result, final_label_arr
     else:
         return result, None
