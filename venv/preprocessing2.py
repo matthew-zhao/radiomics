@@ -105,7 +105,7 @@ def preprocess(event, context):
     else:
         msg = {"is_train": is_train, "image_name": image_name, "bucket_from": "testing-array", "bucket_from_labels": "", "has_labels": "", "model_bucket_name": model_bucket_name, "image_num": image_num}
     lambda_client = boto3_client('lambda')
-    lambda_client.invoke(FunctionName="preprocessing3", InvocationType='Event', Payload=json.dumps(msg))
+    lambda_client.invoke(FunctionName="preprocess3", InvocationType='Event', Payload=json.dumps(msg))
 
     return 0
 

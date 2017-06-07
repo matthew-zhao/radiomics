@@ -88,7 +88,7 @@ def invoke_lambda(event, context):
                     "bucket_from": "testing-image-data", "bucket_from_labels": "", "is_dropbox": event["is_dropbox"]}
 
 
-        invoke_response = lambda_client.invoke(FunctionName="preprocessing2", InvocationType='Event', Payload=json.dumps(args))
+        invoke_response = lambda_client.invoke(FunctionName="preprocess2", InvocationType='Event', Payload=json.dumps(args))
         image_num += 1
 
 
