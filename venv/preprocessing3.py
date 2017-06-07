@@ -31,7 +31,7 @@ def squish(event, context):
     for l in bucket_list:
         # Save content of file into tempfile on lambda
         # TODO: this step may cause issues b/c of .npy data lost?
-        if l.key is (image_name + ".npy"):
+        if l.key == "matrix" + image_name + ".npy":
             l.get_contents_to_filename("/tmp/" + str(l.key))
 
             with open("/tmp/" + str(l.key), "rb") as npy:

@@ -63,11 +63,13 @@ def preprocess(event, context):
         yscale = 243.0 / img_raw.shape[1]
         img = scipy.ndimage.interpolation.zoom(img_raw, [xscale, yscale])
     else:
-        img_resized = img_raw.resize((324, 243), Image.ANTIALIAS)
+        img_resized = img_raw.resize((243, 324), Image.ANTIALIAS)
         img = scipy.array(img_resized)
 
     labels_bucket = conn.get_bucket(bucket_from_labels)
-    npy_filename = actual_name + ".npy"
+    print(bucket_from_labels)
+    npy_filename = actual_name.split("/")[-1] + ".npy"
+    print(npy_filename)
     labels_key = labels_bucket.get_key(npy_filename)
 
     if is_train:
@@ -115,6 +117,8 @@ def analyze(arr_arg, event, has_labels):
     result = None
     arr = np.array(arr_arg[0])
     label_arr = arr_arg[1]
+    print(arr.shape)
+    print(label_arr.shape)
     h = scipy.histogram(arr, 256)
     dim = len(arr.shape)
     filter_size = int(event['filter_size'])
