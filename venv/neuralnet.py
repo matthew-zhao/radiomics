@@ -28,7 +28,7 @@ def classify(event, context):
 
     print("About to train")
 
-    clf = MLPClassifier(solver='adam', alpha=1e-3, hidden_layer_sizes=(82,), random_state=1, max_iter=3)
+    clf = MLPClassifier(solver='adam', alpha=1e-3, hidden_layer_sizes=(82,), random_state=1, max_iter=5)
 
     clf.fit(X, y)
 
@@ -38,7 +38,8 @@ def classify(event, context):
 
     model_bucket_name = event["model_bucket_name"]
     image_num = event["image_num"]
-    model_k = model_bucket.new_key(model_bucket_name + str(image_num))
+    num = str(image_num)
+    model_k = model_bucket.new_key(model_bucket_name + num)
 
     with open("/tmp/model", "wb") as model:
         model.write(s)
