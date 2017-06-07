@@ -11,13 +11,14 @@ def classify(event, context):
     conn = boto.connect_s3("AKIAIMQLHJNMP6DOUM4A","8dJAfPZlTjMR1SOcOetImclAmT+G02VkQiuHefdY")
     b = conn.get_bucket(event['bucket_from'])
     labels = conn.get_bucket(event['bucket_from_labels'], validate=False)
+    image_name = event["image_name"]
 
     bucket_list = b.list()
 
     for l in bucket_list:
-        if l.key == "ready_matrix.npy":
+        if l.key == (image_name + "-processed.npy"):
             l.get_contents_to_filename('/tmp/ready_matrix.npy')
-            Y_key = labels.get_key('ready_labels.npy')
+            Y_key = labels.get_key(image_name + 'label-processed.npy')
             Y_key.get_contents_to_filename('/tmp/ready_labels.npy')
 
     with open("/tmp/ready_matrix.npy", "rb") as ready_matrix:
