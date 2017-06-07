@@ -67,7 +67,8 @@ def preprocess(event, context):
         img = scipy.array(img_resized)
 
     labels_bucket = conn.get_bucket(bucket_from_labels)
-    labels_key = labels_bucket.get_key(image_path)
+    npy_filename = actual_name + ".npy"
+    labels_key = labels_bucket.get_key(npy_filename)
 
     if is_train:
         b = conn.get_bucket('training-array')
@@ -78,8 +79,8 @@ def preprocess(event, context):
 
     k = b.new_key('matrix' + str(image_name) + '.npy')
 
-    labels_key.get_contents_to_filename("/tmp/labels-" + image_path)
-    with open("/tmp/labels-" + image_path, "rb") as npy:
+    labels_key.get_contents_to_filename("/tmp/labels-" + npy_filename)
+    with open("/tmp/labels-" + npy_filename, "rb") as npy:
         label_arr = np.load(npy)
 
     value_matrix, labels = analyze((img, label_arr), event, has_labels)
@@ -104,7 +105,7 @@ def preprocess(event, context):
     else:
         msg = {"is_train": is_train, "image_name": image_name, "bucket_from": "testing-array", "bucket_from_labels": "", "has_labels": "", "model_bucket_name": model_bucket_name, "image_num": image_num}
     lambda_client = boto3_client('lambda')
-    lambda_client.invoke(FunctionName="preprocessing3", InvocationType='Event', Payload=json.dumps(msg))
+    lambda_client.invoke(FunctionName="preprocess3", InvocationType='Event', Payload=json.dumps(msg))
 
     return 0
 
