@@ -24,11 +24,12 @@ def predict(event, context):
     clf_list = []
     for model in model_list:
         model.get_contents_to_filename("/tmp/model" + str(i))
-        i += 1
 
         with open("/tmp/model" + str(i), "rb") as keyfile:
             contents = keyfile.read()
             clf_list.append((str(i), pickle.loads(contents)))
+
+        i += 1
 
     ensembler = VotingClassifier(estimators=clf_list, voting='hard')
 
