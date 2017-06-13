@@ -59,7 +59,7 @@ def squish(event, context):
     else:
         b2 = conn.get_bucket('testing-arrayfinal')
 
-    k = b2.new_key(image_num + "-processed.npy")
+    k = b2.new_key(str(image_num) + "-processed.npy")
 
     # Save the numpy arrays to temp .npy files on lambda
     upload_path = '/tmp/resized-matrix.npy'
@@ -75,7 +75,7 @@ def squish(event, context):
 
     if has_labels:
         labels2 = conn.get_bucket('training-labelsfinal')
-        k2 = labels2.new_key(image_num + "label-processed.npy")
+        k2 = labels2.new_key(str(image_num) + "label-processed.npy")
 
         upload_path_labels = '/tmp/resized-labels.npy'
         np.save(upload_path_labels, y_train)
@@ -93,8 +93,7 @@ def squish(event, context):
     else: 
         sqs = boto3.client('sqs')
         queue_url = sqs.get_queue_url(QueueName=queue_name)
-        response = sqs.send_message(QueueURL=queue_url, MessageBody=str(image_num),
-                                    MessageAttributes={MessageDeduplicationId: "deduplicationId", MessageGroupId: "groupId"})
+        response = sqs.send_message(QueueUrl=queue_url, MessageBody=str(image_num), MessageDeduplicationId="deduplicationId", MessageGroupId="groupId")
 
 
         b3 = conn.get_bucket("training-arrayfinal")
