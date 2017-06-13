@@ -10,7 +10,7 @@ def invoke_lambda(event, context):
     has_labels = event["has_labels"]
 
     # 4mins 50secs = 290 secs
-    time.sleep(290)
+    time.sleep(120)
 
     #invoke preprocessing3
 
