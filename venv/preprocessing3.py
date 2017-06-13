@@ -93,7 +93,7 @@ def squish(event, context):
     else: 
         sqs = boto3.client('sqs')
         queue_url = sqs.get_queue_url(QueueName=queue_name)
-        response = sqs.send_message(QueueUrl=queue_url, MessageBody=str(image_num), MessageDeduplicationId="deduplicationId", MessageGroupId="groupId")
+        response = sqs.send_message(QueueUrl=queue_url['QueueUrl'], MessageBody=str(image_num), MessageDeduplicationId="deduplicationId", MessageGroupId="groupId")
 
 
         b3 = conn.get_bucket("training-arrayfinal")
