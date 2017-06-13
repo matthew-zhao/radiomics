@@ -39,6 +39,9 @@ def classify(event, context):
         # remove flag key
         b.delete_key("called")
 
+        # TODO: Uncomment delete queue for production
+        # client.delete_queue(QueueUrl=queue_url)
+
         # it's over
         print("Done")
         return 1
