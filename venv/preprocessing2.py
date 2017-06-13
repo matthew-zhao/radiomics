@@ -103,11 +103,14 @@ def preprocess(event, context):
         k2.set_contents_from_filename(upload_path_labels)
 
     if is_train and has_labels:
-        msg = {"is_train": is_train, "image_name": image_name, "bucket_from": "training-array", "bucket_from_labels": "training-labels", "has_labels": "True", "model_bucket_name": model_bucket_name, "image_num": image_num}
+        msg = {"is_train": is_train, "image_name": image_name, "bucket_from": "training-array", "bucket_from_labels": "training-labels", "has_labels": "True", "model_bucket_name": model_bucket_name, "image_num": image_num,
+                "queue_name": model_bucket_name + '.fifo'}
     elif is_train and not has_labels:
-        msg = {"is_train": is_train, "image_name": image_name, "bucket_from": "training-array", "bucket_from_labels": "", "has_labels": "", "model_bucket_name": model_bucket_name, "image_num": image_num}
+        msg = {"is_train": is_train, "image_name": image_name, "bucket_from": "training-array", "bucket_from_labels": "", "has_labels": "", "model_bucket_name": model_bucket_name, "image_num": image_num,
+                "queue_name": model_bucket_name + '.fifo'}
     else:
-        msg = {"is_train": is_train, "image_name": image_name, "bucket_from": "testing-array", "bucket_from_labels": "", "has_labels": "", "model_bucket_name": model_bucket_name, "image_num": image_num}
+        msg = {"is_train": is_train, "image_name": image_name, "bucket_from": "testing-array", "bucket_from_labels": "", "has_labels": "", "model_bucket_name": model_bucket_name, "image_num": image_num,
+                "queue_name": model_bucket_name + '.fifo'}
     lambda_client = boto3_client('lambda')
     lambda_client.invoke(FunctionName="preprocess3", InvocationType='Event', Payload=json.dumps(msg))
 

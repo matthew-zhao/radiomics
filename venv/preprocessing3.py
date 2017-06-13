@@ -18,6 +18,7 @@ def squish(event, context):
     image_name = event["image_name"]
     model_bucket_name = event["model_bucket_name"]
     image_num = event["image_num"]
+    queue_name = event["queue_name"]
 
     bucket_list = b.list()
 
@@ -91,9 +92,10 @@ def squish(event, context):
 
     else: 
         sqs = boto3.client('sqs')
-        queue_url = sqs.get_queue_url(QueueName='training-queue.fifo')
+        queue_url = sqs.get_queue_url(QueueName=queue_name)
         response = sqs.send_message(QueueURL=queue_url, MessageBody=str(image_num),
                                     MessageAttributes={MessageDeduplicationId: "deduplicationId", MessageGroupId: "groupId"})
+
 
         b3 = conn.get_bucket("training-arrayfinal")
         called = b3.get_key("called")
@@ -102,8 +104,8 @@ def squish(event, context):
         if called is None:
             
             k = b3.new_key("called")
-            args = {"bucket_from": "training-arrayfinal", "bucket_from_labels" : "training-labelsfinal", "model_bucket_name": model_bucket_name, "image_num": str(image_num), "num_items": i, "image_name": image_name}
-            invoke_response = lambda_client.invoke(FunctionName="neuralnet", InvocationType='Event', Payload=json.dumps(args))
+            args = {"bucket_from": "training-arrayfinal", "bucket_from_labels" : "training-labelsfinal", "model_bucket_name": model_bucket_name, "image_num": str(image_num), "num_items": i, "image_name": image_name, "queue_name": queue_name}
+            invoke_response = lambda_client.invoke(FunctionName="neuralnet_checkpoint", InvocationType='Event', Payload=json.dumps(args))
 
 
     return 0
