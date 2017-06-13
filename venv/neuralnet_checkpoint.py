@@ -110,7 +110,8 @@ def classify(event, context):
 
     model_k.make_public()
 
-    args = {"bucket_from": event['bucket_from'], "bucket_from_labels": event['bucket_from_labels'], "model_bucket_name": model_bucket_name, "image_num": image_num, "num_items": event['num_items']}
+    args = {"bucket_from": event['bucket_from'], "bucket_from_labels": event['bucket_from_labels'], "model_bucket_name": model_bucket_name, "image_num": image_num, "num_items": event['num_items'],
+            "queue_name": event['queue_name']}
     invoke_response = lambda_client.invoke(FunctionName="neuralnet_checkpoint", InvocationType='Event', Payload=json.dumps(args))
     return 0
 
