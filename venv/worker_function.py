@@ -26,25 +26,17 @@ def worker_handler(event, context):
 
 
     host=event['IP']
-    print "Connecting to " + host
     c.connect(hostname = host, username = "ec2-user", pkey = k )
-    print "Connected to " + host
 
     command1 = "python" + " /usr/local/radiomics/" + classifier + ".py" + " -f " + bucket_training + " -b " + bucket_labels
                 + " -i " + instance_id
 
     commands = [
-        
-        #"chmod 777 /usr/local/radiomics/" + classifier + ".py",
         command1
-        
         ]
-    for command in commands:
-        print "Executing {}".format(command)
-        stdin , stdout, stderr = c.exec_command(command)
-        # print stdout.read()
-        # print stderr.read()
 
+    for command in commands:
+        stdin , stdout, stderr = c.exec_command(command)
     return
     {
         'message' : "Script execution completed. See Cloudwatch logs for complete output"
