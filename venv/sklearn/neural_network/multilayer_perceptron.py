@@ -17,7 +17,7 @@ from ._base import ACTIVATIONS, DERIVATIVES, LOSS_FUNCTIONS
 from ._stochastic_optimizers import SGDOptimizer, AdamOptimizer
 from ..model_selection import train_test_split
 from ..externals import six
-from ..preprocessing import LabelBinarizer
+from ..preprocessing import LabelBinarizer, MultiLabelBinarizer
 from ..utils import gen_batches, check_random_state
 from ..utils import shuffle
 from ..utils import check_array, check_X_y, column_or_1d
@@ -909,10 +909,14 @@ class MLPClassifier(BaseMultilayerPerceptron, ClassifierMixin):
             self.classes_ = self._label_binarizer.classes_
         else:
             classes = unique_labels(y)
+            #print(classes)
+            #print(self.classes_)
             if np.setdiff1d(classes, self.classes_, assume_unique=True):
                 raise ValueError("`y` has classes not in `self.classes_`."
                                  " `self.classes_` has %s. 'y' has %s." %
                                  (self.classes_, classes))
+            #self._label_binarizer = LabelBinarizer()
+            #self._label_binarizer.fit(self.classes_)
 
         y = self._label_binarizer.transform(y)
         return X, y
@@ -968,12 +972,16 @@ class MLPClassifier(BaseMultilayerPerceptron, ClassifierMixin):
                                  % self.solver)
         return self._partial_fit
 
-    def _partial_fit(self, X, y, classes=None):
+    def _partial_fit(self, X, y, classes=None, incremental=True):
         if _check_partial_fit_first_call(self, classes):
-            self._label_binarizer = LabelBinarizer()
             if type_of_target(y).startswith('multilabel'):
+                self._label_binarizer = MultiLabelBinarizer(classes=classes)
+                print("multilabel")
                 self._label_binarizer.fit(y)
             else:
+                self._label_binarizer = LabelBinarizer()
+                print("not multilabel")
+                print(classes)
                 self._label_binarizer.fit(classes)
 
         super(MLPClassifier, self)._partial_fit(X, y)

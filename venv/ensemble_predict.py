@@ -26,6 +26,8 @@ def predict(event, context):
 
     X_converted = X.astype(np.float)
 
+    print("preparations done")
+
     i = 0
     clf_list = []
     total = []

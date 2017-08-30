@@ -44,7 +44,7 @@ def preprocess(event, context):
         else:
             img_raw = Image.open(StringIO(data))
     else:
-        b = conn.get_bucket("train-data")
+        b = conn.get_bucket(bucket_from)
         img_key = b.get_key(image_path)
 
         if extension == "dcm":

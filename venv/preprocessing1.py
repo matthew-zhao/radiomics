@@ -13,7 +13,7 @@ lambda_client = boto3.client('lambda')
 
 def invoke_lambda(event, context):
     conn = boto.connect_s3("AKIAIMQLHJNMP6DOUM4A","8dJAfPZlTjMR1SOcOetImclAmT+G02VkQiuHefdY")
-    b = conn.get_bucket("train-data")
+    b = conn.get_bucket(event["images_bucket"])
 
     paths = []
     if event["is_dropbox"]:
@@ -35,8 +35,6 @@ def invoke_lambda(event, context):
 
         
     is_train = event["is_train"]
-    folder_name = event["folder_name"]
-    auth_token = event["auth_token"]
     has_labels = event["has_labels"]
     model_bucket_name = event["model_bucket_name"]
     shape_dir = None

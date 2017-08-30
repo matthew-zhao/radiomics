@@ -48,10 +48,10 @@ def squish(event, context):
     X_converted = training_arr.astype(np.float16)
     X_train = X_converted / 255
 
-    if has_labels:
-        y_converted = label_arr.astype(np.float16)
-        targets = y_converted.reshape(-1)
-        y_train = np.eye(5)[targets.astype('int8')]
+    #if has_labels:
+    #    y_converted = label_arr.astype(np.float16)
+    #    targets = y_converted.reshape(-1)
+    #    y_train = np.eye(5)[targets.astype('int8')]
 
     # Create new buckets for the array and its corresponding labels
     if is_train:
@@ -78,7 +78,8 @@ def squish(event, context):
         k2 = labels2.new_key(str(image_num) + "label-processed.npy")
 
         upload_path_labels = '/tmp/resized-labels.npy'
-        np.save(upload_path_labels, y_train)
+        #np.save(upload_path_labels, y_train)
+        np.save(upload_path_labels, label_arr)
 
         k2.set_contents_from_filename(upload_path_labels)
         k2.make_public()
@@ -87,22 +88,28 @@ def squish(event, context):
 
     #if not training, each preprocessing3 calls a predict
     if not is_train:
-        args = {"classifier": "neural", "bucket_from": "testing-arrayfinal", "model_bucket": "models-train", "result_bucket": "result-labels", "num_items": i, "image_name": image_name, "result_name": image_name + str(image_num)}
+        args = {"classifier": "neural", "bucket_from": "testing-arrayfinal", "model_bucket": "models-train", "model_bucket_name": model_bucket_name, "result_bucket": "result-labels", "num_items": i, "image_name": image_name, "result_name": image_name + str(image_num),
+            "image_num": str(image_num)}
         invoke_response = lambda_client.invoke(FunctionName="predict", InvocationType='Event', Payload=json.dumps(args))
 
     else: 
         sqs = boto3.client('sqs')
         queue_url = sqs.get_queue_url(QueueName=queue_name)
-        response = sqs.send_message(QueueUrl=queue_url['QueueUrl'], MessageBody=str(image_num), MessageDeduplicationId="deduplicationId", MessageGroupId="groupId")
-
+        response = sqs.send_message(QueueUrl=queue_url['QueueUrl'], MessageBody=str(image_num), MessageDeduplicationId="deduplicationId" + str(image_num), MessageGroupId="groupId")
+        print(response)
 
         b3 = conn.get_bucket("training-arrayfinal")
         called = b3.get_key("called")
 
         #only invoke neuralnet.py once, by the first preprocessing3 to finish
         if called is None:
-            
+            print("Neuralnet invoked from " + str(image_num))
+            with open("/tmp/called", "wb") as flag:
+                flag.write("True")
             k = b3.new_key("called")
+            k.set_contents_from_filename("/tmp/called")
+            k.make_public()
+
             args = {"bucket_from": "training-arrayfinal", "bucket_from_labels" : "training-labelsfinal", "model_bucket_name": model_bucket_name, "image_num": str(image_num), "num_items": i, "image_name": image_name, "queue_name": queue_name}
             invoke_response = lambda_client.invoke(FunctionName="neuralnet_checkpoint", InvocationType='Event', Payload=json.dumps(args))
 
