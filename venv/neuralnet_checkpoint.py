@@ -54,8 +54,9 @@ def classify(event, context):
     message = response['Messages'][0]
     receipt_handle = message['ReceiptHandle']
 
-    image_num = message['Body']
-    num = int(image_num)
+    image_name = message['Body']
+    image_num = image_name.split("_")[0]
+    #num = int(image_num)
 
     client.delete_message(
         QueueUrl=queue_url,
@@ -64,7 +65,7 @@ def classify(event, context):
 
     print("Received and deleted message")
 
-    X_key = b.get_key(image_num + '-processed.npy')
+    X_key = b.get_key(image_name + '-processed.npy')
     X_key.get_contents_to_filename('/tmp/ready_matrix.npy')
     Y_key = labels.get_key(image_num + 'label-processed.npy')
     Y_key.get_contents_to_filename('/tmp/ready_labels.npy')

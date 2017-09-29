@@ -1,3 +1,4 @@
+# preprocessing2
 # Lambda 2
 import scipy
 import numpy as np
@@ -85,40 +86,41 @@ def preprocess(event, context):
     else:
         b = conn.get_bucket('testing-array')
 
-    k = b.new_key('matrix' + str(image_name) + '.npy')
-
-    value_matrix, labels = analyze((img, label_arr), event, has_labels)
-
-    #creating a temp image numpy file
-    upload_path = '/tmp/matrix' + str(image_name) + '.npy'
-
-    #saving image to S3 bucket
-    np.save(upload_path, value_matrix)
-
-    k.set_contents_from_filename(upload_path)
-
+    value_dict, labels = analyze((img, label_arr), event, has_labels)
+    
     if is_train and has_labels:
         upload_path_labels = '/tmp/matrix' + str(image_name) + '-labels.npy'
         np.save(upload_path_labels, labels)
         k2.set_contents_from_filename(upload_path_labels)
 
-    if is_train and has_labels:
-        msg = {"is_train": is_train, "image_name": image_name, "bucket_from": "training-array", "bucket_from_labels": "training-labels", "has_labels": "True", "model_bucket_name": model_bucket_name, "image_num": image_num,
-                "queue_name": model_bucket_name + '.fifo'}
-    elif is_train and not has_labels:
-        msg = {"is_train": is_train, "image_name": image_name, "bucket_from": "training-array", "bucket_from_labels": "", "has_labels": "", "model_bucket_name": model_bucket_name, "image_num": image_num,
-                "queue_name": model_bucket_name + '.fifo'}
-    else:
-        msg = {"is_train": is_train, "image_name": image_name, "bucket_from": "testing-array", "bucket_from_labels": "", "has_labels": "", "model_bucket_name": model_bucket_name, "image_num": image_num,
-                "queue_name": model_bucket_name + '.fifo'}
-    lambda_client = boto3_client('lambda')
-    lambda_client.invoke(FunctionName="preprocess3", InvocationType='Event', Payload=json.dumps(msg))
+    for feature in value_dict:
+        k = b.new_key('matrix' + str(image_name) + '_' + feature + '.npy')
+
+        #creating a temp image numpy file
+        upload_path = '/tmp/matrix' + str(image_name) + '_' + feature + '.npy'
+    
+        #saving image to S3 bucket
+        np.save(upload_path, value_dict[feature])
+    
+        k.set_contents_from_filename(upload_path)
+
+        if is_train and has_labels:
+            msg = {"is_train": is_train, "image_name": str(image_name), "feature": str(feature), "bucket_from": "training-array", "bucket_from_labels": "training-labels", "has_labels": "True", "model_bucket_name": model_bucket_name, "image_num": image_num,
+                    "queue_name": model_bucket_name + '.fifo'}
+        elif is_train and not has_labels:
+            msg = {"is_train": is_train, "image_name": str(image_name), "feature": str(feature), "bucket_from": "training-array", "bucket_from_labels": "", "has_labels": "", "model_bucket_name": model_bucket_name, "image_num": image_num,
+                    "queue_name": model_bucket_name + '.fifo'}
+        else:
+            msg = {"is_train": is_train, "image_name": str(image_name), "feature": str(feature), "bucket_from": "testing-array", "bucket_from_labels": "", "has_labels": "", "model_bucket_name": model_bucket_name, "image_num": image_num,
+                    "queue_name": model_bucket_name + '.fifo'}
+        lambda_client = boto3_client('lambda')
+        lambda_client.invoke(FunctionName="preprocess3", InvocationType='Event', Payload=json.dumps(msg))
 
     return 0
 
 #calculating all the first-order statistics on all the images
 def analyze(arr_arg, event, has_labels):
-    result = None
+    result = {}
     arr = np.array(arr_arg[0])
     label_arr = arr_arg[1]
     h = scipy.histogram(arr, 256)
@@ -140,45 +142,70 @@ def analyze(arr_arg, event, has_labels):
         return np.std(arr, ddof=1)
     std_val = scipy.ndimage.generic_filter(arr, std, size = filter_size, mode = 'constant')
 
+    total = []
+    mean_total = []
+    max_total = []
+    min_total = []
+    energy_total = []
+    std_total = []
+    labels = []
     if dim == 3:
-        total = []
-        labels = []
         for i in range(arr.shape[0] - filter_size + 1):
             for j in range(arr.shape[1] - filter_size + 1):
                 for k in range(arr.shape[2] - filter_size + 1):
                     row = arr[i:i+filter_size, j:j+filter_size, k:k+filter_size].flatten()
-                    row = np.append(row, mean[i:i+filter_size,j:j+filter_size,k:k+filter_size].flatten())
-                    row = np.append(row, maximum[i:i+filter_size,j:j+filter_size,k:k+filter_size].flatten())
-                    row = np.append(row, minimum[i:i+filter_size,j:j+filter_size,k:k+filter_size].flatten())
-                    row = np.append(row, energy_val[i:i+filter_size,j:j+filter_size,k:k+filter_size].flatten())
-                    row = np.append(row, std_val[i:i+filter_size,j:j+filter_size,k:k+filter_size].flatten())
+                    mean_row = mean[i:i+filter_size,j:j+filter_size,k:k+filter_size].flatten()
+                    max_row = maximum[i:i+filter_size,j:j+filter_size,k:k+filter_size].flatten()
+                    min_row = minimum[i:i+filter_size,j:j+filter_size,k:k+filter_size].flatten()
+                    energy_row = energy_val[i:i+filter_size,j:j+filter_size,k:k+filter_size].flatten()
+                    std_row = std_val[i:i+filter_size,j:j+filter_size,k:k+filter_size].flatten()
+                    
                     if has_labels:
                         label_row = label_arr[i:i+filter_size, j:j+filter_size, k:k+filter_size].flatten()
                         label = np.argmax(np.bincount(label_row))
                         labels.append(label)
                     total.append(row)
-        result = np.array(total)
+                    mean_total.append(mean_row)
+                    max_total.append(max_row)
+                    min_total.append(min_row)
+                    energy_total.append(energy_row)
+                    std_total.append(std_row)
+        result["total"] = np.array(total)
+        result["mean_total"] = np.array(mean_total)
+        result["max_total"] = np.array(max_total)
+        result["min_total"] = np.array(min_total)
+        result["energy_total"] = np.array(energy_total)
+        result["std_total"] = np.array(std_total)
+        
         x = arr.shape[0] - filter_size + 1
         y = arr.shape[1] - filter_size + 1
         z = arr.shape[2] - filter_size + 1
         total_size = x * y * z
     elif dim == 2:
-        total = []
-        labels = []
         for i in range(arr.shape[0] - filter_size + 1):
             for j in range(arr.shape[1] - filter_size + 1):
                 row = arr[i:i+filter_size, j:j+filter_size].flatten()
-                row = np.append(row, mean[i:i+filter_size,j:j+filter_size].flatten())
-                row = np.append(row, maximum[i:i+filter_size,j:j+filter_size].flatten())
-                row = np.append(row, minimum[i:i+filter_size,j:j+filter_size].flatten())
-                row = np.append(row, energy_val[i:i+filter_size,j:j+filter_size].flatten())
-                row = np.append(row, std_val[i:i+filter_size,j:j+filter_size].flatten())
+                mean_row = mean[i:i+filter_size,j:j+filter_size].flatten()
+                max_row = maximum[i:i+filter_size,j:j+filter_size].flatten()
+                min_row = minimum[i:i+filter_size,j:j+filter_size].flatten()
+                energy_row = energy_val[i:i+filter_size,j:j+filter_size].flatten()
+                std_row = std_val[i:i+filter_size,j:j+filter_size].flatten()
                 if has_labels:
                     label_row = label_arr[i:i+filter_size, j:j+filter_size].flatten()
                     label = np.argmax(np.bincount(label_row))
                     labels.append(label)
                 total.append(row)
-        result = np.array(total)
+                mean_total.append(mean_row)
+                max_total.append(max_row)
+                min_total.append(min_row)
+                energy_total.append(energy_row)
+                std_total.append(std_row)
+        result["total"] = np.array(total)
+        result["mean_total"] = np.array(mean_total)
+        result["max_total"] = np.array(max_total)
+        result["min_total"] = np.array(min_total)
+        result["energy_total"] = np.array(energy_total)
+        result["std_total"] = np.array(std_total)
         x = arr.shape[0] - filter_size + 1
         y = arr.shape[1] - filter_size + 1
         total_size = x * y

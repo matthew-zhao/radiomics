@@ -1,3 +1,4 @@
+# preprocessing3
 import numpy as np
 import boto
 import boto3
@@ -16,6 +17,7 @@ def squish(event, context):
     has_labels = event["has_labels"]
     is_train = event["is_train"]
     image_name = event["image_name"]
+    feature = event["feature"]
     model_bucket_name = event["model_bucket_name"]
     image_num = event["image_num"]
     queue_name = event["queue_name"]
@@ -32,16 +34,17 @@ def squish(event, context):
     for l in bucket_list:
         # Save content of file into tempfile on lambda
         # TODO: this step may cause issues b/c of .npy data lost?
-        if l.key == "matrix" + image_name + ".npy":
+        if l.key == "matrix" + image_name + '_' + feature + ".npy":
             l.get_contents_to_filename("/tmp/" + str(l.key))
 
             with open("/tmp/" + str(l.key), "rb") as npy:
                 training_arr = np.load(npy)
 
             if has_labels:
-                label_matrix = labels.get_key(str(l.key))
-                label_matrix.get_contents_to_filename("/tmp/labels-" + str(l.key))
-                with open("/tmp/labels-" + str(l.key), "rb") as npy_label:
+                gen_key = "matrix" + image_name + ".npy"
+                label_matrix = labels.get_key(gen_key)
+                label_matrix.get_contents_to_filename("/tmp/labels-" + gen_key)
+                with open("/tmp/labels-" + gen_key, "rb") as npy_label:
                     label_arr = np.load(npy_label)
         i += 1
 
@@ -59,7 +62,7 @@ def squish(event, context):
     else:
         b2 = conn.get_bucket('testing-arrayfinal')
 
-    k = b2.new_key(str(image_num) + "-processed.npy")
+    k = b2.new_key(str(image_num) + "_" + feature + "-processed.npy")
 
     # Save the numpy arrays to temp .npy files on lambda
     upload_path = '/tmp/resized-matrix.npy'
@@ -88,14 +91,14 @@ def squish(event, context):
 
     #if not training, each preprocessing3 calls a predict
     if not is_train:
-        args = {"classifier": "neural", "bucket_from": "testing-arrayfinal", "model_bucket": "models-train", "model_bucket_name": model_bucket_name, "result_bucket": "result-labels", "num_items": i, "image_name": image_name, "result_name": image_name + str(image_num),
+        args = {"classifier": "neural", "bucket_from": "testing-arrayfinal", "model_bucket": "models-train", "model_bucket_name": model_bucket_name, "result_bucket": "result-labels", "num_items": i, "image_name": image_name, "feature": feature, "result_name": image_name + str(image_num),
             "image_num": str(image_num)}
         invoke_response = lambda_client.invoke(FunctionName="predict", InvocationType='Event', Payload=json.dumps(args))
 
     else: 
         sqs = boto3.client('sqs')
         queue_url = sqs.get_queue_url(QueueName=queue_name)
-        response = sqs.send_message(QueueUrl=queue_url['QueueUrl'], MessageBody=str(image_num), MessageDeduplicationId="deduplicationId" + str(image_num), MessageGroupId="groupId")
+        response = sqs.send_message(QueueUrl=queue_url['QueueUrl'], MessageBody=str(image_num) + '_' + feature, MessageDeduplicationId="deduplicationId" + str(image_num) + '_' + feature, MessageGroupId="groupId")
         print(response)
 
         b3 = conn.get_bucket("training-arrayfinal")
