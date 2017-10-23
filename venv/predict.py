@@ -15,11 +15,12 @@ def predict(event, context):
     model_bucket_name = event['model_bucket_name']
 
     image_num = event["image_num"]
+    feature = event["feature"]
 
     num_items = event['num_items']
     
-    print(image_num)
-    train_key = test_bucket.get_key(image_num + "-processed.npy")
+    print(str(image_num) + "_" + feature)
+    train_key = test_bucket.get_key(str(image_num) + "_" + feature + "-processed.npy")
     train_key.get_contents_to_filename('/tmp/ready_matrix.npy')
 
     if classifier == 'neural':
@@ -68,9 +69,11 @@ def predict(event, context):
 
     result_k = result_bucket.new_key(event['result_name'])
     with open("/tmp/results", "wb") as results:
-        new_predict = ''.join(str(e) for e in predictionslist)
+        #new_predict = ''.join(str(e) for e in predictionslist)
+        #results.write(new_predict)
+        #results.write(prediction)
+        new_predict = str(prediction)
         results.write(new_predict)
-        results.write(prediction)
 
     result_k.set_contents_from_filename("/tmp/results")
 
