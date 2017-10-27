@@ -47,7 +47,13 @@ def invoke_lambda(event, context):
         QueueName=model_bucket_name + '.fifo',
         Attributes={
             'FifoQueue': 'true',
-            'MessageRetentionPeriod': '300',
+            'ContentBasedDeduplication': 'true'
+        }
+    )
+    response = client.create_queue(
+        QueueName=model_bucket_name + '1.fifo',
+        Attributes={
+            'FifoQueue': 'true',
             'ContentBasedDeduplication': 'true'
         }
     )
@@ -87,17 +93,17 @@ def invoke_lambda(event, context):
             label = label_dict[actual_name]
             args = {"image_path": image_path, "image_name": actual_name, "filter_size": filter_size, "image_num": image_num,
                     "auth_token": event["auth_token"], "is_train": event["is_train"], "has_labels": has_labels, "model_bucket_name": model_bucket_name,
-                    "bucket_from": event["images_bucket"], "bucket_from_labels": event["images_labels_bucket"], "is_dropbox": event["is_dropbox"], "queue_name": model_bucket_name + '.fifo'}
+                    "bucket_from": event["images_bucket"], "bucket_from_labels": event["images_labels_bucket"], "is_dropbox": event["is_dropbox"], "queue_name": model_bucket_name + '.fifo', "queue_name1": model_bucket_name + '1.fifo'}
         elif not has_labels and event["is_train"]:
             print("unsupervised training")
             args = {"image_path": image_path, "image_name": actual_name, "filter_size": filter_size, "image_num": image_num,
                     "auth_token": event["auth_token"], "is_train": event["is_train"], "has_labels": has_labels, "model_bucket_name": model_bucket_name,
-                    "bucket_from": event["images_bucket"], "bucket_from_labels": "", "is_dropbox": event["is_dropbox"], "queue_name": model_bucket_name + '.fifo'}
+                    "bucket_from": event["images_bucket"], "bucket_from_labels": "", "is_dropbox": event["is_dropbox"], "queue_name": model_bucket_name + '.fifo', "queue_name1": model_bucket_name + '1.fifo'}
         else:
             print("testing")
             args = {"image_path": image_path, "image_name": actual_name, "filter_size": filter_size, "image_num": image_num,
                     "auth_token": event["auth_token"], "is_train": event["is_train"], "has_labels": has_labels, "model_bucket_name": model_bucket_name,
-                    "bucket_from": event["images_bucket"], "bucket_from_labels": "", "is_dropbox": event["is_dropbox"], "queue_name": model_bucket_name + '.fifo'}
+                    "bucket_from": event["images_bucket"], "bucket_from_labels": "", "is_dropbox": event["is_dropbox"], "queue_name": model_bucket_name + '.fifo', "queue_name1": model_bucket_name + '1.fifo'}
 
 
         invoke_response = lambda_client.invoke(FunctionName="preprocess2", InvocationType='Event', Payload=json.dumps(args))

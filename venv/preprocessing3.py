@@ -6,6 +6,7 @@ import json
 from boto.s3.key import Key
 import json
 import boto3
+import random
 
 # Function to be called by lambda2 when all images are done being preprocessed
 # to squish them together
@@ -21,6 +22,7 @@ def squish(event, context):
     model_bucket_name = event["model_bucket_name"]
     image_num = event["image_num"]
     queue_name = event["queue_name"]
+    queue_name1 = event["queue_name1"]
 
     bucket_list = b.list()
 
@@ -97,7 +99,11 @@ def squish(event, context):
 
     else: 
         sqs = boto3.client('sqs')
-        queue_url = sqs.get_queue_url(QueueName=queue_name)
+        num = random.randrange(1,3)
+        if num = 1:
+            queue_url = sqs.get_queue_url(QueueName=queue_name)
+        else:
+            queue_url = sqs.get_queue_url(QueueName=queue_name1)
         response = sqs.send_message(QueueUrl=queue_url['QueueUrl'], MessageBody=str(image_num) + '_' + feature, MessageDeduplicationId="deduplicationId" + str(image_num) + '_' + feature, MessageGroupId="groupId")
         print(response)
 
