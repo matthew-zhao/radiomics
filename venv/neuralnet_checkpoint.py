@@ -3,9 +3,12 @@ import pickle
 import numpy as np
 import boto
 import argparse
+import boto3
+import json
 
 from boto.s3.key import Key
 
+lambda_client = boto3.client('lambda')
 # Uses MLP Neural Net classifier to train a model
 def classify(event, context):
     conn = boto.connect_s3("AKIAIMQLHJNMP6DOUM4A","8dJAfPZlTjMR1SOcOetImclAmT+G02VkQiuHefdY")
@@ -24,18 +27,20 @@ def classify(event, context):
 
     client = boto3.client('sqs')
 
-    queue_url = client.get_queue_url(QueueName=event['queue_name'])
+    queue_url = client.get_queue_url(QueueName=event['queue_name'])['QueueUrl']
 
     response = client.receive_message(
         QueueUrl=queue_url,
         AttributeNames=['All'],
         MaxNumberOfMessages=1,
         MessageAttributeNames=['All'],
-        VisibilityTimeout=0,
-        WaitTimeSeconds=0
+        VisibilityTimeout=2,
+        WaitTimeSeconds=20
     )
 
-    if len(response['Messages']) == 0:
+    #print(response)
+
+    if 'Messages' not in response:
         # remove flag key
         b.delete_key("called")
 
@@ -49,8 +54,9 @@ def classify(event, context):
     message = response['Messages'][0]
     receipt_handle = message['ReceiptHandle']
 
-    image_num = message['Body']
-    num = int(msg_content)
+    image_name = message['Body']
+    image_num = image_name.split("_")[0]
+    #num = int(image_num)
 
     client.delete_message(
         QueueUrl=queue_url,
@@ -59,7 +65,7 @@ def classify(event, context):
 
     print("Received and deleted message")
 
-    X_key = b.get_key(image_num + '-processed.npy')
+    X_key = b.get_key(image_name + '-processed.npy')
     X_key.get_contents_to_filename('/tmp/ready_matrix.npy')
     Y_key = labels.get_key(image_num + 'label-processed.npy')
     Y_key.get_contents_to_filename('/tmp/ready_labels.npy')
@@ -71,29 +77,30 @@ def classify(event, context):
     #X_key.get_contents_to_filename('/tmp/ready_matrix.npy')
     #Y_key.get_contents_to_filename('/tmp/ready_labels.npy')
 
-    with open("ready_matrix.npy", "rb") as ready_matrix:
+    with open("/tmp/ready_matrix.npy", "rb") as ready_matrix:
         X = np.load(ready_matrix)
 
-    with open("ready_labels.npy", "rb") as ready_labels:
+    with open("/tmp/ready_labels.npy", "rb") as ready_labels:
         y = np.load(ready_labels)
 
     print("About to train")
 
     if existing_model:
-        existing_model.get_contents_to_filename('key')
-        with open("key", "rb") as keyfile:
+        print("training from existing model")
+        existing_model.get_contents_to_filename('/tmp/key')
+        with open("/tmp/key", "rb") as keyfile:
             contents = keyfile.read()
             clf = pickle.loads(contents)
         model_k = existing_model
     else:
-        clf = MLPClassifier(solver='adam', alpha=1e-5, hidden_layer_sizes=(52,32), random_state=1, warm_start=True, max_iter=7)
+        clf = MLPClassifier(solver='adam', alpha=1e-5, hidden_layer_sizes=(216,), random_state=1, warm_start=True, max_iter=1000)
 
         model_k = model_bucket.new_key(model_bucket_name)
 
     # TODO: this may not be true if things are not one-hot encoded
     #clf.classes_ = [0, 1]
 
-    clf.partial_fit(X, y, classes=np.array([0, 1]))
+    clf.partial_fit(X, y, classes=[0, 1, 2, 3, 4])
 
     print("done training")
 

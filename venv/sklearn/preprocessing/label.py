@@ -329,6 +329,7 @@ class LabelBinarizer(BaseEstimator, TransformerMixin):
             raise ValueError("The object was not fitted with multilabel"
                              " input.")
 
+        print(self.classes_)
         return label_binarize(y, self.classes_,
                               pos_label=self.pos_label,
                               neg_label=self.neg_label,
