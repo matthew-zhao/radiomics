@@ -35,7 +35,7 @@ def classify(event, context):
         MaxNumberOfMessages=1,
         MessageAttributeNames=['All'],
         VisibilityTimeout=2,
-        WaitTimeSeconds=0
+        WaitTimeSeconds=20
     )
 
     #print(response)
@@ -86,13 +86,14 @@ def classify(event, context):
     print("About to train")
 
     if existing_model:
+        print("training from existing model")
         existing_model.get_contents_to_filename('/tmp/key')
         with open("/tmp/key", "rb") as keyfile:
             contents = keyfile.read()
             clf = pickle.loads(contents)
         model_k = existing_model
     else:
-        clf = MLPClassifier(solver='adam', alpha=1e-5, hidden_layer_sizes=(216,), random_state=1, warm_start=True, max_iter=20)
+        clf = MLPClassifier(solver='adam', alpha=1e-5, hidden_layer_sizes=(216,), random_state=1, warm_start=True, max_iter=1000)
 
         model_k = model_bucket.new_key(model_bucket_name)
 
