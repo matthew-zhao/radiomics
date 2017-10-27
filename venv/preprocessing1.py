@@ -47,7 +47,13 @@ def invoke_lambda(event, context):
         QueueName=model_bucket_name + '.fifo',
         Attributes={
             'FifoQueue': 'true',
-            'MessageRetentionPeriod': '300',
+            'ContentBasedDeduplication': 'true'
+        }
+    )
+    response = client.create_queue(
+        QueueName=model_bucket_name + '1.fifo',
+        Attributes={
+            'FifoQueue': 'true',
             'ContentBasedDeduplication': 'true'
         }
     )
