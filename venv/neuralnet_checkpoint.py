@@ -1,10 +1,12 @@
-from sklearn.neural_network import MLPClassifier
+#from sklearn.neural_network import MLPClassifier
+import tensorflow as tf
 import pickle
 import numpy as np
 import boto
 import argparse
 import boto3
 import json
+import random
 
 from boto.s3.key import Key
 
@@ -27,7 +29,12 @@ def classify(event, context):
 
     client = boto3.client('sqs')
 
-    queue_url = client.get_queue_url(QueueName=event['queue_name'])['QueueUrl']
+    num = random.randrange(1,3)
+    if num == 1:
+        queue_url = client.get_queue_url(QueueName=event['queue_name'])['QueueUrl']
+    else:
+        queue_url = client.get_queue_url(QueueName=event['queue_name1'])['QueueUrl']
+    
 
     response = client.receive_message(
         QueueUrl=queue_url,
@@ -71,6 +78,7 @@ def classify(event, context):
     Y_key.get_contents_to_filename('/tmp/ready_labels.npy')
 
     existing_model = model_bucket.get_key(model_bucket_name)
+    existing_checkpoint = model_bucket.get_key(model_bucket_name + '-checkpoint')
 
     print("finished reading from bucket")
 
@@ -82,43 +90,135 @@ def classify(event, context):
 
     with open("/tmp/ready_labels.npy", "rb") as ready_labels:
         y = np.load(ready_labels)
+    
 
     print("About to train")
+    with tf.Session() as sess:
+        if existing_model:
+            print("training from existing model")
+            existing_model.get_contents_to_filename('/tmp/model.meta')
+            existing_checkpoint.get_contents_to_filename('/tmp/checkpoint')
+            # with open("/tmp/key", "rb") as keyfile:
+            #     contents = keyfile.read()
+            #     clf = pickle.loads(contents)
+            
+            old_saver = tf.train.import_meta_graph('/tmp/model.meta')
+            old_saver.restore(sess, tf.train.latest_checkpoint('/tmp/'))
 
-    if existing_model:
-        print("training from existing model")
-        existing_model.get_contents_to_filename('/tmp/key')
-        with open("/tmp/key", "rb") as keyfile:
-            contents = keyfile.read()
-            clf = pickle.loads(contents)
-        model_k = existing_model
-    else:
-        clf = MLPClassifier(solver='adam', alpha=1e-5, hidden_layer_sizes=(216,), random_state=1, warm_start=True, max_iter=1000)
+            graph = tf.get_default_graph()
+            X_train = graph.get_tensor_by_name("X_train:0")
+            y_train = graph.get_tensor_by_name("y_train:0")
 
-        model_k = model_bucket.new_key(model_bucket_name)
+            #cost = graph.get_tensor_by_name("loss:0")
+            #optimizer = graph.get_tensor_by_name("grad_descent:0")
+            cost = graph.get_operation_by_name("loss")
+            optimizer = graph.get_operation_by_name("grad_descent")
 
-    # TODO: this may not be true if things are not one-hot encoded
-    #clf.classes_ = [0, 1]
+            model_k = existing_model
+            model_checkpoint = existing_checkpoint
+        else:
+            model_k = model_bucket.new_key(model_bucket_name)
+            model_checkpoint = model_bucket.new_key(model_bucket_name + '-checkpoint')
+            #clf = MLPClassifier(solver='adam', alpha=1e-5, hidden_layer_sizes=(216,), random_state=1, warm_start=True, max_iter=1000)
+            # Initialize weights and biases of neural network
+            saver = tf.train.Saver()
 
-    clf.partial_fit(X, y, classes=[0, 1, 2, 3, 4])
+            # Create tf placeholders for X and y
+            X_train = tf.placeholder(tf.float32, [X.shape[1], None], name="X_train")
+            y_train = tf.placeholder(tf.float32, [y.shape[1], None], name="y_train")
+            num_features = X.shape[1]
+
+            parameters = get_parameters(num_features)
+            W1 = parameters["W1"]
+            b1 = parameters["b1"]
+            W2 = parameters["W2"]
+            b2 = parameters["b2"]
+
+            # Forward prop
+            # Here, the notation is S1 = relu(W1*X + b1) and S2 = relu(W2*S1 + b2)
+            S1 = tf.nn.relu(tf.add(tf.matmul(W1, X_train), b1))
+            S2 = tf.add(tf.matmul(W2, S1), b2)
+
+            prediction = tf.nn.softmax(S2, name="predict")
+
+            # Calculate cost/cross-entropy loss (our final layer is softmax)
+            cost = tf.nn.softmax_cross_entropy_with_logits(logits=S2, labels=y_train, name="loss")
+
+            # Backprop done by tensorflow (thank god :D)
+            optimizer = tf.train.AdamOptimizer(learning_rate=0.001).minimize(cost, name="grad_descent")
+
+            init = tf.global_variables_initializer()
+            sess.run(init)
+
+        # TODO: this may not be true if things are not one-hot encoded
+        #clf.classes_ = [0, 1]
+
+        minibatch_size = 32
+        m = X_train.shape[0]
+        for iteration in range(1000):
+            iteration_cost = 0.
+            num_minibatches = int(m / minibatch_size)
+
+            # generate random minibatches
+            permutation = list(np.random.permutation(m))
+            shuffled_X = X_train[permutation, :]
+            shuffled_Y = y_train[permutation, :]
+
+            for k in range(num_minibatches):
+                minibatch_X = shuffled_X[k * minibatch_size : k * minibatch_size + minibatch_size, :]
+                minibatch_Y = shuffled_Y[k * minibatch_size : k * minibatch_size + minibatch_size, :]
+                minibatches.append((minibatch_X, minibatch_Y))
+
+            if m % minibatch_size != 0:
+                minibatch_X = shuffled_X[num_minibatches*minibatch_size : m, :]
+                minibatch_Y = shuffled_Y[num_minibatches*minibatch_size : m, :]
+                minibatches.append((minibatch_X, minibatch_Y))
+
+            for minibatch in minibatches:
+                _, minibatch_cost = sess.run([optimizer, cost], feed_dict={X_train: minibatch[0], y_train: minibatch[1]})
+                iteration_cost += minibatch_cost / num_minibatches
+
+            if iteration % 100 == 0:
+                print ("Cost after iteration %i: %f" % (iteration, iteration_cost))
+
+            parameters = sess.run(parameters)
+
+        saver.save(sess, '/tmp/model')
+
+
+    #clf.partial_fit(X, y, classes=event["num_classes"])
 
     print("done training")
 
-    s = pickle.dumps(clf)
+
+    #s = pickle.dumps(clf)
 
     #model_k = model_bucket.new_key(event['model_name'])
 
     #model_k = model_bucket.new_key('nm')
 
-    with open("/tmp/model", "wb") as model:
-        model.write(s)
+    #with open("/tmp/model", "wb") as model:
+    #    model.write(s)
     
-    model_k.set_contents_from_filename("/tmp/model")
+    model_k.set_contents_from_filename("/tmp/model.meta")
+    model_checkpoint.set_contents_from_filename("/tmp/checkpoint")
 
     model_k.make_public()
+    model_checkpoint.make_public()
 
     args = {"bucket_from": event['bucket_from'], "bucket_from_labels": event['bucket_from_labels'], "model_bucket_name": model_bucket_name, "image_num": image_num, "num_items": event['num_items'],
-            "queue_name": event['queue_name']}
+            "queue_name": event['queue_name'], "queue_name1": event["queue_name1"], "num_classes": event["num_classes"]}
     invoke_response = lambda_client.invoke(FunctionName="neuralnet_checkpoint", InvocationType='Event', Payload=json.dumps(args))
     return 0
 
+def get_parameters():
+    W1 = tf.get_variable("W1", [num_features,216], initializer=tf.contrib.layers.xavier_initializer())
+    b1 = tf.get_variable("b1", [1, 216], initializer=tf.zeros_initializer())
+    W2 = tf.get_variable("W2", [216, event["num_classes"]], initializer=tf.contrib.layers.xavier_initializer())
+    b2 = tf.get_variable("b2", [1, event["num_classes"]], initializer=tf.zeros_initializer())
+    parameters = {"W1": W1,
+                  "b1": b1,
+                  "W2": W2,
+                  "b2": b2}
+    
+    return parameters

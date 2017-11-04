@@ -53,10 +53,10 @@ def squish(event, context):
     X_converted = training_arr.astype(np.float16)
     X_train = X_converted / 255
 
-    #if has_labels:
-    #    y_converted = label_arr.astype(np.float16)
-    #    targets = y_converted.reshape(-1)
-    #    y_train = np.eye(5)[targets.astype('int8')]
+    if has_labels:
+        y_converted = label_arr.astype(np.float16)
+        targets = y_converted.reshape(-1)
+        y_train = np.eye(5)[targets.astype('int8')]
 
     # Create new buckets for the array and its corresponding labels
     if is_train:
@@ -83,8 +83,8 @@ def squish(event, context):
         k2 = labels2.new_key(str(image_num) + "label-processed.npy")
 
         upload_path_labels = '/tmp/resized-labels.npy'
-        #np.save(upload_path_labels, y_train)
-        np.save(upload_path_labels, label_arr)
+        np.save(upload_path_labels, y_train)
+        #np.save(upload_path_labels, label_arr)
 
         k2.set_contents_from_filename(upload_path_labels)
         k2.make_public()
@@ -100,7 +100,7 @@ def squish(event, context):
     else: 
         sqs = boto3.client('sqs')
         num = random.randrange(1,3)
-        if num = 1:
+        if num == 1:
             queue_url = sqs.get_queue_url(QueueName=queue_name)
         else:
             queue_url = sqs.get_queue_url(QueueName=queue_name1)
@@ -119,7 +119,7 @@ def squish(event, context):
             k.set_contents_from_filename("/tmp/called")
             k.make_public()
 
-            args = {"bucket_from": "training-arrayfinal", "bucket_from_labels" : "training-labelsfinal", "model_bucket_name": model_bucket_name, "image_num": str(image_num), "num_items": i, "image_name": image_name, "queue_name": queue_name}
+            args = {"bucket_from": "training-arrayfinal", "bucket_from_labels" : "training-labelsfinal", "model_bucket_name": model_bucket_name, "image_num": str(image_num), "num_items": i, "image_name": image_name, "queue_name": queue_name, "queue_name1": queue_name1, "num_classes": event["num_classes"]}
             invoke_response = lambda_client.invoke(FunctionName="neuralnet_checkpoint", InvocationType='Event', Payload=json.dumps(args))
 
 
