@@ -106,13 +106,13 @@ def preprocess(event, context):
 
         if is_train and has_labels:
             msg = {"is_train": is_train, "image_name": str(image_name), "feature": str(feature), "bucket_from": "training-array", "bucket_from_labels": "training-labels", "has_labels": "True", "model_bucket_name": model_bucket_name, "image_num": image_num,
-                    "queue_name": model_bucket_name + '.fifo', "queue_name1": model_bucket_name + '1.fifo', "num_classes": event["num_classes"]}
+                    "queue_name": model_bucket_name + '.fifo', "queue_name1": model_bucket_name + '1.fifo', "num_classes": event["num_classes"], "num_machines": event["num_machines"]}
         elif is_train and not has_labels:
             msg = {"is_train": is_train, "image_name": str(image_name), "feature": str(feature), "bucket_from": "training-array", "bucket_from_labels": "", "has_labels": "", "model_bucket_name": model_bucket_name, "image_num": image_num,
-                    "queue_name": model_bucket_name + '.fifo', "queue_name1": model_bucket_name + '1.fifo', "num_classes": event["num_classes"]}
+                    "queue_name": model_bucket_name + '.fifo', "queue_name1": model_bucket_name + '1.fifo', "num_classes": event["num_classes"], "num_machines": event["num_machines"]}
         else:
             msg = {"is_train": is_train, "image_name": str(image_name), "feature": str(feature), "bucket_from": "testing-array", "bucket_from_labels": "", "has_labels": "", "model_bucket_name": model_bucket_name, "image_num": image_num,
-                    "queue_name": model_bucket_name + '.fifo', "queue_name1": model_bucket_name + '1.fifo', "num_classes": event["num_classes"]}
+                    "queue_name": model_bucket_name + '.fifo', "queue_name1": model_bucket_name + '1.fifo', "num_classes": event["num_classes"], "num_machines": event["num_machines"]}
         lambda_client = boto3_client('lambda')
         lambda_client.invoke(FunctionName="preprocess3", InvocationType='Event', Payload=json.dumps(msg))
 

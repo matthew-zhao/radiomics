@@ -15,6 +15,7 @@ lambda_client = boto3.client('lambda')
 def squish(event, context):
     conn = boto.connect_s3("AKIAIMQLHJNMP6DOUM4A","8dJAfPZlTjMR1SOcOetImclAmT+G02VkQiuHefdY")
     b = conn.get_bucket(event['bucket_from'])
+
     has_labels = event["has_labels"]
     is_train = event["is_train"]
     image_name = event["image_name"]
@@ -52,6 +53,7 @@ def squish(event, context):
 
     X_converted = training_arr.astype(np.float16)
     X_train = X_converted / 255
+    num_features = X_train.shape[1]
 
     if has_labels:
         y_converted = label_arr.astype(np.float16)
@@ -97,30 +99,53 @@ def squish(event, context):
             "image_num": str(image_num)}
         invoke_response = lambda_client.invoke(FunctionName="predict", InvocationType='Event', Payload=json.dumps(args))
 
-    else: 
+    else:
         sqs = boto3.client('sqs')
         num = random.randrange(1,3)
         if num == 1:
             queue_url = sqs.get_queue_url(QueueName=queue_name)
         else:
             queue_url = sqs.get_queue_url(QueueName=queue_name1)
+        receipt_msg = sqs.receive_message(
+            QueueUrl=sqs.get_queue_url(QueueName='called-' + queue_name)['QueueUrl'],
+            AttributeNames=['All'],
+            MaxNumberOfMessages=1,
+            MessageAttributeNames=['All'],
+            VisibilityTimeout=2,
+            WaitTimeSeconds=20
+        )
+        is_called = None
+        if 'Messages' in receipt_msg:
+            message = receipt_msg['Messages'][0]
+            receipt_handle = message['ReceiptHandle']
+            is_called = message['Body']
+
         response = sqs.send_message(QueueUrl=queue_url['QueueUrl'], MessageBody=str(image_num) + '_' + feature, MessageDeduplicationId="deduplicationId" + str(image_num) + '_' + feature, MessageGroupId="groupId")
         print(response)
 
-        b3 = conn.get_bucket("training-arrayfinal")
-        called = b3.get_key("called")
-
+        # b3 = conn.get_bucket("training-arrayfinal")
+        # called = b3.get_key("called")
+        # print(called)
+        # #only invoke neuralnet.py once, by the first preprocessing3 to finish
+        # if is_called is None:
+        #     print("Neuralnet invoked from " + str(image_num))
+        #     with open("/tmp/called", "wb") as flag:
+        #         flag.write("True")
+        #     k = b3.new_key("called")
+        #     k.set_contents_from_filename("/tmp/called")
+        #     k.make_public()
+        print(is_called)
         #only invoke neuralnet.py once, by the first preprocessing3 to finish
-        if called is None:
+        if is_called == 'called':
             print("Neuralnet invoked from " + str(image_num))
-            with open("/tmp/called", "wb") as flag:
-                flag.write("True")
-            k = b3.new_key("called")
-            k.set_contents_from_filename("/tmp/called")
-            k.make_public()
+            sqs.delete_message(
+                QueueUrl=sqs.get_queue_url(QueueName='called-' + queue_name)['QueueUrl'],
+                ReceiptHandle=receipt_handle
+            )
 
-            args = {"bucket_from": "training-arrayfinal", "bucket_from_labels" : "training-labelsfinal", "model_bucket_name": model_bucket_name, "image_num": str(image_num), "num_items": i, "image_name": image_name, "queue_name": queue_name, "queue_name1": queue_name1, "num_classes": event["num_classes"]}
-            invoke_response = lambda_client.invoke(FunctionName="neuralnet_checkpoint", InvocationType='Event', Payload=json.dumps(args))
-
+            args = {"bucket_from": "training-arrayfinal", "bucket_from_labels" : "training-labelsfinal", "model_bucket_name": model_bucket_name, 
+                    "image_num": str(image_num), "num_items": i, "image_name": image_name, "queue_name": queue_name, "queue_name1": queue_name1, 
+                    "num_classes": event["num_classes"], "num_machines": event["num_machines"], "called_from": "pre3", "num_features": num_features}
+            invoke_response = lambda_client.invoke(FunctionName="averager", InvocationType='Event', Payload=json.dumps(args))
 
     return 0
