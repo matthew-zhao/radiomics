@@ -144,6 +144,12 @@ def classify(event, context):
                 new_b1 = new_b1 + b1.eval(sess)
                 new_W2 = new_W2 + W2.eval(sess)
                 new_b2 = new_b2 + b2.eval(sess)
+
+                # delete keys
+                model_bucket.delete_key(model_bucket_name + i)
+                model_bucket.delete_key(model_bucket_name + '-index' + i)
+                model_bucket.delete_key(model_bucket_name + '-data' + i)
+                model_bucket.delete_key(model_bucket_name + '-checkpoint' + i)
                 num_successful += 1
         new_W1 = new_W1 / num_successful
         new_b1 = new_b1 / num_successful
