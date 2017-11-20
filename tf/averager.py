@@ -55,6 +55,21 @@ def classify(event, context):
         print("Done")
         return 1
 
+    if 'Messages' in response:
+        messages = response['Messages']
+
+        for message in messages:
+            receipt_handle = message['ReceiptHandle']
+
+            image_name = message['Body']
+            image_num = image_name.split("_")[0]
+            image_name_pairs.append((image_name, image_num))
+
+            client.delete_message(
+                QueueUrl=queue_url1,
+                ReceiptHandle=receipt_handle
+            )
+
     if 'Messages' in response2:
         messages2 = response2['Messages']
 
