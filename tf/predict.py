@@ -1,9 +1,7 @@
-#from sklearn.neural_network import MLPClassifier
 import tensorflow as tf
 import pickle
 import numpy as np
 import boto
-#from scipy import stats
 
 from boto.s3.key import Key
 
@@ -53,10 +51,6 @@ def predict(event, context):
 
     print("data loaded")
 
-    # with open("/tmp/key", "rb") as keyfile:
-    #     contents = keyfile.read()
-    #     clf = pickle.loads(contents)
-
     with tf.Session() as sess:
         old_saver = tf.train.import_meta_graph('/tmp/model.meta')
         old_saver.restore(sess, '/tmp/model')
@@ -69,30 +63,16 @@ def predict(event, context):
         predictions = sess.run(prediction_func, feed_dict={X_train: X_converted})
 
     print("finished predicting")
-    #pred = np.array(predictions)
-
-    #predictionslist = np.argmax(predictions, axis=1)
-
-    #new_predict_list = []
-    #for i in range(num_items):
-    #    prediction = np.argmax(np.bincount(predictionslist[77602*i:77602*(i+1)]))
-    #    new_predict_list.append(prediction)
-
-    #prediction = stats.mode(predictionslist).mode[0]
-
-    # prediction = stats.mode(predictions).mode[0]
+    print(predictions)
+    final_predictions = np.argmax(predictions, axis=1)
+    reshaped_predictions = np.reshape(final_predictions, (int(event["yscale"]), int(event["xscale"])))
+    np.savetxt('/tmp/results', reshaped_predictions, fmt = '%i')
 
     result_k = result_bucket.new_key(event['result_name'])
-    with open("/tmp/results", "wb") as results:
-        #new_predict = ''.join(str(e) for e in predictionslist)
-        #results.write(new_predict)
-        #results.write(prediction)
-        #new_predict = str(prediction)
-        #results.write(new_predict)
-        results.write(predictions)
 
     result_k.set_contents_from_filename("/tmp/results")
 
     result_k.make_public()
+    print(event["result_bucket"], event["result_name"])
 
     return 1

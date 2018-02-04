@@ -35,10 +35,14 @@ def predict(event, context):
     elif classifier == 'bagging':
         key = model_bucket.get_key('bagging')
 
-    key_checkpoint.get_key(model_bucket_name + '-checkpoint')
+    key_checkpoint = model_bucket.get_key(model_bucket_name + '-checkpoint')
+    key_index = model_bucket.get_key(model_bucket_name + '-index')
+    key_data = model_bucket.get_key(model_bucket_name + '-data')
 
     key.get_contents_to_filename('/tmp/model.meta')
     key_checkpoint.get_contents_to_filename('/tmp/checkpoint')
+    key_index.get_contents_to_filename('/tmp/model.index')
+    key_data.get_contents_to_filename('/tmp/model.data-00000-of-00001')
 
     print("preparation ready")
 
@@ -55,12 +59,12 @@ def predict(event, context):
 
     with tf.Session() as sess:
         old_saver = tf.train.import_meta_graph('/tmp/model.meta')
-        old_saver.restore(sess, tf.train.latest_checkpoint('/tmp/'))
+        old_saver.restore(sess, '/tmp/model')
 
         graph = tf.get_default_graph()
         X_train = graph.get_tensor_by_name("X_train:0")
 
-        prediction_func = graph.get_operation_by_name("predict")
+        prediction_func = tf.get_collection('predict')[0]
 
         predictions = sess.run(prediction_func, feed_dict={X_train: X_converted})
 
@@ -91,4 +95,4 @@ def predict(event, context):
 
     result_k.make_public()
 
-    return 1 
+    return 1

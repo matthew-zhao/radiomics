@@ -120,8 +120,6 @@ def classify(event, context):
             model_k = model_bucket.new_key(model_bucket_name)
             model_checkpoint = model_bucket.new_key(model_bucket_name + '-checkpoint')
             #clf = MLPClassifier(solver='adam', alpha=1e-5, hidden_layer_sizes=(216,), random_state=1, warm_start=True, max_iter=1000)
-            # Initialize weights and biases of neural network
-            saver = tf.train.Saver()
 
             # Create tf placeholders for X and y
             X_train = tf.placeholder(tf.float32, [X.shape[1], None], name="X_train")
@@ -149,6 +147,9 @@ def classify(event, context):
 
             init = tf.global_variables_initializer()
             sess.run(init)
+
+            # Initialize weights and biases of neural network
+            saver = tf.train.Saver()
 
         # TODO: this may not be true if things are not one-hot encoded
         #clf.classes_ = [0, 1]

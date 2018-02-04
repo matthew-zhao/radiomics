@@ -6,6 +6,7 @@ import argparse
 import boto3
 import json
 import random
+import os
 
 from boto.s3.key import Key
 
@@ -28,62 +29,68 @@ def classify(event, context):
     queue_url2 = client.get_queue_url(QueueName=event['queue_name1'])['QueueUrl']
     image_name_pairs = []
 
-    num_to_receive_1 = int(event['num_machines']) / 2
-    num_to_receive_2 = int(event['num_machines']) - num_to_receive_1
+    num_machines = int(event['num_machines'])
 
-    num_actually_received_1 = 0
+    while num_machines > 0:
+        if num_machines > 20:
+            num_to_receive_1 = 10
+            num_to_receive_2 = 10
+        else:
+            num_to_receive_1 = num_machines / 2
+            num_to_receive_2 = num_machines - num_to_receive_1
 
-    response = client.receive_message(
-        QueueUrl=queue_url1,
-        AttributeNames=['All'],
-        MaxNumberOfMessages=num_to_receive_1,
-        MessageAttributeNames=['All'],
-        VisibilityTimeout=30,
-        WaitTimeSeconds=20
-    )
+        response = client.receive_message(
+            QueueUrl=queue_url1,
+            AttributeNames=['All'],
+            MaxNumberOfMessages=num_to_receive_1,
+            MessageAttributeNames=['All'],
+            VisibilityTimeout=30,
+            WaitTimeSeconds=20
+        )
 
-    response2 = client.receive_message(
-        QueueUrl=queue_url2,
-        AttributeNames=['All'],
-        MaxNumberOfMessages=num_to_receive_2,
-        MessageAttributeNames=['All'],
-        VisibilityTimeout=30,
-        WaitTimeSeconds=20
-    )
+        response2 = client.receive_message(
+            QueueUrl=queue_url2,
+            AttributeNames=['All'],
+            MaxNumberOfMessages=num_to_receive_2,
+            MessageAttributeNames=['All'],
+            VisibilityTimeout=30,
+            WaitTimeSeconds=20
+        )
 
-    if 'Messages' not in response and 'Messages' not in response2:
-        print("Done")
-        return 1
+        if 'Messages' not in response and 'Messages' not in response2:
+            print("Done")
+            return 1
 
-    if 'Messages' in response:
-        messages = response['Messages']
+        if 'Messages' in response:
+            messages = response['Messages']
 
-        for message in messages:
-            receipt_handle = message['ReceiptHandle']
+            for message in messages:
+                receipt_handle = message['ReceiptHandle']
 
-            image_name = message['Body']
-            image_num = image_name.split("_")[0]
-            image_name_pairs.append((image_name, image_num))
+                image_name = message['Body']
+                image_num = image_name.split("_")[0]
+                image_name_pairs.append((image_name, image_num))
 
-            client.delete_message(
-                QueueUrl=queue_url1,
-                ReceiptHandle=receipt_handle
-            )
+                client.delete_message(
+                    QueueUrl=queue_url1,
+                    ReceiptHandle=receipt_handle
+                )
 
-    if 'Messages' in response2:
-        messages2 = response2['Messages']
+        if 'Messages' in response2:
+            messages2 = response2['Messages']
 
-        for message in messages2:
-            receipt_handle = message['ReceiptHandle']
+            for message in messages2:
+                receipt_handle = message['ReceiptHandle']
 
-            image_name = message['Body']
-            image_num = image_name.split("_")[0]
-            image_name_pairs.append((image_name, image_num))
+                image_name = message['Body']
+                image_num = image_name.split("_")[0]
+                image_name_pairs.append((image_name, image_num))
 
-            client.delete_message(
-                QueueUrl=queue_url2,
-                ReceiptHandle=receipt_handle
-            )
+                client.delete_message(
+                    QueueUrl=queue_url2,
+                    ReceiptHandle=receipt_handle
+                )
+        num_machines -= num_to_receive_1 + num_to_receive_2
 
     print("finished reading from bucket")
     # averaging is done here
@@ -150,6 +157,11 @@ def classify(event, context):
                 model_bucket.delete_key(model_bucket_name + '-index' + i)
                 model_bucket.delete_key(model_bucket_name + '-data' + i)
                 model_bucket.delete_key(model_bucket_name + '-checkpoint' + i)
+
+                # delete files
+                os.remove('/tmp/model' + i + '.meta')
+                os.remove('/tmp/model' + i + '.index')
+                os.remove('/tmp/model' + i + '.data-00000-of-00001')
                 num_successful += 1
         new_W1 = new_W1 / num_successful
         new_b1 = new_b1 / num_successful

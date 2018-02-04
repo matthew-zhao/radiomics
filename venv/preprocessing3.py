@@ -94,9 +94,9 @@ def squish(event, context):
 
 
     #if not training, each preprocessing3 calls a predict
-    if not is_train:
+    if not is_train and feature == "total":
         args = {"classifier": "neural", "bucket_from": "testing-arrayfinal", "model_bucket": "models-train", "model_bucket_name": model_bucket_name, "result_bucket": "result-labels", "num_items": i, "image_name": image_name, "feature": feature, "result_name": image_name + str(image_num),
-            "image_num": str(image_num)}
+            "image_num": str(image_num), "xscale": event["xscale"], "yscale": event["yscale"]}
         invoke_response = lambda_client.invoke(FunctionName="predict", InvocationType='Event', Payload=json.dumps(args))
 
     else:

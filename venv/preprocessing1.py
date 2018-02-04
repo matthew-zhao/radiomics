@@ -7,13 +7,13 @@ import dropbox
 import csv
 import scipy
 import boto
+import zipfile
 from boto.s3.key import Key
 
 lambda_client = boto3.client('lambda')
 
 def invoke_lambda(event, context):
     conn = boto.connect_s3("AKIAIMQLHJNMP6DOUM4A","8dJAfPZlTjMR1SOcOetImclAmT+G02VkQiuHefdY")
-    b = conn.get_bucket(event["images_bucket"])
 
     paths = []
     if event["is_dropbox"]:
@@ -27,6 +27,7 @@ def invoke_lambda(event, context):
                 paths.append(metadata.path_display) #adds files to paths
                 #paths is list of paths to files, has extensions
     else:
+        b = conn.get_bucket(event["images_bucket"])
         bucket_list = b.list()
 
         for l in bucket_list:
@@ -68,6 +69,7 @@ def invoke_lambda(event, context):
     msg_response = client.send_message(QueueUrl=queue_url['QueueUrl'], MessageBody='called', MessageDeduplicationId="deduplicationId", MessageGroupId="groupId")
 
     if has_labels:
+        b = conn.get_bucket(event["images_bucket"])
         csv_key = b.get_key('trainLabels.csv')
         csv_key.get_contents_to_filename("/tmp/trainLabels.csv")
 
@@ -99,11 +101,17 @@ def invoke_lambda(event, context):
         actual_name, extension = image_name.split(".")
         if has_labels and event["is_train"]:
             print("supervised training")
-            label = label_dict[actual_name]
-            args = {"image_path": image_path, "image_name": actual_name, "filter_size": filter_size, "image_num": image_num,
-                    "auth_token": event["auth_token"], "is_train": event["is_train"], "has_labels": has_labels, "model_bucket_name": model_bucket_name,
-                    "bucket_from": event["images_bucket"], "bucket_from_labels": event["images_labels_bucket"], "is_dropbox": event["is_dropbox"], "queue_name": model_bucket_name + '.fifo', "queue_name1": model_bucket_name + '1.fifo',
-                    "num_classes": event["num_classes"], "num_machines": event["num_machines"]}
+            if event["label_style"] == "single":
+                label = label_dict[actual_name]
+                args = {"image_path": image_path, "image_name": actual_name, "filter_size": filter_size, "image_num": image_num,
+                        "auth_token": event["auth_token"], "is_train": event["is_train"], "has_labels": has_labels, "model_bucket_name": model_bucket_name,
+                        "bucket_from": event["images_bucket"], "bucket_from_labels": "", "is_dropbox": event["is_dropbox"], "queue_name": model_bucket_name + '.fifo', "queue_name1": model_bucket_name + '1.fifo',
+                        "num_classes": event["num_classes"], "num_machines": event["num_machines"], "label_style": event["label_style"], "label": label}
+            else:
+                args = {"image_path": image_path, "image_name": actual_name, "filter_size": filter_size, "image_num": image_num,
+                        "auth_token": event["auth_token"], "is_train": event["is_train"], "has_labels": has_labels, "model_bucket_name": model_bucket_name,
+                        "bucket_from": event["images_bucket"], "bucket_from_labels": event["images_labels_bucket"], "is_dropbox": event["is_dropbox"], "queue_name": model_bucket_name + '.fifo', "queue_name1": model_bucket_name + '1.fifo',
+                        "num_classes": event["num_classes"], "num_machines": event["num_machines"], "label_style": event["label_style"]}
         elif not has_labels and event["is_train"]:
             print("unsupervised training")
             args = {"image_path": image_path, "image_name": actual_name, "filter_size": filter_size, "image_num": image_num,

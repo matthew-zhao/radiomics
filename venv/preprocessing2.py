@@ -60,24 +60,27 @@ def preprocess(event, context):
         ds = dicom.read_file(f2)
         img_raw = ds.pixel_array
         f2.close()
-        xscale = 324.0 / img_raw.shape[0]
-        yscale = 243.0 / img_raw.shape[1]
+        xscale = 324.0 / img_raw.shape[1]
+        yscale = 243.0 / img_raw.shape[0]
         img = scipy.ndimage.interpolation.zoom(img_raw, [xscale, yscale])
+        #img = img_raw
     else:
         img_resized = img_raw.resize((243, 324), Image.ANTIALIAS)
         img = scipy.array(img_resized)
+        #img = scipy.array(img_raw)
 
-    label_arr = None
+    # get array of labels
     if has_labels:
-        labels_bucket = conn.get_bucket(bucket_from_labels)
-        print(bucket_from_labels)
-        npy_filename = actual_name.split("/")[-1] + ".npy"
-        print(npy_filename)
-        labels_key = labels_bucket.get_key(npy_filename)
-        labels_key.get_contents_to_filename("/tmp/labels-" + npy_filename)
+        if event["label_style"] == "array":
+            npy_filename = actual_name.split("/")[-1] + ".npy"
+            print(npy_filename)
+            labels_key = labels.get_key(npy_filename)
+            labels_key.get_contents_to_filename("/tmp/labels-" + npy_filename)
 
-        with open("/tmp/labels-" + npy_filename, "rb") as npy:
-            label_arr = np.load(npy)
+            with open("/tmp/labels-" + npy_filename, "rb") as npy:
+                label_arr = np.load(npy)
+        elif event["label_style"] == "single":
+            label = event["label"]
 
     if is_train:
         b = conn.get_bucket('training-array')
@@ -112,7 +115,7 @@ def preprocess(event, context):
                     "queue_name": model_bucket_name + '.fifo', "queue_name1": model_bucket_name + '1.fifo', "num_classes": event["num_classes"], "num_machines": event["num_machines"]}
         else:
             msg = {"is_train": is_train, "image_name": str(image_name), "feature": str(feature), "bucket_from": "testing-array", "bucket_from_labels": "", "has_labels": "", "model_bucket_name": model_bucket_name, "image_num": image_num,
-                    "queue_name": model_bucket_name + '.fifo', "queue_name1": model_bucket_name + '1.fifo', "num_classes": event["num_classes"], "num_machines": event["num_machines"]}
+                    "queue_name": model_bucket_name + '.fifo', "queue_name1": model_bucket_name + '1.fifo', "num_classes": event["num_classes"], "num_machines": event["num_machines"], "xscale": 322, "yscale": 241}
         lambda_client = boto3_client('lambda')
         lambda_client.invoke(FunctionName="preprocess3", InvocationType='Event', Payload=json.dumps(msg))
 

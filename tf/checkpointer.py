@@ -6,6 +6,7 @@ import argparse
 import boto3
 import json
 import random
+import os
 
 from boto.s3.key import Key
 
@@ -21,12 +22,24 @@ def classify(event, context):
     image_num = event["image_num"]
     i = str(event["machine_num"])
 
-    print("Received and deleted message")
+    print(image_name)
 
     X_key = b.get_key(image_name + '-processed.npy')
     X_key.get_contents_to_filename('/tmp/ready_matrix.npy')
     Y_key = labels.get_key(image_num + 'label-processed.npy')
     Y_key.get_contents_to_filename('/tmp/ready_labels.npy')
+
+    with open("/tmp/ready_matrix.npy", "rb") as ready_matrix:
+        X = np.load(ready_matrix)
+
+    with open("/tmp/ready_labels.npy", "rb") as ready_labels:
+        y = np.load(ready_labels)
+
+    # once done with matrix and labels, remove them to save space
+    os.remove("/tmp/ready_matrix.npy")
+    os.remove("/tmp/ready_labels.npy")
+
+    print("finished reading from bucket")
 
     averager_model = model_bucket.get_key(model_bucket_name)
     averager_index = model_bucket.get_key(model_bucket_name + '-index')
@@ -43,13 +56,6 @@ def classify(event, context):
     model_data = model_bucket.new_key(model_bucket_name + '-data' + i)
     model_checkpoint = model_bucket.new_key(model_bucket_name + '-checkpoint' + i)
 
-    print("finished reading from bucket")
-
-    with open("/tmp/ready_matrix.npy", "rb") as ready_matrix:
-        X = np.load(ready_matrix)
-
-    with open("/tmp/ready_labels.npy", "rb") as ready_labels:
-        y = np.load(ready_labels)
 
     print("About to train")
     with tf.Session() as sess:
@@ -96,6 +102,11 @@ def classify(event, context):
 
                 if iteration % 10 == 0:
                     print ("Cost after iteration %i: %f" % (iteration, iteration_cost))
+
+        os.remove('/tmp/model.meta')
+        os.remove('/tmp/model.index')
+        os.remove('/tmp/model.data-00000-of-00001')
+        os.remove('/tmp/checkpoint')
 
         with tf.variable_scope("params", reuse=True):
             W1 = None
