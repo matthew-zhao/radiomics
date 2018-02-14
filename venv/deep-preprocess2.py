@@ -17,7 +17,7 @@ from StringIO import StringIO
 lambda_client = boto3.client('lambda')
 
 def squish(event, context):
-    conn = boto.connect_s3("AKIAIMQLHJNMP6DOUM4A","8dJAfPZlTjMR1SOcOetImclAmT+G02VkQiuHefdY")
+    conn = boto.connect_s3("AKIAJRKPLMXU3JRGWYCA","LFfFCpaEsdCCz4KiEBKoTFS5ehXIcPjsPq3yqxjj")
     b = conn.get_bucket(event['bucket_from'])
     image_path = event["image_path"]
 
@@ -66,11 +66,11 @@ def squish(event, context):
         ds = dicom.read_file(f2)
         img_raw = ds.pixel_array
         f2.close()
-        xscale = 512.0 / img_raw.shape[1]
-        yscale = 512.0 / img_raw.shape[0]
+        xscale = 227.0 / img_raw.shape[1]
+        yscale = 227.0 / img_raw.shape[0]
         img = scipy.ndimage.interpolation.zoom(img_raw, [xscale, yscale])
     else:
-        img_resized = img_raw.resize((512.0, 512.0), Image.ANTIALIAS)
+        img_resized = img_raw.resize((227.0, 227.0), Image.ANTIALIAS)
         img = scipy.array(img_resized)
 
     # get array of labels or single label
@@ -84,45 +84,25 @@ def squish(event, context):
             with open("/tmp/labels-" + npy_filename, "rb") as npy:
                 label_arr = np.load(npy)
         elif event["label_style"] == "single":
-            label = event["label"]
+            label = np.array([event["label"]])
 
-    i = 0
-    training_arr = None
-    label_arr = None
-
-    for l in bucket_list:
-        # Save content of file into tempfile on lambda
-        # TODO: this step may cause issues b/c of .npy data lost?
-        if l.key == "matrix" + image_name + '_' + feature + ".npy":
-            l.get_contents_to_filename("/tmp/" + str(l.key))
-
-            with open("/tmp/" + str(l.key), "rb") as npy:
-                training_arr = np.load(npy)
-
-            if has_labels:
-                gen_key = "matrix" + image_name + ".npy"
-                label_matrix = labels.get_key(gen_key)
-                label_matrix.get_contents_to_filename("/tmp/labels-" + gen_key)
-                with open("/tmp/labels-" + gen_key, "rb") as npy_label:
-                    label_arr = np.load(npy_label)
-        i += 1
+    training_arr = img
 
     X_converted = training_arr.astype(np.float16)
     X_train = X_converted / 255
-    num_features = X_train.shape[1]
 
     if has_labels:
         y_converted = label_arr.astype(np.float16)
         targets = y_converted.reshape(-1)
-        y_train = np.eye(5)[targets.astype('int8')]
+        y_train = np.eye(event["num_classes"])[targets.astype('int8')]
 
     # Create new buckets for the array and its corresponding labels
     if is_train:
-        b2 = conn.get_bucket('training-arrayfinal')
+        b2 = conn.get_bucket('train-deepnorm')
     else:
-        b2 = conn.get_bucket('testing-arrayfinal')
+        b2 = conn.get_bucket('test-deepnorm')
 
-    k = b2.new_key(str(image_num) + "_" + feature + "-processed.npy")
+    k = b2.new_key(str(image_num) + "-processed.npy")
 
     # Save the numpy arrays to temp .npy files on lambda
     upload_path = '/tmp/resized-matrix.npy'
@@ -137,7 +117,7 @@ def squish(event, context):
     k.make_public()
 
     if has_labels:
-        labels2 = conn.get_bucket('training-labelsfinal')
+        labels2 = conn.get_bucket('train-deeplabels')
         k2 = labels2.new_key(str(image_num) + "label-processed.npy")
 
         upload_path_labels = '/tmp/resized-labels.npy'
@@ -149,8 +129,8 @@ def squish(event, context):
 
 
 
-    #if not training, each preprocessing3 calls a predict
-    if not is_train and feature == "total":
+    #if not training, each deep-preprocess2 calls a predict
+    if not is_train:
         args = {"classifier": "neural", "bucket_from": "testing-arrayfinal", "model_bucket": "models-train", "model_bucket_name": model_bucket_name, "result_bucket": "result-labels", "num_items": i, "image_name": image_name, "feature": feature, "result_name": image_name + str(image_num),
             "image_num": str(image_num), "xscale": event["xscale"], " ": event["yscale"]}
         invoke_response = lambda_client.invoke(FunctionName="predict", InvocationType='Event', Payload=json.dumps(args))
@@ -176,21 +156,8 @@ def squish(event, context):
             receipt_handle = message['ReceiptHandle']
             is_called = message['Body']
 
-        response = sqs.send_message(QueueUrl=queue_url['QueueUrl'], MessageBody=str(image_num) + '_' + feature, MessageDeduplicationId="deduplicationId" + str(image_num) + '_' + feature, MessageGroupId="groupId")
+        response = sqs.send_message(QueueUrl=queue_url['QueueUrl'], MessageBody=str(image_num), MessageDeduplicationId="deduplicationId" + str(image_num), MessageGroupId="groupId")
         print(response)
-
-        # b3 = conn.get_bucket("training-arrayfinal")
-        # called = b3.get_key("called")
-        # print(called)
-        # #only invoke neuralnet.py once, by the first preprocessing3 to finish
-        # if is_called is None:
-        #     print("Neuralnet invoked from " + str(image_num))
-        #     with open("/tmp/called", "wb") as flag:
-        #         flag.write("True")
-        #     k = b3.new_key("called")
-        #     k.set_contents_from_filename("/tmp/called")
-        #     k.make_public()
-        print(is_called)
         #only invoke neuralnet.py once, by the first preprocessing3 to finish
         if is_called == 'called':
             print("Neuralnet invoked from " + str(image_num))
@@ -201,7 +168,7 @@ def squish(event, context):
 
             args = {"bucket_from": "training-arrayfinal", "bucket_from_labels" : "training-labelsfinal", "model_bucket_name": model_bucket_name, 
                     "image_num": str(image_num), "num_items": i, "image_name": image_name, "queue_name": queue_name, "queue_name1": queue_name1, 
-                    "num_classes": event["num_classes"], "num_machines": event["num_machines"], "called_from": "pre3", "num_features": num_features}
+                    "num_classes": event["num_classes"], "num_machines": event["num_machines"], "called_from": "pre3", "num_channels": event["num_channels"]}
             invoke_response = lambda_client.invoke(FunctionName="averager", InvocationType='Event', Payload=json.dumps(args))
 
     return 0

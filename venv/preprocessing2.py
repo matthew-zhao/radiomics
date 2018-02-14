@@ -80,7 +80,7 @@ def preprocess(event, context):
             with open("/tmp/labels-" + npy_filename, "rb") as npy:
                 label_arr = np.load(npy)
         elif event["label_style"] == "single":
-            label = event["label"]
+            label = np.array([event["label"]])
 
     if is_train:
         b = conn.get_bucket('training-array')

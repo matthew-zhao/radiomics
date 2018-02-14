@@ -58,7 +58,7 @@ def squish(event, context):
     if has_labels:
         y_converted = label_arr.astype(np.float16)
         targets = y_converted.reshape(-1)
-        y_train = np.eye(5)[targets.astype('int8')]
+        y_train = np.eye(event["num_classes"])[targets.astype('int8')]
 
     # Create new buckets for the array and its corresponding labels
     if is_train:
@@ -82,7 +82,7 @@ def squish(event, context):
 
     if has_labels:
         labels2 = conn.get_bucket('training-labelsfinal')
-        k2 = labels2.new_key(str(image_num) + "label-processed.npy")
+        k2 = labels2.new_key(str(image_num) + "_" + feature + "-label-processed.npy")
 
         upload_path_labels = '/tmp/resized-labels.npy'
         np.save(upload_path_labels, y_train)
@@ -96,7 +96,7 @@ def squish(event, context):
     #if not training, each preprocessing3 calls a predict
     if not is_train and feature == "total":
         args = {"classifier": "neural", "bucket_from": "testing-arrayfinal", "model_bucket": "models-train", "model_bucket_name": model_bucket_name, "result_bucket": "result-labels", "num_items": i, "image_name": image_name, "feature": feature, "result_name": image_name + str(image_num),
-            "image_num": str(image_num), "xscale": event["xscale"], "yscale": event["yscale"]}
+            "image_num": str(image_num), "xscale": event["xscale"], " ": event["yscale"]}
         invoke_response = lambda_client.invoke(FunctionName="predict", InvocationType='Event', Payload=json.dumps(args))
 
     else:
