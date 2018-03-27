@@ -7,24 +7,20 @@ import boto3
 import json
 import random
 import os
+import shutil
 
 from boto.s3.key import Key
 from alexnet import AlexNet
 
 lambda_client = boto3.client('lambda')
 def classify(event, context):
+    clear_tmp_dir()
     conn = boto.connect_s3("AKIAJRKPLMXU3JRGWYCA","LFfFCpaEsdCCz4KiEBKoTFS5ehXIcPjsPq3yqxjj")
-    model_bucket = conn.get_bucket('models-train')
+    model_bucket = conn.get_bucket('model-train')
 
     model_bucket_name = event["model_bucket_name"]
 
     client = boto3.client('sqs')
-
-    #num = random.randrange(1,3)
-    #if num == 1:
-    #    queue_url = client.get_queue_url(QueueName=event['queue_name'])['QueueUrl']
-    #else:
-    #    queue_url = client.get_queue_url(QueueName=event['queue_name1'])['QueueUrl']
 
     queue_url1 = client.get_queue_url(QueueName=event['queue_name'])['QueueUrl']
     queue_url2 = client.get_queue_url(QueueName=event['queue_name1'])['QueueUrl']
@@ -93,14 +89,22 @@ def classify(event, context):
                 )
         num_machines -= num_to_receive_1 + num_to_receive_2
 
+    # Choose which layers of AlexNet to train
+    train_layers = ['fc8', 'fc7', 'fc6']
+    dropout_rate = 0.5
+    batch_size = 1
+
     print("finished reading from bucket")
     # averaging is done here
     if event["called_from"] == 'timer':
-        num_features = int(event["num_features"])
-        new_W1 = np.zeros((num_features, 216))
-        new_b1 = np.zeros((1, 216))
-        new_W2 = np.zeros((216, int(event['num_classes'])))
-        new_b2 = np.zeros((1, int(event['num_classes'])))
+        #var_list = event["var_list"] # list of variable names
+        # for varname in var_list:
+        #     new_W1 = np.zeros((num_features, 216))
+        #     new_b1 = np.zeros((1, 216))
+        #     new_W2 = np.zeros((216, int(event['num_classes'])))
+        #     new_b2 = np.zeros((1, int(event['num_classes'])))
+        new_var_list = []
+        var_map = {}
         num_successful = 0
         for machine_num in range(int(event["num_machines"])):
             i = str(machine_num)
@@ -121,23 +125,38 @@ def classify(event, context):
                 existing_data.get_contents_to_filename('/tmp/model' + i + '.data-00000-of-00001')
                 existing_checkpoint.get_contents_to_filename('/tmp/checkpoint')
             
-                #saver = tf.train.import_meta_graph('/tmp/model' + i + '.meta')
-                with tf.variable_scope("params", reuse=None):
-                    W1 = tf.get_variable("W1", [int(event["num_features"]),216], initializer=tf.zeros_initializer())
-                    b1 = tf.get_variable("b1", [1, 216], initializer=tf.zeros_initializer())
-                    W2 = tf.get_variable("W2", [216, int(event["num_classes"])], initializer=tf.zeros_initializer())
-                    b2 = tf.get_variable("b2", [1, int(event["num_classes"])], initializer=tf.zeros_initializer())
-                parameters = {"W1": W1,
-                  "b1": b1,
-                  "W2": W2,
-                  "b2": b2}
-                saver = tf.train.Saver(parameters)
-                tf.variables_initializer([W1, b1, W2, b2])
+                saver = tf.train.import_meta_graph('/tmp/model' + i + '.meta')
+                # with tf.variable_scope("params", reuse=None):
+                #     W1 = tf.get_variable("W1", [int(event["num_features"]),216], initializer=tf.zeros_initializer())
+                #     b1 = tf.get_variable("b1", [1, 216], initializer=tf.zeros_initializer())
+                #     W2 = tf.get_variable("W2", [216, int(event["num_classes"])], initializer=tf.zeros_initializer())
+                #     b2 = tf.get_variable("b2", [1, int(event["num_classes"])], initializer=tf.zeros_initializer())
+                # parameters = {"W1": W1,
+                #   "b1": b1,
+                #   "W2": W2,
+                #   "b2": b2}
+                #saver = tf.train.Saver()
+                #tf.variables_initializer([W1, b1, W2, b2])
                 saver.restore(sess, '/tmp/model' + i)
-                new_W1 = new_W1 + W1.eval(sess)
-                new_b1 = new_b1 + b1.eval(sess)
-                new_W2 = new_W2 + W2.eval(sess)
-                new_b2 = new_b2 + b2.eval(sess)
+
+                #if not new_var_list:
+                var_list = []
+                count = 0
+                # TODO: assuming that every machine will return these trainable variables in order
+                for v in tf.trainable_variables():
+                    if v.name.split('/')[0] in train_layers:
+                        var_list.append(v)
+                        if v.name not in var_map:
+                            var_map[v.name] = count
+                        elif var_map[v.name] != count:
+                            print("Order doesn't match up!!!")
+                        count += 1
+
+                actual_var_list = np.array(sess.run(var_list))
+                if not len(new_var_list):
+                    new_var_list = actual_var_list
+                else:
+                    new_var_list = np.sum((new_var_list, actual_var_list), axis=0)
 
                 # delete keys
                 model_bucket.delete_key(model_bucket_name + i)
@@ -150,10 +169,8 @@ def classify(event, context):
                 os.remove('/tmp/model' + i + '.index')
                 os.remove('/tmp/model' + i + '.data-00000-of-00001')
                 num_successful += 1
-        new_W1 = new_W1 / num_successful
-        new_b1 = new_b1 / num_successful
-        new_W2 = new_W2 / num_successful
-        new_b2 = new_b2 / num_successful
+
+        new_var_list = new_var_list / num_successful
 
         print("finished concatenating")
         tf.reset_default_graph()
@@ -170,28 +187,26 @@ def classify(event, context):
 
             saver = tf.train.import_meta_graph('/tmp/model.meta')
             saver.restore(sess, '/tmp/model')
-            graph = tf.get_default_graph()
+
+            # delete more files
+            os.remove('/tmp/model.meta')
+            os.remove('/tmp/model.index')
+            os.remove('/tmp/model.data-00000-of-00001')
+
+            #graph = tf.get_default_graph()
+            var_list = []
             with tf.variable_scope("params", reuse=True):
-                W1 = None
-                b1 = None
-                W2 = None
-                b2 = None
-                for var in tf.global_variables():
-                    if var.op.name == "params/W1":
-                        W1 = var
-                    elif var.op.name == "params/b1":
-                        b1 = var
-                    elif var.op.name == "params/W2":
-                        W2 = var
-                    elif var.op.name == "params/b2":
-                        b2 = var
-                assign_w1 = tf.assign(W1, new_W1)
-                assign_b1 = tf.assign(b1, new_b1)
-                assign_w2 = tf.assign(W2, new_W2)
-                assign_b2 = tf.assign(b2, new_b2)
-
-                sess.run([assign_w1, assign_b1, assign_w2, assign_b2])
-
+                # assign_ops = []
+                # index = 0
+                for v in tf.trainable_variables():
+                    # uncomment below if we figure out how to save entire model
+                    if v.name.split('/')[0] in train_layers:
+                        p = tf.placeholder(tf.float32, shape=new_var_list[var_map[v.name]].shape)
+                        assign_ops = tf.assign(v, p)
+                        var_list.append(v)
+                        sess.run(assign_ops, feed_dict={p: new_var_list[var_map[v.name]]})
+                clear_tmp_dir()
+                saver = tf.train.Saver(var_list)
                 saver.save(sess, '/tmp/model')
 
         model_k = existing_model
@@ -206,16 +221,18 @@ def classify(event, context):
         model_data = model_bucket.new_key(model_bucket_name + '-data')
         model_checkpoint = model_bucket.new_key(model_bucket_name + '-checkpoint')
 
-        # Choose which layers of AlexNet to train
-        train_layers = ['fc8', 'fc7', 'fc6']
-
         # Create tf placeholders for X and y
-        X_train = tf.placeholder(tf.float32, [None, 227, 227, event["num_channels"]], name="X_train")
+        X_train = tf.placeholder(tf.float32, [batch_size, 227, 227, int(event["num_channels"])], name="X_train")
         y_train = tf.placeholder(tf.float32, [None, int(event["num_classes"])], name="y_train")
+
+        # for distinction between having 0.5 dropout in training and 0 dropout in test
         keep_prob = tf.placeholder(tf.float32)
 
+        alexnet_pretrained = model_bucket.get_key('bvlc_alexnet.npy')
+        alexnet_pretrained.get_contents_to_filename('/tmp/bvlc_alexnet.npy')
+
         # initialize AlexNet model
-        model = AlexNet(x, keep_prob, event["num_classes"], train_layers)
+        model = AlexNet(X_train, keep_prob, event["num_classes"], train_layers, True)
 
         # Link variable to model output
         score = model.fc8
@@ -240,9 +257,15 @@ def classify(event, context):
             #train_op = optimizer.apply_gradients(grads_and_vars=gradients)
             optimizer = tf.train.AdamOptimizer(learning_rate=0.01).minimize(cost, var_list=var_list, name="grad_descent")
 
-        tf.add_to_collection('loss', cost)
-        tf.add_to_collection('grad_descent', optimizer)
-        tf.add_to_collection('predict', prediction)
+        # Evaluation op
+        with tf.name_scope("accuracy"):
+            correct_pred = tf.equal(tf.argmax(score, 1), tf.argmax(y_train, 1))
+            accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32), name="accuracy")
+
+        # tf.add_to_collection('loss', cost)
+        # tf.add_to_collection('grad_descent', optimizer)
+        # tf.add_to_collection('predict', prediction)
+        # tf.add_to_collection('accuracy', accuracy)
 
         with tf.Session() as sess:
             init = tf.global_variables_initializer()
@@ -251,9 +274,11 @@ def classify(event, context):
             # Load the pretrained weights into the non-trainable layer
             model.load_initial_weights(sess)
 
+            os.remove('/tmp/bvlc_alexnet.npy')
+
             with tf.variable_scope("params", reuse=True):
                 # Initialize weights and biases of neural network
-                saver = tf.train.Saver()
+                saver = tf.train.Saver(var_list)
                 saver.save(sess, '/tmp/model')
 
     print("done training")
@@ -268,8 +293,9 @@ def classify(event, context):
     model_data.make_public()
     model_checkpoint.make_public()
 
-    args = {"bucket_from": event['bucket_from'], "bucket_from_labels": event['bucket_from_labels'], "model_bucket_name": model_bucket_name, "num_items": event['num_items'],
-            "queue_name": event['queue_name'], "queue_name1": event["queue_name1"], "num_classes": event["num_classes"], "num_features": num_features, "num_machines": event["num_machines"]}
+    args = {"bucket_from": event['bucket_from'], "bucket_from_labels": event['bucket_from_labels'], "model_bucket_name": model_bucket_name,
+            "queue_name": event['queue_name'], "queue_name1": event["queue_name1"], "num_classes": event["num_classes"], "num_machines": event["num_machines"],
+            "num_channels": event["num_channels"], "dropout_rate": dropout_rate, "train_layers": train_layers, "batch_size": batch_size}
     for i in range(int(event["num_machines"])):
         if i >= len(image_name_pairs):
             continue
@@ -277,7 +303,17 @@ def classify(event, context):
         image_name, image_num = image_name_pairs[i]
         args['image_num'] = image_num
         args['image_name'] = image_name
-        invoke_response = lambda_client.invoke(FunctionName="checkpointer", InvocationType='Event', Payload=json.dumps(args))
-    invoke_response = lambda_client.invoke(FunctionName="timer", InvocationType='Event', Payload=json.dumps(args))
+        invoke_response = lambda_client.invoke(FunctionName="deep-checkpointer", InvocationType='Event', Payload=json.dumps(args))
+    invoke_response = lambda_client.invoke(FunctionName="deep-timer", InvocationType='Event', Payload=json.dumps(args))
     return 0
+
+def clear_tmp_dir():
+    # clear tmp directory
+    for file in os.listdir("/tmp"):
+        filepath = os.path.join("/tmp", file)
+        try:
+            if os.path.isfile(filepath):
+                os.unlink(filepath)
+        except Exception as e:
+            print(e)
 

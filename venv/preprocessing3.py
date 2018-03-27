@@ -58,7 +58,7 @@ def squish(event, context):
     if has_labels:
         y_converted = label_arr.astype(np.float16)
         targets = y_converted.reshape(-1)
-        y_train = np.eye(event["num_classes"])[targets.astype('int8')]
+        y_train = np.eye(int(event["num_classes"]))[targets.astype('int8')]
 
     # Create new buckets for the array and its corresponding labels
     if is_train:

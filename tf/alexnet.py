@@ -36,7 +36,7 @@ def conv(x, filter_height, filter_width, num_filters, stride_y, stride_x, name,
             conv = tf.concat(axis = 3, values = output_groups)
 
         # Add biases
-        bias = tf.reshape(tf.nn.bias_add(conv, biases), tf.get_shape(conv))
+        bias = tf.reshape(tf.nn.bias_add(conv, biases), conv.get_shape())
 
         # Apply relu function
         relu = tf.nn.relu(bias, name = scope.name)
@@ -75,7 +75,7 @@ def dropout(x, keep_prob):
     return tf.nn.dropout(x, keep_prob)
 
 class AlexNet(object):
-    def __init__(self, x, keep_prob, num_classes, skip_layer,
+    def __init__(self, x, keep_prob, num_classes, skip_layer, is_training,
                weights_path = 'DEFAULT'):
         """
         Inputs:
@@ -94,7 +94,7 @@ class AlexNet(object):
         self.IS_TRAINING = is_training
 
         if weights_path == 'DEFAULT':
-          self.WEIGHTS_PATH = 'bvlc_alexnet.npy'
+          self.WEIGHTS_PATH = '/tmp/bvlc_alexnet.npy'
         else:
           self.WEIGHTS_PATH = weights_path
 

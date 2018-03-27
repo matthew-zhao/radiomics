@@ -123,7 +123,7 @@ def invoke_lambda(event, context):
             args = {"image_path": image_path, "image_name": actual_name, "filter_size": filter_size, "image_num": image_num,
                     "auth_token": event["auth_token"], "is_train": event["is_train"], "has_labels": has_labels, "model_bucket_name": model_bucket_name,
                     "bucket_from": event["images_bucket"], "bucket_from_labels": "", "is_dropbox": event["is_dropbox"], "queue_name": model_bucket_name + '.fifo', "queue_name1": model_bucket_name + '1.fifo',
-                    "num_classes": event["num_classes"], "num_machines": event["num_machines"], "num_channels": event["num_channels"]}
+                    "num_classes": event["num_classes"], "num_channels": event["num_channels"], "label_style": event["label_style"]}
 
         invoke_response = lambda_client.invoke(FunctionName="deep-preprocess2", InvocationType='Event', Payload=json.dumps(args))
         image_num += 1

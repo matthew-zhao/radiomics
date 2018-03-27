@@ -4,20 +4,21 @@ import numpy as np
 import boto
 import boto3
 import json
-import json
-import boto3
 import random
+import scipy
 
 from boto.s3.key import Key
-from PIL import Image
+from PIL import Image, ImageFile
 from StringIO import StringIO
 
 # Function to be called by lambda2 when all images are done being preprocessed
 # to squish them together
-lambda_client = boto3.client('lambda')
+lambda_client = boto3.client('lambda', region_name='us-west-2')
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 def squish(event, context):
     conn = boto.connect_s3("AKIAJRKPLMXU3JRGWYCA","LFfFCpaEsdCCz4KiEBKoTFS5ehXIcPjsPq3yqxjj")
+    #conn = boto.s3.connect_to_region('s3.us-west-2.amazonaws.com', aws_access_key_id="AKIAJRKPLMXU3JRGWYCA", aws_secret_access_key="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")
     b = conn.get_bucket(event['bucket_from'])
     image_path = event["image_path"]
 
@@ -29,11 +30,14 @@ def squish(event, context):
     queue_name = event["queue_name"]
     queue_name1 = event["queue_name1"]
 
+    final_trainimages_bucket = 'train-deepnorm'
+    final_testimages_bucket = 'test-deepnorm'
+    final_labels_bucket = 'train-deeplabels'
+
     bucket_list = b.list()
 
-    if has_labels:
+    if has_labels and event["label_style"] == "array":
         labels = conn.get_bucket(event['bucket_from_labels'])
-
 
     actual_name, extension = image_path.split(".")
 
@@ -51,7 +55,7 @@ def squish(event, context):
         else:
             img_raw = Image.open(StringIO(data))
     else:
-        b = conn.get_bucket(bucket_from)
+        b = conn.get_bucket(event["bucket_from"])
         img_key = b.get_key(image_path)
 
         if extension == "dcm":
@@ -70,7 +74,7 @@ def squish(event, context):
         yscale = 227.0 / img_raw.shape[0]
         img = scipy.ndimage.interpolation.zoom(img_raw, [xscale, yscale])
     else:
-        img_resized = img_raw.resize((227.0, 227.0), Image.ANTIALIAS)
+        img_resized = img_raw.resize((227, 227), Image.ANTIALIAS)
         img = scipy.array(img_resized)
 
     # get array of labels or single label
@@ -84,7 +88,7 @@ def squish(event, context):
             with open("/tmp/labels-" + npy_filename, "rb") as npy:
                 label_arr = np.load(npy)
         elif event["label_style"] == "single":
-            label = np.array([event["label"]])
+            label_arr = np.array([event["label"]])
 
     training_arr = img
 
@@ -94,13 +98,17 @@ def squish(event, context):
     if has_labels:
         y_converted = label_arr.astype(np.float16)
         targets = y_converted.reshape(-1)
-        y_train = np.eye(event["num_classes"])[targets.astype('int8')]
+        y_train = np.eye(int(event["num_classes"]))[targets.astype('int8')]
 
     # Create new buckets for the array and its corresponding labels
     if is_train:
-        b2 = conn.get_bucket('train-deepnorm')
+        b2 = conn.get_bucket(final_trainimages_bucket)
+        bucket_location = b2.get_location()
+        if bucket_location:
+            conn = boto.s3.connect_to_region(bucket_location)
+            b2 = conn.get_bucket(final_trainimages_bucket)
     else:
-        b2 = conn.get_bucket('test-deepnorm')
+        b2 = conn.get_bucket(final_testimages_bucket)
 
     k = b2.new_key(str(image_num) + "-processed.npy")
 
@@ -117,7 +125,7 @@ def squish(event, context):
     k.make_public()
 
     if has_labels:
-        labels2 = conn.get_bucket('train-deeplabels')
+        labels2 = conn.get_bucket(final_labels_bucket)
         k2 = labels2.new_key(str(image_num) + "label-processed.npy")
 
         upload_path_labels = '/tmp/resized-labels.npy'
@@ -131,9 +139,9 @@ def squish(event, context):
 
     #if not training, each deep-preprocess2 calls a predict
     if not is_train:
-        args = {"classifier": "neural", "bucket_from": "testing-arrayfinal", "model_bucket": "models-train", "model_bucket_name": model_bucket_name, "result_bucket": "result-labels", "num_items": i, "image_name": image_name, "feature": feature, "result_name": image_name + str(image_num),
-            "image_num": str(image_num), "xscale": event["xscale"], " ": event["yscale"]}
-        invoke_response = lambda_client.invoke(FunctionName="predict", InvocationType='Event', Payload=json.dumps(args))
+        args = {"classifier": "neural", "bucket_from": final_testimages_bucket, "model_bucket": "model-train", "model_bucket_name": model_bucket_name, "result_bucket": "prediction-labels", "image_name": image_name, "result_name": image_name + str(image_num),
+            "image_num": str(image_num), "xscale": 227, "yscale": 227, "label_style": event["label_style"], "num_classes": event["num_classes"], "num_channels": event["num_channels"]}
+        invoke_response = lambda_client.invoke(FunctionName="deep-predict", InvocationType='Event', Payload=json.dumps(args))
 
     else:
         sqs = boto3.client('sqs')
@@ -155,20 +163,22 @@ def squish(event, context):
             message = receipt_msg['Messages'][0]
             receipt_handle = message['ReceiptHandle']
             is_called = message['Body']
+            print(is_called)
 
         response = sqs.send_message(QueueUrl=queue_url['QueueUrl'], MessageBody=str(image_num), MessageDeduplicationId="deduplicationId" + str(image_num), MessageGroupId="groupId")
         print(response)
         #only invoke neuralnet.py once, by the first preprocessing3 to finish
-        if is_called == 'called':
+        if is_called:
             print("Neuralnet invoked from " + str(image_num))
             sqs.delete_message(
                 QueueUrl=sqs.get_queue_url(QueueName='called-' + queue_name)['QueueUrl'],
                 ReceiptHandle=receipt_handle
             )
 
-            args = {"bucket_from": "training-arrayfinal", "bucket_from_labels" : "training-labelsfinal", "model_bucket_name": model_bucket_name, 
-                    "image_num": str(image_num), "num_items": i, "image_name": image_name, "queue_name": queue_name, "queue_name1": queue_name1, 
+            args = {"bucket_from": final_trainimages_bucket, "bucket_from_labels" : final_labels_bucket, "model_bucket_name": model_bucket_name, 
+                    "image_num": str(image_num), "image_name": image_name, "queue_name": queue_name, "queue_name1": queue_name1, 
                     "num_classes": event["num_classes"], "num_machines": event["num_machines"], "called_from": "pre3", "num_channels": event["num_channels"]}
-            invoke_response = lambda_client.invoke(FunctionName="averager", InvocationType='Event', Payload=json.dumps(args))
+            invoke_response = lambda_client.invoke(FunctionName="deep-averager", InvocationType='Event', Payload=json.dumps(args))
+            print(invoke_response)
 
     return 0
