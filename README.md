@@ -262,4 +262,3 @@ Current metrics that it returns include
 * Precision-Recall (for binary classification)
 
 The results will likely be posted on S3 and then available to see on Cloudwatch as well.
-
