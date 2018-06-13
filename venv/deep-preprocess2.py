@@ -6,6 +6,7 @@ import boto3
 import json
 import random
 import scipy
+import dicom
 
 from boto.s3.key import Key
 from PIL import Image, ImageFile
@@ -29,6 +30,8 @@ def squish(event, context):
     image_num = event["image_num"]
     queue_name = event["queue_name"]
     queue_name1 = event["queue_name1"]
+    x_scale = event["x_scale"]
+    y_scale = event["y_scale"]
 
     final_trainimages_bucket = 'train-deepnorm'
     final_testimages_bucket = 'test-deepnorm'
@@ -70,11 +73,11 @@ def squish(event, context):
         ds = dicom.read_file(f2)
         img_raw = ds.pixel_array
         f2.close()
-        xscale = 227.0 / img_raw.shape[1]
-        yscale = 227.0 / img_raw.shape[0]
+        xscale = x_scale / img_raw.shape[1]
+        yscale = y_scale / img_raw.shape[0]
         img = scipy.ndimage.interpolation.zoom(img_raw, [xscale, yscale])
     else:
-        img_resized = img_raw.resize((227, 227), Image.ANTIALIAS)
+        img_resized = img_raw.resize((x_scale, y_scale), Image.ANTIALIAS)
         img = scipy.array(img_resized)
 
     # get array of labels or single label
@@ -140,7 +143,7 @@ def squish(event, context):
     #if not training, each deep-preprocess2 calls a predict
     if not is_train:
         args = {"classifier": "neural", "bucket_from": final_testimages_bucket, "model_bucket": "model-train", "model_bucket_name": model_bucket_name, "result_bucket": "prediction-labels", "image_name": image_name, "result_name": image_name + str(image_num),
-            "image_num": str(image_num), "xscale": 227, "yscale": 227, "label_style": event["label_style"], "num_classes": event["num_classes"], "num_channels": event["num_channels"]}
+            "image_num": str(image_num), "xscale": x_scale, "yscale": y_scale, "label_style": event["label_style"], "num_classes": event["num_classes"], "num_channels": event["num_channels"]}
         invoke_response = lambda_client.invoke(FunctionName="deep-predict", InvocationType='Event', Payload=json.dumps(args))
 
     else:
@@ -176,7 +179,7 @@ def squish(event, context):
             )
 
             args = {"bucket_from": final_trainimages_bucket, "bucket_from_labels" : final_labels_bucket, "model_bucket_name": model_bucket_name, 
-                    "image_num": str(image_num), "image_name": image_name, "queue_name": queue_name, "queue_name1": queue_name1, 
+                    "image_num": str(image_num), "image_name": image_name, "xscale": x_scale, "yscale": y_scale, "queue_name": queue_name, "queue_name1": queue_name1, 
                     "num_classes": event["num_classes"], "num_machines": event["num_machines"], "called_from": "pre3", "num_channels": event["num_channels"]}
             invoke_response = lambda_client.invoke(FunctionName="deep-averager", InvocationType='Event', Payload=json.dumps(args))
             print(invoke_response)

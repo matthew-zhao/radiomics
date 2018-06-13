@@ -14,6 +14,15 @@ lambda_client = boto3.client('lambda')
 def invoke_lambda(event, context):
     conn = boto.connect_s3("AKIAJRKPLMXU3JRGWYCA","LFfFCpaEsdCCz4KiEBKoTFS5ehXIcPjsPq3yqxjj")
 
+    problems = {"classification", "segmentation", "regression"}
+
+    if "problem" in event:
+        if event["problem"] not in problems:
+            return "Type of problem doesn't exist!"
+        problem = event["problem"]
+    else:
+        problem = "classification"
+
     paths = []
     if event["is_dropbox"]:
         # dclient = dropbox.client.DropboxClient(event["auth_token"])
@@ -91,6 +100,16 @@ def invoke_lambda(event, context):
     else:
         has_labels = ""
 
+    # scale of images is by default 227x227
+    if "x_scale" in event:
+        x_scale = event["x_scale"]
+    else:
+        x_scale = 227
+
+    if "y_scale" in event:
+        y_scale = event["y_scale"]
+    else:
+        y_scale = 227
 
     image_num = 1
     #this loop always happens
@@ -102,30 +121,33 @@ def invoke_lambda(event, context):
             print("supervised training")
             if event["label_style"] == "single":
                 label = label_dict[actual_name]
-                args = {"image_path": image_path, "image_name": actual_name, "filter_size": filter_size, "image_num": image_num,
+                args = {"image_path": image_path, "image_name": actual_name, "x_scale": x_scale, "y_scale": y_scale, "filter_size": filter_size, "image_num": image_num,
                         "auth_token": event["auth_token"], "is_train": event["is_train"], "has_labels": has_labels, "model_bucket_name": model_bucket_name,
                         "bucket_from": event["images_bucket"], "bucket_from_labels": "", "is_dropbox": event["is_dropbox"], "queue_name": model_bucket_name + '.fifo', "queue_name1": model_bucket_name + '1.fifo',
                         "num_classes": event["num_classes"], "num_machines": event["num_machines"], "label_style": event["label_style"], "label": label, "num_channels": event["num_channels"]}
             else:
-                args = {"image_path": image_path, "image_name": actual_name, "filter_size": filter_size, "image_num": image_num,
+                args = {"image_path": image_path, "image_name": actual_name, "x_scale": x_scale, "y_scale": y_scale, "filter_size": filter_size, "image_num": image_num,
                         "auth_token": event["auth_token"], "is_train": event["is_train"], "has_labels": has_labels, "model_bucket_name": model_bucket_name,
                         "bucket_from": event["images_bucket"], "bucket_from_labels": event["images_labels_bucket"], "is_dropbox": event["is_dropbox"], "queue_name": model_bucket_name + '.fifo', "queue_name1": model_bucket_name + '1.fifo',
                         "num_classes": event["num_classes"], "num_machines": event["num_machines"], "label_style": event["label_style"], "num_channels": event["num_channels"]}
         elif not has_labels and event["is_train"]:
             print("unsupervised training")
-            args = {"image_path": image_path, "image_name": actual_name, "filter_size": filter_size, "image_num": image_num,
+            args = {"image_path": image_path, "image_name": actual_name, "x_scale": x_scale, "y_scale": y_scale, "filter_size": filter_size, "image_num": image_num,
                     "auth_token": event["auth_token"], "is_train": event["is_train"], "has_labels": has_labels, "model_bucket_name": model_bucket_name,
                     "bucket_from": event["images_bucket"], "bucket_from_labels": "", "is_dropbox": event["is_dropbox"], "queue_name": model_bucket_name + '.fifo', "queue_name1": model_bucket_name + '1.fifo',
                     "num_classes": event["num_classes"], "num_machines": event["num_machines"], "num_channels": event["num_channels"]}
 
         else:
             print("testing")
-            args = {"image_path": image_path, "image_name": actual_name, "filter_size": filter_size, "image_num": image_num,
+            args = {"image_path": image_path, "image_name": actual_name, "x_scale": x_scale, "y_scale": y_scale, "filter_size": filter_size, "image_num": image_num,
                     "auth_token": event["auth_token"], "is_train": event["is_train"], "has_labels": has_labels, "model_bucket_name": model_bucket_name,
                     "bucket_from": event["images_bucket"], "bucket_from_labels": "", "is_dropbox": event["is_dropbox"], "queue_name": model_bucket_name + '.fifo', "queue_name1": model_bucket_name + '1.fifo',
                     "num_classes": event["num_classes"], "num_channels": event["num_channels"], "label_style": event["label_style"]}
 
-        invoke_response = lambda_client.invoke(FunctionName="deep-preprocess2", InvocationType='Event', Payload=json.dumps(args))
+        if problem == "segmentation":
+            invoke_response = lambda_client.invoke(FunctionName="deep-seg-preprocess2", InvocationType='Event', Payload=json.dump(args))
+        else:
+            invoke_response = lambda_client.invoke(FunctionName="deep-preprocess2", InvocationType='Event', Payload=json.dumps(args))
         image_num += 1
 
 

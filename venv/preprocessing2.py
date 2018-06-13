@@ -15,6 +15,7 @@ from StringIO import StringIO
 from boto3 import client as boto3_client
 import json
 import dropbox
+import dicom
 
 def preprocess(event, context):
     #connecting to appropriate S3 bucket
