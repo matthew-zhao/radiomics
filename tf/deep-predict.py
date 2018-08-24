@@ -15,10 +15,10 @@ def predict(event, context):
     result_bucket = conn.get_bucket(event['result_bucket'])
     model_bucket_name = event['model_bucket_name']
 
-    image_num = event["image_num"]
+    result_name = event["result_name"]
     
-    print(str(image_num))
-    train_key = test_bucket.get_key(str(image_num) + "-processed.npy")
+    print(result_name)
+    train_key = test_bucket.get_key(result_name + "-processed.npy")
     train_key.get_contents_to_filename('/tmp/ready_matrix.npy')
 
     if classifier == 'neural':
