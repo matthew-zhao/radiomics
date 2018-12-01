@@ -5,11 +5,14 @@ Original C++ source file: fused_conv2d_bias_activation_op.cc
 """
 
 import collections as _collections
+import six as _six
 
-from tensorflow.python.eager import execute as _execute
+from tensorflow.python import pywrap_tensorflow as _pywrap_tensorflow
 from tensorflow.python.eager import context as _context
 from tensorflow.python.eager import core as _core
+from tensorflow.python.eager import execute as _execute
 from tensorflow.python.framework import dtypes as _dtypes
+from tensorflow.python.framework import errors as _errors
 from tensorflow.python.framework import tensor_shape as _tensor_shape
 
 from tensorflow.core.framework import op_def_pb2 as _op_def_pb2
@@ -18,9 +21,12 @@ from tensorflow.python.framework import common_shapes as _common_shapes
 from tensorflow.python.framework import op_def_registry as _op_def_registry
 from tensorflow.python.framework import ops as _ops
 from tensorflow.python.framework import op_def_library as _op_def_library
+from tensorflow.python.util.deprecation import deprecated_endpoints
+from tensorflow.python.util.tf_export import tf_export
 
 
-def fused_conv2d_bias_activation(conv_input, filter, bias, side_input, conv_input_scale, side_input_scale, strides, padding, data_format="NHWC", filter_format="HWIO", activation_mode="Relu", name=None):
+@tf_export('fused_conv2d_bias_activation')
+def fused_conv2d_bias_activation(conv_input, filter, bias, side_input, conv_input_scale, side_input_scale, strides, padding, data_format="NHWC", filter_format="HWIO", activation_mode="Relu", dilations=[1, 1, 1, 1], name=None):
   r"""    Computes a fused kernel which implements: 2-D convolution, adds side input,
 
       with separate scaling on convolution and side inputs, then adds bias and
@@ -67,7 +73,12 @@ def fused_conv2d_bias_activation(conv_input, filter, bias, side_input, conv_inpu
               `qint8 [ output_channels, input_channels / 4,
                        kernel_height, kernel_width, input_channels % 4 ]`
       activation_mode: The activation applied to the output.
-          Currently must be "Relu".
+          Must be "Relu" or "None".
+      dilations: 1-D tensor of length 4.  The dilation factor for each dimension
+          of `input`. If set to k > 1, there will be k-1 skipped cells between
+          each filter element on that dimension. The dimension order is determined
+          by the value of `data_format`, see above for details. Dilations in the
+          batch and depth dimensions must be 1.
 
   Args:
     conv_input: A `Tensor`. Must be one of the following types: `float32`, `half`, `qint8`.
@@ -80,12 +91,87 @@ def fused_conv2d_bias_activation(conv_input, filter, bias, side_input, conv_inpu
     padding: A `string` from: `"SAME", "VALID"`.
     data_format: An optional `string` from: `"NHWC", "NCHW", "NCHW_VECT_C"`. Defaults to `"NHWC"`.
     filter_format: An optional `string` from: `"HWIO", "OIHW", "OIHW_VECT_I"`. Defaults to `"HWIO"`.
-    activation_mode: An optional `string` from: `"Relu"`. Defaults to `"Relu"`.
+    activation_mode: An optional `string` from: `"Relu", "None"`. Defaults to `"Relu"`.
+    dilations: An optional list of `ints`. Defaults to `[1, 1, 1, 1]`.
     name: A name for the operation (optional).
 
   Returns:
     A `Tensor`. Has the same type as `conv_input`.
   """
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if not isinstance(strides, (list, tuple)):
+      raise TypeError(
+          "Expected list for 'strides' argument to "
+          "'fused_conv2d_bias_activation' Op, not %r." % strides)
+    strides = [_execute.make_int(_i, "strides") for _i in strides]
+    padding = _execute.make_str(padding, "padding")
+    if data_format is None:
+      data_format = "NHWC"
+    data_format = _execute.make_str(data_format, "data_format")
+    if filter_format is None:
+      filter_format = "HWIO"
+    filter_format = _execute.make_str(filter_format, "filter_format")
+    if activation_mode is None:
+      activation_mode = "Relu"
+    activation_mode = _execute.make_str(activation_mode, "activation_mode")
+    if dilations is None:
+      dilations = [1, 1, 1, 1]
+    if not isinstance(dilations, (list, tuple)):
+      raise TypeError(
+          "Expected list for 'dilations' argument to "
+          "'fused_conv2d_bias_activation' Op, not %r." % dilations)
+    dilations = [_execute.make_int(_i, "dilations") for _i in dilations]
+    _, _, _op = _op_def_lib._apply_op_helper(
+        "FusedConv2DBiasActivation", conv_input=conv_input, filter=filter,
+        bias=bias, side_input=side_input, conv_input_scale=conv_input_scale,
+        side_input_scale=side_input_scale, strides=strides, padding=padding,
+        data_format=data_format, filter_format=filter_format,
+        activation_mode=activation_mode, dilations=dilations, name=name)
+    _result = _op.outputs[:]
+    _inputs_flat = _op.inputs
+    _attrs = ("T", _op.get_attr("T"), "Tbias", _op.get_attr("Tbias"),
+              "strides", _op.get_attr("strides"), "padding",
+              _op.get_attr("padding"), "data_format",
+              _op.get_attr("data_format"), "filter_format",
+              _op.get_attr("filter_format"), "activation_mode",
+              _op.get_attr("activation_mode"), "dilations",
+              _op.get_attr("dilations"))
+    _execute.record_gradient(
+      "FusedConv2DBiasActivation", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
+  else:
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "FusedConv2DBiasActivation", name, _ctx._post_execution_callbacks,
+        conv_input, filter, bias, side_input, conv_input_scale,
+        side_input_scale, "strides", strides, "padding", padding,
+        "data_format", data_format, "filter_format", filter_format,
+        "activation_mode", activation_mode, "dilations", dilations)
+      return _result
+    except _core._FallbackException:
+      return fused_conv2d_bias_activation_eager_fallback(
+          conv_input, filter, bias, side_input, conv_input_scale,
+          side_input_scale, strides=strides, padding=padding,
+          data_format=data_format, filter_format=filter_format,
+          activation_mode=activation_mode, dilations=dilations, name=name,
+          ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def fused_conv2d_bias_activation_eager_fallback(conv_input, filter, bias, side_input, conv_input_scale, side_input_scale, strides, padding, data_format="NHWC", filter_format="HWIO", activation_mode="Relu", dilations=[1, 1, 1, 1], name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function fused_conv2d_bias_activation
+  """
+  _ctx = ctx if ctx else _context.context()
   if not isinstance(strides, (list, tuple)):
     raise TypeError(
         "Expected list for 'strides' argument to "
@@ -101,37 +187,25 @@ def fused_conv2d_bias_activation(conv_input, filter, bias, side_input, conv_inpu
   if activation_mode is None:
     activation_mode = "Relu"
   activation_mode = _execute.make_str(activation_mode, "activation_mode")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
-    _, _, _op = _op_def_lib._apply_op_helper(
-        "FusedConv2DBiasActivation", conv_input=conv_input, filter=filter,
-        bias=bias, side_input=side_input, conv_input_scale=conv_input_scale,
-        side_input_scale=side_input_scale, strides=strides, padding=padding,
-        data_format=data_format, filter_format=filter_format,
-        activation_mode=activation_mode, name=name)
-    _result = _op.outputs[:]
-    _inputs_flat = _op.inputs
-    _attrs = ("T", _op.get_attr("T"), "Tbias", _op.get_attr("Tbias"),
-              "strides", _op.get_attr("strides"), "padding",
-              _op.get_attr("padding"), "data_format",
-              _op.get_attr("data_format"), "filter_format",
-              _op.get_attr("filter_format"), "activation_mode",
-              _op.get_attr("activation_mode"))
-  else:
-    _attr_T, _inputs_T = _execute.args_to_matching_eager([conv_input, filter, side_input], _ctx)
-    (conv_input, filter, side_input) = _inputs_T
-    _attr_T = _attr_T.as_datatype_enum
-    _attr_Tbias, (bias,) = _execute.args_to_matching_eager([bias], _ctx)
-    _attr_Tbias = _attr_Tbias.as_datatype_enum
-    conv_input_scale = _ops.convert_to_tensor(conv_input_scale, _dtypes.float32)
-    side_input_scale = _ops.convert_to_tensor(side_input_scale, _dtypes.float32)
-    _inputs_flat = [conv_input, filter, bias, side_input, conv_input_scale, side_input_scale]
-    _attrs = ("T", _attr_T, "Tbias", _attr_Tbias, "strides", strides,
-              "padding", padding, "data_format", data_format, "filter_format",
-              filter_format, "activation_mode", activation_mode)
-    _result = _execute.execute(b"FusedConv2DBiasActivation", 1,
-                               inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
-                               name=name)
+  if dilations is None:
+    dilations = [1, 1, 1, 1]
+  if not isinstance(dilations, (list, tuple)):
+    raise TypeError(
+        "Expected list for 'dilations' argument to "
+        "'fused_conv2d_bias_activation' Op, not %r." % dilations)
+  dilations = [_execute.make_int(_i, "dilations") for _i in dilations]
+  _attr_T, _inputs_T = _execute.args_to_matching_eager([conv_input, filter, side_input], _ctx)
+  (conv_input, filter, side_input) = _inputs_T
+  _attr_Tbias, (bias,) = _execute.args_to_matching_eager([bias], _ctx)
+  conv_input_scale = _ops.convert_to_tensor(conv_input_scale, _dtypes.float32)
+  side_input_scale = _ops.convert_to_tensor(side_input_scale, _dtypes.float32)
+  _inputs_flat = [conv_input, filter, bias, side_input, conv_input_scale, side_input_scale]
+  _attrs = ("T", _attr_T, "Tbias", _attr_Tbias, "strides", strides, "padding",
+  padding, "data_format", data_format, "filter_format", filter_format,
+  "activation_mode", activation_mode, "dilations", dilations)
+  _result = _execute.execute(b"FusedConv2DBiasActivation", 1,
+                             inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
+                             name=name)
   _execute.record_gradient(
       "FusedConv2DBiasActivation", _inputs_flat, _attrs, _result, name)
   _result, = _result
@@ -248,8 +322,21 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #     allowed_values {
 #       list {
 #         s: "Relu"
+#         s: "None"
+#       }
+#     }
+#   }
+#   attr {
+#     name: "dilations"
+#     type: "list(int)"
+#     default_value {
+#       list {
+#         i: 1
+#         i: 1
+#         i: 1
+#         i: 1
 #       }
 #     }
 #   }
 # }
-_op_def_lib = _InitOpDefLibrary(b"\n\236\003\n\031FusedConv2DBiasActivation\022\017\n\nconv_input\"\001T\022\013\n\006filter\"\001T\022\r\n\004bias\"\005Tbias\022\017\n\nside_input\"\001T\022\024\n\020conv_input_scale\030\001\022\024\n\020side_input_scale\030\001\032\013\n\006output\"\001T\"\022\n\001T\022\004type:\007\n\0052\003\001\023\013\"\025\n\005Tbias\022\004type:\006\n\0042\002\001\023\"\024\n\007strides\022\tlist(int)\"\"\n\007padding\022\006string:\017\n\r\022\004SAME\022\005VALID\":\n\013data_format\022\006string\032\006\022\004NHWC:\033\n\031\022\004NHWC\022\004NCHW\022\013NCHW_VECT_C\"<\n\rfilter_format\022\006string\032\006\022\004HWIO:\033\n\031\022\004HWIO\022\004OIHW\022\013OIHW_VECT_I\"+\n\017activation_mode\022\006string\032\006\022\004Relu:\010\n\006\022\004Relu")
+_op_def_lib = _InitOpDefLibrary(b"\n\306\003\n\031FusedConv2DBiasActivation\022\017\n\nconv_input\"\001T\022\013\n\006filter\"\001T\022\r\n\004bias\"\005Tbias\022\017\n\nside_input\"\001T\022\024\n\020conv_input_scale\030\001\022\024\n\020side_input_scale\030\001\032\013\n\006output\"\001T\"\022\n\001T\022\004type:\007\n\0052\003\001\023\013\"\025\n\005Tbias\022\004type:\006\n\0042\002\001\023\"\024\n\007strides\022\tlist(int)\"\"\n\007padding\022\006string:\017\n\r\022\004SAME\022\005VALID\":\n\013data_format\022\006string\032\006\022\004NHWC:\033\n\031\022\004NHWC\022\004NCHW\022\013NCHW_VECT_C\"<\n\rfilter_format\022\006string\032\006\022\004HWIO:\033\n\031\022\004HWIO\022\004OIHW\022\013OIHW_VECT_I\"1\n\017activation_mode\022\006string\032\006\022\004Relu:\016\n\014\022\004Relu\022\004None\" \n\tdilations\022\tlist(int)\032\010\n\006\032\004\001\001\001\001")

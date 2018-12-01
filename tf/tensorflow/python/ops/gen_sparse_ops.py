@@ -5,11 +5,14 @@ Original C++ source file: sparse_ops.cc
 """
 
 import collections as _collections
+import six as _six
 
-from tensorflow.python.eager import execute as _execute
+from tensorflow.python import pywrap_tensorflow as _pywrap_tensorflow
 from tensorflow.python.eager import context as _context
 from tensorflow.python.eager import core as _core
+from tensorflow.python.eager import execute as _execute
 from tensorflow.python.framework import dtypes as _dtypes
+from tensorflow.python.framework import errors as _errors
 from tensorflow.python.framework import tensor_shape as _tensor_shape
 
 from tensorflow.core.framework import op_def_pb2 as _op_def_pb2
@@ -18,9 +21,11 @@ from tensorflow.python.framework import common_shapes as _common_shapes
 from tensorflow.python.framework import op_def_registry as _op_def_registry
 from tensorflow.python.framework import ops as _ops
 from tensorflow.python.framework import op_def_library as _op_def_library
+from tensorflow.python.util.deprecation import deprecated_endpoints
+from tensorflow.python.util.tf_export import tf_export
 
 
-def _add_many_sparse_to_tensors_map(sparse_indices, sparse_values, sparse_shape, container="", shared_name="", name=None):
+def add_many_sparse_to_tensors_map(sparse_indices, sparse_values, sparse_shape, container="", shared_name="", name=None):
   r"""Add an `N`-minibatch `SparseTensor` to a `SparseTensorsMap`, return `N` handles.
 
   A `SparseTensor` of rank `R` is represented by three tensors: `sparse_indices`,
@@ -64,17 +69,15 @@ def _add_many_sparse_to_tensors_map(sparse_indices, sparse_values, sparse_shape,
 
   Returns:
     A `Tensor` of type `int64`.
-    1-D.  The handles of the `SparseTensor` now stored in the
-    `SparseTensorsMap`.  Shape: `[N]`.
   """
-  if container is None:
-    container = ""
-  container = _execute.make_str(container, "container")
-  if shared_name is None:
-    shared_name = ""
-  shared_name = _execute.make_str(shared_name, "shared_name")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if container is None:
+      container = ""
+    container = _execute.make_str(container, "container")
+    if shared_name is None:
+      shared_name = ""
+    shared_name = _execute.make_str(shared_name, "shared_name")
     _, _, _op = _op_def_lib._apply_op_helper(
         "AddManySparseToTensorsMap", sparse_indices=sparse_indices,
         sparse_values=sparse_values, sparse_shape=sparse_shape,
@@ -83,24 +86,57 @@ def _add_many_sparse_to_tensors_map(sparse_indices, sparse_values, sparse_shape,
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"), "container", _op.get_attr("container"),
               "shared_name", _op.get_attr("shared_name"))
+    _execute.record_gradient(
+      "AddManySparseToTensorsMap", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (sparse_values,) = _execute.args_to_matching_eager([sparse_values], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    sparse_indices = _ops.convert_to_tensor(sparse_indices, _dtypes.int64)
-    sparse_shape = _ops.convert_to_tensor(sparse_shape, _dtypes.int64)
-    _inputs_flat = [sparse_indices, sparse_values, sparse_shape]
-    _attrs = ("T", _attr_T, "container", container, "shared_name",
-              shared_name)
-    _result = _execute.execute(b"AddManySparseToTensorsMap", 1,
-                               inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
-                               name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "AddManySparseToTensorsMap", name, _ctx._post_execution_callbacks,
+        sparse_indices, sparse_values, sparse_shape, "container", container,
+        "shared_name", shared_name)
+      return _result
+    except _core._FallbackException:
+      return add_many_sparse_to_tensors_map_eager_fallback(
+          sparse_indices, sparse_values, sparse_shape, container=container,
+          shared_name=shared_name, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def add_many_sparse_to_tensors_map_eager_fallback(sparse_indices, sparse_values, sparse_shape, container="", shared_name="", name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function add_many_sparse_to_tensors_map
+  """
+  _ctx = ctx if ctx else _context.context()
+  if container is None:
+    container = ""
+  container = _execute.make_str(container, "container")
+  if shared_name is None:
+    shared_name = ""
+  shared_name = _execute.make_str(shared_name, "shared_name")
+  _attr_T, (sparse_values,) = _execute.args_to_matching_eager([sparse_values], _ctx)
+  sparse_indices = _ops.convert_to_tensor(sparse_indices, _dtypes.int64)
+  sparse_shape = _ops.convert_to_tensor(sparse_shape, _dtypes.int64)
+  _inputs_flat = [sparse_indices, sparse_values, sparse_shape]
+  _attrs = ("T", _attr_T, "container", container, "shared_name", shared_name)
+  _result = _execute.execute(b"AddManySparseToTensorsMap", 1,
+                             inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
+                             name=name)
   _execute.record_gradient(
       "AddManySparseToTensorsMap", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
-def _add_sparse_to_tensors_map(sparse_indices, sparse_values, sparse_shape, container="", shared_name="", name=None):
+def add_sparse_to_tensors_map(sparse_indices, sparse_values, sparse_shape, container="", shared_name="", name=None):
   r"""Add a `SparseTensor` to a `SparseTensorsMap` return its handle.
 
   A `SparseTensor` is represented by three tensors: `sparse_indices`,
@@ -133,17 +169,15 @@ def _add_sparse_to_tensors_map(sparse_indices, sparse_values, sparse_shape, cont
 
   Returns:
     A `Tensor` of type `int64`.
-    0-D.  The handle of the `SparseTensor` now stored in the
-    `SparseTensorsMap`.
   """
-  if container is None:
-    container = ""
-  container = _execute.make_str(container, "container")
-  if shared_name is None:
-    shared_name = ""
-  shared_name = _execute.make_str(shared_name, "shared_name")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if container is None:
+      container = ""
+    container = _execute.make_str(container, "container")
+    if shared_name is None:
+      shared_name = ""
+    shared_name = _execute.make_str(shared_name, "shared_name")
     _, _, _op = _op_def_lib._apply_op_helper(
         "AddSparseToTensorsMap", sparse_indices=sparse_indices,
         sparse_values=sparse_values, sparse_shape=sparse_shape,
@@ -152,30 +186,62 @@ def _add_sparse_to_tensors_map(sparse_indices, sparse_values, sparse_shape, cont
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"), "container", _op.get_attr("container"),
               "shared_name", _op.get_attr("shared_name"))
+    _execute.record_gradient(
+      "AddSparseToTensorsMap", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (sparse_values,) = _execute.args_to_matching_eager([sparse_values], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    sparse_indices = _ops.convert_to_tensor(sparse_indices, _dtypes.int64)
-    sparse_shape = _ops.convert_to_tensor(sparse_shape, _dtypes.int64)
-    _inputs_flat = [sparse_indices, sparse_values, sparse_shape]
-    _attrs = ("T", _attr_T, "container", container, "shared_name",
-              shared_name)
-    _result = _execute.execute(b"AddSparseToTensorsMap", 1,
-                               inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
-                               name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "AddSparseToTensorsMap", name, _ctx._post_execution_callbacks,
+        sparse_indices, sparse_values, sparse_shape, "container", container,
+        "shared_name", shared_name)
+      return _result
+    except _core._FallbackException:
+      return add_sparse_to_tensors_map_eager_fallback(
+          sparse_indices, sparse_values, sparse_shape, container=container,
+          shared_name=shared_name, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def add_sparse_to_tensors_map_eager_fallback(sparse_indices, sparse_values, sparse_shape, container="", shared_name="", name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function add_sparse_to_tensors_map
+  """
+  _ctx = ctx if ctx else _context.context()
+  if container is None:
+    container = ""
+  container = _execute.make_str(container, "container")
+  if shared_name is None:
+    shared_name = ""
+  shared_name = _execute.make_str(shared_name, "shared_name")
+  _attr_T, (sparse_values,) = _execute.args_to_matching_eager([sparse_values], _ctx)
+  sparse_indices = _ops.convert_to_tensor(sparse_indices, _dtypes.int64)
+  sparse_shape = _ops.convert_to_tensor(sparse_shape, _dtypes.int64)
+  _inputs_flat = [sparse_indices, sparse_values, sparse_shape]
+  _attrs = ("T", _attr_T, "container", container, "shared_name", shared_name)
+  _result = _execute.execute(b"AddSparseToTensorsMap", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "AddSparseToTensorsMap", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
-__deserialize_many_sparse_outputs = ["sparse_indices", "sparse_values",
-                                    "sparse_shape"]
+_deserialize_many_sparse_outputs = ["sparse_indices", "sparse_values",
+                                   "sparse_shape"]
 _DeserializeManySparseOutput = _collections.namedtuple(
-    "DeserializeManySparse", __deserialize_many_sparse_outputs)
+    "DeserializeManySparse", _deserialize_many_sparse_outputs)
 
 
-def _deserialize_many_sparse(serialized_sparse, dtype, name=None):
+def deserialize_many_sparse(serialized_sparse, dtype, name=None):
   r"""Deserialize and concatenate `SparseTensors` from a serialized minibatch.
 
   The input `serialized_sparse` must be a string matrix of shape `[N x 3]` where
@@ -234,30 +300,174 @@ def _deserialize_many_sparse(serialized_sparse, dtype, name=None):
     sparse_values: A `Tensor` of type `dtype`.
     sparse_shape: A `Tensor` of type `int64`.
   """
-  dtype = _execute.make_type(dtype, "dtype")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    dtype = _execute.make_type(dtype, "dtype")
     _, _, _op = _op_def_lib._apply_op_helper(
         "DeserializeManySparse", serialized_sparse=serialized_sparse,
         dtype=dtype, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("dtype", _op.get_attr("dtype"))
+    _execute.record_gradient(
+      "DeserializeManySparse", _inputs_flat, _attrs, _result, name)
+    _result = _DeserializeManySparseOutput._make(_result)
+    return _result
+
   else:
-    serialized_sparse = _ops.convert_to_tensor(serialized_sparse, _dtypes.string)
-    _inputs_flat = [serialized_sparse]
-    _attrs = ("dtype", dtype)
-    _result = _execute.execute(b"DeserializeManySparse", 3,
-                               inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
-                               name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "DeserializeManySparse", name, _ctx._post_execution_callbacks,
+        serialized_sparse, "dtype", dtype)
+      _result = _DeserializeManySparseOutput._make(_result)
+      return _result
+    except _core._FallbackException:
+      return deserialize_many_sparse_eager_fallback(
+          serialized_sparse, dtype=dtype, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def deserialize_many_sparse_eager_fallback(serialized_sparse, dtype, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function deserialize_many_sparse
+  """
+  _ctx = ctx if ctx else _context.context()
+  dtype = _execute.make_type(dtype, "dtype")
+  serialized_sparse = _ops.convert_to_tensor(serialized_sparse, _dtypes.string)
+  _inputs_flat = [serialized_sparse]
+  _attrs = ("dtype", dtype)
+  _result = _execute.execute(b"DeserializeManySparse", 3, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "DeserializeManySparse", _inputs_flat, _attrs, _result, name)
   _result = _DeserializeManySparseOutput._make(_result)
   return _result
 
 
-def _serialize_many_sparse(sparse_indices, sparse_values, sparse_shape, name=None):
-  r"""Serialize an `N`-minibatch `SparseTensor` into an `[N, 3]` string `Tensor`.
+_deserialize_sparse_outputs = ["sparse_indices", "sparse_values",
+                              "sparse_shape"]
+_DeserializeSparseOutput = _collections.namedtuple(
+    "DeserializeSparse", _deserialize_sparse_outputs)
+
+
+def deserialize_sparse(serialized_sparse, dtype, name=None):
+  r"""Deserialize `SparseTensor` objects.
+
+  The input `serialized_sparse` must have the shape `[?, ?, ..., ?, 3]` where
+  the last dimension stores serialized `SparseTensor` objects and the other N
+  dimensions (N >= 0) correspond to a batch. The ranks of the original
+  `SparseTensor` objects must all match. When the final `SparseTensor` is
+  created, its rank is the rank of the incoming `SparseTensor` objects plus N;
+  the sparse tensors have been concatenated along new dimensions, one for each
+  batch.
+
+  The output `SparseTensor` object's shape values for the original dimensions
+  are the max across the input `SparseTensor` objects' shape values for the
+  corresponding dimensions. The new dimensions match the size of the batch.
+
+  The input `SparseTensor` objects' indices are assumed ordered in
+  standard lexicographic order.  If this is not the case, after this
+  step run `SparseReorder` to restore index ordering.
+
+  For example, if the serialized input is a `[2 x 3]` matrix representing two
+  original `SparseTensor` objects:
+
+      index = [ 0]
+              [10]
+              [20]
+      values = [1, 2, 3]
+      shape = [50]
+
+  and
+
+      index = [ 2]
+              [10]
+      values = [4, 5]
+      shape = [30]
+
+  then the final deserialized `SparseTensor` will be:
+
+      index = [0  0]
+              [0 10]
+              [0 20]
+              [1  2]
+              [1 10]
+      values = [1, 2, 3, 4, 5]
+      shape = [2 50]
+
+  Args:
+    serialized_sparse: A `Tensor`. Must be one of the following types: `string`, `variant`.
+      The serialized `SparseTensor` objects. The last dimension
+      must have 3 columns.
+    dtype: A `tf.DType`. The `dtype` of the serialized `SparseTensor` objects.
+    name: A name for the operation (optional).
+
+  Returns:
+    A tuple of `Tensor` objects (sparse_indices, sparse_values, sparse_shape).
+
+    sparse_indices: A `Tensor` of type `int64`.
+    sparse_values: A `Tensor` of type `dtype`.
+    sparse_shape: A `Tensor` of type `int64`.
+  """
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    dtype = _execute.make_type(dtype, "dtype")
+    _, _, _op = _op_def_lib._apply_op_helper(
+        "DeserializeSparse", serialized_sparse=serialized_sparse, dtype=dtype,
+        name=name)
+    _result = _op.outputs[:]
+    _inputs_flat = _op.inputs
+    _attrs = ("dtype", _op.get_attr("dtype"), "Tserialized",
+              _op.get_attr("Tserialized"))
+    _execute.record_gradient(
+      "DeserializeSparse", _inputs_flat, _attrs, _result, name)
+    _result = _DeserializeSparseOutput._make(_result)
+    return _result
+
+  else:
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "DeserializeSparse", name, _ctx._post_execution_callbacks,
+        serialized_sparse, "dtype", dtype)
+      _result = _DeserializeSparseOutput._make(_result)
+      return _result
+    except _core._FallbackException:
+      return deserialize_sparse_eager_fallback(
+          serialized_sparse, dtype=dtype, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def deserialize_sparse_eager_fallback(serialized_sparse, dtype, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function deserialize_sparse
+  """
+  _ctx = ctx if ctx else _context.context()
+  dtype = _execute.make_type(dtype, "dtype")
+  _attr_Tserialized, (serialized_sparse,) = _execute.args_to_matching_eager([serialized_sparse], _ctx, _dtypes.string)
+  _inputs_flat = [serialized_sparse]
+  _attrs = ("dtype", dtype, "Tserialized", _attr_Tserialized)
+  _result = _execute.execute(b"DeserializeSparse", 3, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
+  _execute.record_gradient(
+      "DeserializeSparse", _inputs_flat, _attrs, _result, name)
+  _result = _DeserializeSparseOutput._make(_result)
+  return _result
+
+
+def serialize_many_sparse(sparse_indices, sparse_values, sparse_shape, out_type=_dtypes.string, name=None):
+  r"""Serialize an `N`-minibatch `SparseTensor` into an `[N, 3]` `Tensor` object.
 
   The `SparseTensor` must have rank `R` greater than 1, and the first dimension
   is treated as the minibatch dimension.  Elements of the `SparseTensor`
@@ -274,36 +484,73 @@ def _serialize_many_sparse(sparse_indices, sparse_values, sparse_shape, name=Non
       1-D.  The `values` of the minibatch `SparseTensor`.
     sparse_shape: A `Tensor` of type `int64`.
       1-D.  The `shape` of the minibatch `SparseTensor`.
+    out_type: An optional `tf.DType` from: `tf.string, tf.variant`. Defaults to `tf.string`.
+      The `dtype` to use for serialization; the supported types are `string`
+      (default) and `variant`.
     name: A name for the operation (optional).
 
   Returns:
-    A `Tensor` of type `string`.
+    A `Tensor` of type `out_type`.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if out_type is None:
+      out_type = _dtypes.string
+    out_type = _execute.make_type(out_type, "out_type")
     _, _, _op = _op_def_lib._apply_op_helper(
         "SerializeManySparse", sparse_indices=sparse_indices,
-        sparse_values=sparse_values, sparse_shape=sparse_shape, name=name)
+        sparse_values=sparse_values, sparse_shape=sparse_shape,
+        out_type=out_type, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
-    _attrs = ("T", _op.get_attr("T"))
+    _attrs = ("T", _op.get_attr("T"), "out_type", _op.get_attr("out_type"))
+    _execute.record_gradient(
+      "SerializeManySparse", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (sparse_values,) = _execute.args_to_matching_eager([sparse_values], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    sparse_indices = _ops.convert_to_tensor(sparse_indices, _dtypes.int64)
-    sparse_shape = _ops.convert_to_tensor(sparse_shape, _dtypes.int64)
-    _inputs_flat = [sparse_indices, sparse_values, sparse_shape]
-    _attrs = ("T", _attr_T)
-    _result = _execute.execute(b"SerializeManySparse", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "SerializeManySparse", name, _ctx._post_execution_callbacks,
+        sparse_indices, sparse_values, sparse_shape, "out_type", out_type)
+      return _result
+    except _core._FallbackException:
+      return serialize_many_sparse_eager_fallback(
+          sparse_indices, sparse_values, sparse_shape, out_type=out_type,
+          name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def serialize_many_sparse_eager_fallback(sparse_indices, sparse_values, sparse_shape, out_type=_dtypes.string, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function serialize_many_sparse
+  """
+  _ctx = ctx if ctx else _context.context()
+  if out_type is None:
+    out_type = _dtypes.string
+  out_type = _execute.make_type(out_type, "out_type")
+  _attr_T, (sparse_values,) = _execute.args_to_matching_eager([sparse_values], _ctx)
+  sparse_indices = _ops.convert_to_tensor(sparse_indices, _dtypes.int64)
+  sparse_shape = _ops.convert_to_tensor(sparse_shape, _dtypes.int64)
+  _inputs_flat = [sparse_indices, sparse_values, sparse_shape]
+  _attrs = ("T", _attr_T, "out_type", out_type)
+  _result = _execute.execute(b"SerializeManySparse", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "SerializeManySparse", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
-def _serialize_sparse(sparse_indices, sparse_values, sparse_shape, name=None):
-  r"""Serialize a `SparseTensor` into a string 3-vector (1-D `Tensor`) object.
+def serialize_sparse(sparse_indices, sparse_values, sparse_shape, out_type=_dtypes.string, name=None):
+  r"""Serialize a `SparseTensor` into a `[3]` `Tensor` object.
 
   Args:
     sparse_indices: A `Tensor` of type `int64`.
@@ -311,40 +558,77 @@ def _serialize_sparse(sparse_indices, sparse_values, sparse_shape, name=None):
     sparse_values: A `Tensor`. 1-D.  The `values` of the `SparseTensor`.
     sparse_shape: A `Tensor` of type `int64`.
       1-D.  The `shape` of the `SparseTensor`.
+    out_type: An optional `tf.DType` from: `tf.string, tf.variant`. Defaults to `tf.string`.
+      The `dtype` to use for serialization; the supported types are `string`
+      (default) and `variant`.
     name: A name for the operation (optional).
 
   Returns:
-    A `Tensor` of type `string`.
+    A `Tensor` of type `out_type`.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if out_type is None:
+      out_type = _dtypes.string
+    out_type = _execute.make_type(out_type, "out_type")
     _, _, _op = _op_def_lib._apply_op_helper(
         "SerializeSparse", sparse_indices=sparse_indices,
-        sparse_values=sparse_values, sparse_shape=sparse_shape, name=name)
+        sparse_values=sparse_values, sparse_shape=sparse_shape,
+        out_type=out_type, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
-    _attrs = ("T", _op.get_attr("T"))
+    _attrs = ("T", _op.get_attr("T"), "out_type", _op.get_attr("out_type"))
+    _execute.record_gradient(
+      "SerializeSparse", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (sparse_values,) = _execute.args_to_matching_eager([sparse_values], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    sparse_indices = _ops.convert_to_tensor(sparse_indices, _dtypes.int64)
-    sparse_shape = _ops.convert_to_tensor(sparse_shape, _dtypes.int64)
-    _inputs_flat = [sparse_indices, sparse_values, sparse_shape]
-    _attrs = ("T", _attr_T)
-    _result = _execute.execute(b"SerializeSparse", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "SerializeSparse", name, _ctx._post_execution_callbacks,
+        sparse_indices, sparse_values, sparse_shape, "out_type", out_type)
+      return _result
+    except _core._FallbackException:
+      return serialize_sparse_eager_fallback(
+          sparse_indices, sparse_values, sparse_shape, out_type=out_type,
+          name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def serialize_sparse_eager_fallback(sparse_indices, sparse_values, sparse_shape, out_type=_dtypes.string, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function serialize_sparse
+  """
+  _ctx = ctx if ctx else _context.context()
+  if out_type is None:
+    out_type = _dtypes.string
+  out_type = _execute.make_type(out_type, "out_type")
+  _attr_T, (sparse_values,) = _execute.args_to_matching_eager([sparse_values], _ctx)
+  sparse_indices = _ops.convert_to_tensor(sparse_indices, _dtypes.int64)
+  sparse_shape = _ops.convert_to_tensor(sparse_shape, _dtypes.int64)
+  _inputs_flat = [sparse_indices, sparse_values, sparse_shape]
+  _attrs = ("T", _attr_T, "out_type", out_type)
+  _result = _execute.execute(b"SerializeSparse", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "SerializeSparse", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
-__sparse_add_outputs = ["sum_indices", "sum_values", "sum_shape"]
+_sparse_add_outputs = ["sum_indices", "sum_values", "sum_shape"]
 _SparseAddOutput = _collections.namedtuple(
-    "SparseAdd", __sparse_add_outputs)
+    "SparseAdd", _sparse_add_outputs)
 
 
-def _sparse_add(a_indices, a_values, a_shape, b_indices, b_values, b_shape, thresh, name=None):
+def sparse_add(a_indices, a_values, a_shape, b_indices, b_values, b_shape, thresh, name=None):
   r"""Adds two `SparseTensor` objects to produce another `SparseTensor`.
 
   The input `SparseTensor` objects' indices are assumed ordered in standard
@@ -364,7 +648,7 @@ def _sparse_add(a_indices, a_values, a_shape, b_indices, b_values, b_shape, thre
   Args:
     a_indices: A `Tensor` of type `int64`.
       2-D.  The `indices` of the first `SparseTensor`, size `[nnz, ndims]` Matrix.
-    a_values: A `Tensor`. Must be one of the following types: `float32`, `float64`, `int64`, `int32`, `uint8`, `uint16`, `int16`, `int8`, `complex64`, `complex128`, `qint8`, `quint8`, `qint32`, `half`.
+    a_values: A `Tensor`. Must be one of the following types: `float32`, `float64`, `int32`, `uint8`, `int16`, `int8`, `complex64`, `int64`, `qint8`, `quint8`, `qint32`, `bfloat16`, `uint16`, `complex128`, `half`, `uint32`, `uint64`.
       1-D.  The `values` of the first `SparseTensor`, size `[nnz]` Vector.
     a_shape: A `Tensor` of type `int64`.
       1-D.  The `shape` of the first `SparseTensor`, size `[ndims]` Vector.
@@ -374,7 +658,7 @@ def _sparse_add(a_indices, a_values, a_shape, b_indices, b_values, b_shape, thre
       1-D.  The `values` of the second `SparseTensor`, size `[nnz]` Vector.
     b_shape: A `Tensor` of type `int64`.
       1-D.  The `shape` of the second `SparseTensor`, size `[ndims]` Vector.
-    thresh: A `Tensor`. Must be one of the following types: `float32`, `float64`, `int32`, `int64`, `uint8`, `int16`, `int8`, `uint16`, `half`.
+    thresh: A `Tensor`. Must be one of the following types: `float32`, `float64`, `int32`, `uint8`, `int16`, `int8`, `int64`, `bfloat16`, `uint16`, `half`, `uint32`, `uint64`.
       0-D.  The magnitude threshold that determines if an output value/index
       pair takes space.
     name: A name for the operation (optional).
@@ -386,8 +670,8 @@ def _sparse_add(a_indices, a_values, a_shape, b_indices, b_values, b_shape, thre
     sum_values: A `Tensor`. Has the same type as `a_values`.
     sum_shape: A `Tensor` of type `int64`.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "SparseAdd", a_indices=a_indices, a_values=a_values, a_shape=a_shape,
         b_indices=b_indices, b_values=b_values, b_shape=b_shape,
@@ -395,32 +679,59 @@ def _sparse_add(a_indices, a_values, a_shape, b_indices, b_values, b_shape, thre
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"), "Treal", _op.get_attr("Treal"))
+    _execute.record_gradient(
+      "SparseAdd", _inputs_flat, _attrs, _result, name)
+    _result = _SparseAddOutput._make(_result)
+    return _result
+
   else:
-    _attr_T, _inputs_T = _execute.args_to_matching_eager([a_values, b_values], _ctx)
-    (a_values, b_values) = _inputs_T
-    _attr_T = _attr_T.as_datatype_enum
-    _attr_Treal, (thresh,) = _execute.args_to_matching_eager([thresh], _ctx)
-    _attr_Treal = _attr_Treal.as_datatype_enum
-    a_indices = _ops.convert_to_tensor(a_indices, _dtypes.int64)
-    a_shape = _ops.convert_to_tensor(a_shape, _dtypes.int64)
-    b_indices = _ops.convert_to_tensor(b_indices, _dtypes.int64)
-    b_shape = _ops.convert_to_tensor(b_shape, _dtypes.int64)
-    _inputs_flat = [a_indices, a_values, a_shape, b_indices, b_values, b_shape, thresh]
-    _attrs = ("T", _attr_T, "Treal", _attr_Treal)
-    _result = _execute.execute(b"SparseAdd", 3, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "SparseAdd",
+        name, _ctx._post_execution_callbacks, a_indices, a_values, a_shape,
+        b_indices, b_values, b_shape, thresh)
+      _result = _SparseAddOutput._make(_result)
+      return _result
+    except _core._FallbackException:
+      return sparse_add_eager_fallback(
+          a_indices, a_values, a_shape, b_indices, b_values, b_shape, thresh,
+          name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def sparse_add_eager_fallback(a_indices, a_values, a_shape, b_indices, b_values, b_shape, thresh, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function sparse_add
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, _inputs_T = _execute.args_to_matching_eager([a_values, b_values], _ctx)
+  (a_values, b_values) = _inputs_T
+  _attr_Treal, (thresh,) = _execute.args_to_matching_eager([thresh], _ctx)
+  a_indices = _ops.convert_to_tensor(a_indices, _dtypes.int64)
+  a_shape = _ops.convert_to_tensor(a_shape, _dtypes.int64)
+  b_indices = _ops.convert_to_tensor(b_indices, _dtypes.int64)
+  b_shape = _ops.convert_to_tensor(b_shape, _dtypes.int64)
+  _inputs_flat = [a_indices, a_values, a_shape, b_indices, b_values, b_shape, thresh]
+  _attrs = ("T", _attr_T, "Treal", _attr_Treal)
+  _result = _execute.execute(b"SparseAdd", 3, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "SparseAdd", _inputs_flat, _attrs, _result, name)
   _result = _SparseAddOutput._make(_result)
   return _result
 
 
-__sparse_add_grad_outputs = ["a_val_grad", "b_val_grad"]
+_sparse_add_grad_outputs = ["a_val_grad", "b_val_grad"]
 _SparseAddGradOutput = _collections.namedtuple(
-    "SparseAddGrad", __sparse_add_grad_outputs)
+    "SparseAddGrad", _sparse_add_grad_outputs)
 
 
-def _sparse_add_grad(backprop_val_grad, a_indices, b_indices, sum_indices, name=None):
+def sparse_add_grad(backprop_val_grad, a_indices, b_indices, sum_indices, name=None):
   r"""The gradient operator for the SparseAdd op.
 
   The SparseAdd op calculates A + B, where A, B, and the sum are all represented
@@ -429,7 +740,7 @@ def _sparse_add_grad(backprop_val_grad, a_indices, b_indices, sum_indices, name=
   values of A and B.
 
   Args:
-    backprop_val_grad: A `Tensor`. Must be one of the following types: `float32`, `float64`, `int64`, `int32`, `uint8`, `uint16`, `int16`, `int8`, `complex64`, `complex128`, `qint8`, `quint8`, `qint32`, `half`.
+    backprop_val_grad: A `Tensor`. Must be one of the following types: `float32`, `float64`, `int32`, `uint8`, `int16`, `int8`, `complex64`, `int64`, `qint8`, `quint8`, `qint32`, `bfloat16`, `uint16`, `complex128`, `half`, `uint32`, `uint64`.
       1-D with shape `[nnz(sum)]`.  The gradient with respect to
       the non-empty values of the sum.
     a_indices: A `Tensor` of type `int64`.
@@ -444,13 +755,11 @@ def _sparse_add_grad(backprop_val_grad, a_indices, b_indices, sum_indices, name=
   Returns:
     A tuple of `Tensor` objects (a_val_grad, b_val_grad).
 
-    a_val_grad: A `Tensor`. Has the same type as `backprop_val_grad`. 1-D with shape `[nnz(A)]`. The gradient with respect to the
-      non-empty values of A.
-    b_val_grad: A `Tensor`. Has the same type as `backprop_val_grad`. 1-D with shape `[nnz(B)]`. The gradient with respect to the
-      non-empty values of B.
+    a_val_grad: A `Tensor`. Has the same type as `backprop_val_grad`.
+    b_val_grad: A `Tensor`. Has the same type as `backprop_val_grad`.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "SparseAddGrad", backprop_val_grad=backprop_val_grad,
         a_indices=a_indices, b_indices=b_indices, sum_indices=sum_indices,
@@ -458,28 +767,56 @@ def _sparse_add_grad(backprop_val_grad, a_indices, b_indices, sum_indices, name=
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "SparseAddGrad", _inputs_flat, _attrs, _result, name)
+    _result = _SparseAddGradOutput._make(_result)
+    return _result
+
   else:
-    _attr_T, (backprop_val_grad,) = _execute.args_to_matching_eager([backprop_val_grad], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    a_indices = _ops.convert_to_tensor(a_indices, _dtypes.int64)
-    b_indices = _ops.convert_to_tensor(b_indices, _dtypes.int64)
-    sum_indices = _ops.convert_to_tensor(sum_indices, _dtypes.int64)
-    _inputs_flat = [backprop_val_grad, a_indices, b_indices, sum_indices]
-    _attrs = ("T", _attr_T)
-    _result = _execute.execute(b"SparseAddGrad", 2, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "SparseAddGrad", name, _ctx._post_execution_callbacks,
+        backprop_val_grad, a_indices, b_indices, sum_indices)
+      _result = _SparseAddGradOutput._make(_result)
+      return _result
+    except _core._FallbackException:
+      return sparse_add_grad_eager_fallback(
+          backprop_val_grad, a_indices, b_indices, sum_indices, name=name,
+          ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def sparse_add_grad_eager_fallback(backprop_val_grad, a_indices, b_indices, sum_indices, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function sparse_add_grad
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, (backprop_val_grad,) = _execute.args_to_matching_eager([backprop_val_grad], _ctx)
+  a_indices = _ops.convert_to_tensor(a_indices, _dtypes.int64)
+  b_indices = _ops.convert_to_tensor(b_indices, _dtypes.int64)
+  sum_indices = _ops.convert_to_tensor(sum_indices, _dtypes.int64)
+  _inputs_flat = [backprop_val_grad, a_indices, b_indices, sum_indices]
+  _attrs = ("T", _attr_T)
+  _result = _execute.execute(b"SparseAddGrad", 2, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "SparseAddGrad", _inputs_flat, _attrs, _result, name)
   _result = _SparseAddGradOutput._make(_result)
   return _result
 
 
-__sparse_concat_outputs = ["output_indices", "output_values", "output_shape"]
+_sparse_concat_outputs = ["output_indices", "output_values", "output_shape"]
 _SparseConcatOutput = _collections.namedtuple(
-    "SparseConcat", __sparse_concat_outputs)
+    "SparseConcat", _sparse_concat_outputs)
 
 
-def _sparse_concat(indices, values, shapes, concat_dim, name=None):
+def sparse_concat(indices, values, shapes, concat_dim, name=None):
   r"""Concatenates a list of `SparseTensor` along the specified dimension.
 
   Concatenation is with respect to the dense versions of these sparse tensors.
@@ -539,10 +876,72 @@ def _sparse_concat(indices, values, shapes, concat_dim, name=None):
   Returns:
     A tuple of `Tensor` objects (output_indices, output_values, output_shape).
 
-    output_indices: A `Tensor` of type `int64`. 2-D.  Indices of the concatenated `SparseTensor`.
-    output_values: A `Tensor`. Has the same type as `values`. 1-D.  Non-empty values of the concatenated `SparseTensor`.
-    output_shape: A `Tensor` of type `int64`. 1-D.  Shape of the concatenated `SparseTensor`.
+    output_indices: A `Tensor` of type `int64`.
+    output_values: A `Tensor`. Has the same type as `values`.
+    output_shape: A `Tensor` of type `int64`.
   """
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if not isinstance(indices, (list, tuple)):
+      raise TypeError(
+          "Expected list for 'indices' argument to "
+          "'sparse_concat' Op, not %r." % indices)
+    _attr_N = len(indices)
+    if not isinstance(values, (list, tuple)):
+      raise TypeError(
+          "Expected list for 'values' argument to "
+          "'sparse_concat' Op, not %r." % values)
+    if len(values) != _attr_N:
+      raise ValueError(
+          "List argument 'values' to 'sparse_concat' Op with length %d "
+          "must match length %d of argument 'indices'." %
+          (len(values), _attr_N))
+    if not isinstance(shapes, (list, tuple)):
+      raise TypeError(
+          "Expected list for 'shapes' argument to "
+          "'sparse_concat' Op, not %r." % shapes)
+    if len(shapes) != _attr_N:
+      raise ValueError(
+          "List argument 'shapes' to 'sparse_concat' Op with length %d "
+          "must match length %d of argument 'indices'." %
+          (len(shapes), _attr_N))
+    concat_dim = _execute.make_int(concat_dim, "concat_dim")
+    _, _, _op = _op_def_lib._apply_op_helper(
+        "SparseConcat", indices=indices, values=values, shapes=shapes,
+        concat_dim=concat_dim, name=name)
+    _result = _op.outputs[:]
+    _inputs_flat = _op.inputs
+    _attrs = ("concat_dim", _op.get_attr("concat_dim"), "N",
+              _op.get_attr("N"), "T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "SparseConcat", _inputs_flat, _attrs, _result, name)
+    _result = _SparseConcatOutput._make(_result)
+    return _result
+
+  else:
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "SparseConcat",
+        name, _ctx._post_execution_callbacks, indices, values, shapes,
+        "concat_dim", concat_dim)
+      _result = _SparseConcatOutput._make(_result)
+      return _result
+    except _core._FallbackException:
+      return sparse_concat_eager_fallback(
+          indices, values, shapes, concat_dim=concat_dim, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def sparse_concat_eager_fallback(indices, values, shapes, concat_dim, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function sparse_concat
+  """
+  _ctx = ctx if ctx else _context.context()
   if not isinstance(indices, (list, tuple)):
     raise TypeError(
         "Expected list for 'indices' argument to "
@@ -567,36 +966,25 @@ def _sparse_concat(indices, values, shapes, concat_dim, name=None):
         "must match length %d of argument 'indices'." %
         (len(shapes), _attr_N))
   concat_dim = _execute.make_int(concat_dim, "concat_dim")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
-    _, _, _op = _op_def_lib._apply_op_helper(
-        "SparseConcat", indices=indices, values=values, shapes=shapes,
-        concat_dim=concat_dim, name=name)
-    _result = _op.outputs[:]
-    _inputs_flat = _op.inputs
-    _attrs = ("concat_dim", _op.get_attr("concat_dim"), "N",
-              _op.get_attr("N"), "T", _op.get_attr("T"))
-  else:
-    _attr_T, values = _execute.args_to_matching_eager(list(values), _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    indices = _ops.convert_n_to_tensor(indices, _dtypes.int64)
-    shapes = _ops.convert_n_to_tensor(shapes, _dtypes.int64)
-    _inputs_flat = list(indices) + list(values) + list(shapes)
-    _attrs = ("concat_dim", concat_dim, "N", _attr_N, "T", _attr_T)
-    _result = _execute.execute(b"SparseConcat", 3, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+  _attr_T, values = _execute.args_to_matching_eager(list(values), _ctx)
+  indices = _ops.convert_n_to_tensor(indices, _dtypes.int64)
+  shapes = _ops.convert_n_to_tensor(shapes, _dtypes.int64)
+  _inputs_flat = list(indices) + list(values) + list(shapes)
+  _attrs = ("concat_dim", concat_dim, "N", _attr_N, "T", _attr_T)
+  _result = _execute.execute(b"SparseConcat", 3, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "SparseConcat", _inputs_flat, _attrs, _result, name)
   _result = _SparseConcatOutput._make(_result)
   return _result
 
 
-__sparse_cross_outputs = ["output_indices", "output_values", "output_shape"]
+_sparse_cross_outputs = ["output_indices", "output_values", "output_shape"]
 _SparseCrossOutput = _collections.namedtuple(
-    "SparseCross", __sparse_cross_outputs)
+    "SparseCross", _sparse_cross_outputs)
 
 
-def _sparse_cross(indices, values, shapes, dense_inputs, hashed_output, num_buckets, hash_key, out_type, internal_type, name=None):
+def sparse_cross(indices, values, shapes, dense_inputs, hashed_output, num_buckets, hash_key, out_type, internal_type, name=None):
   r"""Generates sparse cross from a list of sparse and dense tensors.
 
   The op takes two lists, one of 2D `SparseTensor` and one of 2D `Tensor`, each
@@ -660,11 +1048,79 @@ def _sparse_cross(indices, values, shapes, dense_inputs, hashed_output, num_buck
   Returns:
     A tuple of `Tensor` objects (output_indices, output_values, output_shape).
 
-    output_indices: A `Tensor` of type `int64`. 2-D.  Indices of the concatenated `SparseTensor`.
-    output_values: A `Tensor` of type `out_type`. 1-D.  Non-empty values of the concatenated or hashed
-      `SparseTensor`.
-    output_shape: A `Tensor` of type `int64`. 1-D.  Shape of the concatenated `SparseTensor`.
+    output_indices: A `Tensor` of type `int64`.
+    output_values: A `Tensor` of type `out_type`.
+    output_shape: A `Tensor` of type `int64`.
   """
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if not isinstance(indices, (list, tuple)):
+      raise TypeError(
+          "Expected list for 'indices' argument to "
+          "'sparse_cross' Op, not %r." % indices)
+    _attr_N = len(indices)
+    if not isinstance(shapes, (list, tuple)):
+      raise TypeError(
+          "Expected list for 'shapes' argument to "
+          "'sparse_cross' Op, not %r." % shapes)
+    if len(shapes) != _attr_N:
+      raise ValueError(
+          "List argument 'shapes' to 'sparse_cross' Op with length %d "
+          "must match length %d of argument 'indices'." %
+          (len(shapes), _attr_N))
+    hashed_output = _execute.make_bool(hashed_output, "hashed_output")
+    num_buckets = _execute.make_int(num_buckets, "num_buckets")
+    hash_key = _execute.make_int(hash_key, "hash_key")
+    out_type = _execute.make_type(out_type, "out_type")
+    internal_type = _execute.make_type(internal_type, "internal_type")
+    _, _, _op = _op_def_lib._apply_op_helper(
+        "SparseCross", indices=indices, values=values, shapes=shapes,
+        dense_inputs=dense_inputs, hashed_output=hashed_output,
+        num_buckets=num_buckets, hash_key=hash_key, out_type=out_type,
+        internal_type=internal_type, name=name)
+    _result = _op.outputs[:]
+    _inputs_flat = _op.inputs
+    _attrs = ("N", _op.get_attr("N"), "hashed_output",
+              _op.get_attr("hashed_output"), "num_buckets",
+              _op.get_attr("num_buckets"), "hash_key",
+              _op.get_attr("hash_key"), "sparse_types",
+              _op.get_attr("sparse_types"), "dense_types",
+              _op.get_attr("dense_types"), "out_type",
+              _op.get_attr("out_type"), "internal_type",
+              _op.get_attr("internal_type"))
+    _execute.record_gradient(
+      "SparseCross", _inputs_flat, _attrs, _result, name)
+    _result = _SparseCrossOutput._make(_result)
+    return _result
+
+  else:
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "SparseCross",
+        name, _ctx._post_execution_callbacks, indices, values, shapes,
+        dense_inputs, "hashed_output", hashed_output, "num_buckets",
+        num_buckets, "hash_key", hash_key, "out_type", out_type,
+        "internal_type", internal_type)
+      _result = _SparseCrossOutput._make(_result)
+      return _result
+    except _core._FallbackException:
+      return sparse_cross_eager_fallback(
+          indices, values, shapes, dense_inputs, hashed_output=hashed_output,
+          num_buckets=num_buckets, hash_key=hash_key, out_type=out_type,
+          internal_type=internal_type, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def sparse_cross_eager_fallback(indices, values, shapes, dense_inputs, hashed_output, num_buckets, hash_key, out_type, internal_type, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function sparse_cross
+  """
+  _ctx = ctx if ctx else _context.context()
   if not isinstance(indices, (list, tuple)):
     raise TypeError(
         "Expected list for 'indices' argument to "
@@ -684,37 +1140,17 @@ def _sparse_cross(indices, values, shapes, dense_inputs, hashed_output, num_buck
   hash_key = _execute.make_int(hash_key, "hash_key")
   out_type = _execute.make_type(out_type, "out_type")
   internal_type = _execute.make_type(internal_type, "internal_type")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
-    _, _, _op = _op_def_lib._apply_op_helper(
-        "SparseCross", indices=indices, values=values, shapes=shapes,
-        dense_inputs=dense_inputs, hashed_output=hashed_output,
-        num_buckets=num_buckets, hash_key=hash_key, out_type=out_type,
-        internal_type=internal_type, name=name)
-    _result = _op.outputs[:]
-    _inputs_flat = _op.inputs
-    _attrs = ("N", _op.get_attr("N"), "hashed_output",
-              _op.get_attr("hashed_output"), "num_buckets",
-              _op.get_attr("num_buckets"), "hash_key",
-              _op.get_attr("hash_key"), "sparse_types",
-              _op.get_attr("sparse_types"), "dense_types",
-              _op.get_attr("dense_types"), "out_type",
-              _op.get_attr("out_type"), "internal_type",
-              _op.get_attr("internal_type"))
-  else:
-    _attr_sparse_types, values = _execute.convert_to_mixed_eager_tensors(values, _ctx)
-    _attr_sparse_types = [_t.as_datatype_enum for _t in _attr_sparse_types]
-    _attr_dense_types, dense_inputs = _execute.convert_to_mixed_eager_tensors(dense_inputs, _ctx)
-    _attr_dense_types = [_t.as_datatype_enum for _t in _attr_dense_types]
-    indices = _ops.convert_n_to_tensor(indices, _dtypes.int64)
-    shapes = _ops.convert_n_to_tensor(shapes, _dtypes.int64)
-    _inputs_flat = list(indices) + list(values) + list(shapes) + list(dense_inputs)
-    _attrs = ("N", _attr_N, "hashed_output", hashed_output, "num_buckets",
-              num_buckets, "hash_key", hash_key, "sparse_types",
-              _attr_sparse_types, "dense_types", _attr_dense_types,
-              "out_type", out_type, "internal_type", internal_type)
-    _result = _execute.execute(b"SparseCross", 3, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+  _attr_sparse_types, values = _execute.convert_to_mixed_eager_tensors(values, _ctx)
+  _attr_dense_types, dense_inputs = _execute.convert_to_mixed_eager_tensors(dense_inputs, _ctx)
+  indices = _ops.convert_n_to_tensor(indices, _dtypes.int64)
+  shapes = _ops.convert_n_to_tensor(shapes, _dtypes.int64)
+  _inputs_flat = list(indices) + list(values) + list(shapes) + list(dense_inputs)
+  _attrs = ("N", _attr_N, "hashed_output", hashed_output, "num_buckets",
+  num_buckets, "hash_key", hash_key, "sparse_types", _attr_sparse_types,
+  "dense_types", _attr_dense_types, "out_type", out_type, "internal_type",
+  internal_type)
+  _result = _execute.execute(b"SparseCross", 3, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "SparseCross", _inputs_flat, _attrs, _result, name)
   _result = _SparseCrossOutput._make(_result)
@@ -737,7 +1173,7 @@ def sparse_dense_cwise_add(sp_indices, sp_values, sp_shape, dense, name=None):
     sp_indices: A `Tensor` of type `int64`.
       2-D.  `N x R` matrix with the indices of non-empty values in a
       SparseTensor, possibly not in canonical ordering.
-    sp_values: A `Tensor`. Must be one of the following types: `float32`, `float64`, `int64`, `int32`, `uint8`, `uint16`, `int16`, `int8`, `complex64`, `complex128`, `qint8`, `quint8`, `qint32`, `half`.
+    sp_values: A `Tensor`. Must be one of the following types: `float32`, `float64`, `int32`, `uint8`, `int16`, `int8`, `complex64`, `int64`, `qint8`, `quint8`, `qint32`, `bfloat16`, `uint16`, `complex128`, `half`, `uint32`, `uint64`.
       1-D.  `N` non-empty values corresponding to `sp_indices`.
     sp_shape: A `Tensor` of type `int64`.
       1-D.  Shape of the input SparseTensor.
@@ -747,26 +1183,51 @@ def sparse_dense_cwise_add(sp_indices, sp_values, sp_shape, dense, name=None):
 
   Returns:
     A `Tensor`. Has the same type as `sp_values`.
-    1-D.  The `N` values that are operated on.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "SparseDenseCwiseAdd", sp_indices=sp_indices, sp_values=sp_values,
         sp_shape=sp_shape, dense=dense, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "SparseDenseCwiseAdd", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, _inputs_T = _execute.args_to_matching_eager([sp_values, dense], _ctx)
-    (sp_values, dense) = _inputs_T
-    _attr_T = _attr_T.as_datatype_enum
-    sp_indices = _ops.convert_to_tensor(sp_indices, _dtypes.int64)
-    sp_shape = _ops.convert_to_tensor(sp_shape, _dtypes.int64)
-    _inputs_flat = [sp_indices, sp_values, sp_shape, dense]
-    _attrs = ("T", _attr_T)
-    _result = _execute.execute(b"SparseDenseCwiseAdd", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "SparseDenseCwiseAdd", name, _ctx._post_execution_callbacks,
+        sp_indices, sp_values, sp_shape, dense)
+      return _result
+    except _core._FallbackException:
+      return sparse_dense_cwise_add_eager_fallback(
+          sp_indices, sp_values, sp_shape, dense, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def sparse_dense_cwise_add_eager_fallback(sp_indices, sp_values, sp_shape, dense, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function sparse_dense_cwise_add
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, _inputs_T = _execute.args_to_matching_eager([sp_values, dense], _ctx)
+  (sp_values, dense) = _inputs_T
+  sp_indices = _ops.convert_to_tensor(sp_indices, _dtypes.int64)
+  sp_shape = _ops.convert_to_tensor(sp_shape, _dtypes.int64)
+  _inputs_flat = [sp_indices, sp_values, sp_shape, dense]
+  _attrs = ("T", _attr_T)
+  _result = _execute.execute(b"SparseDenseCwiseAdd", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "SparseDenseCwiseAdd", _inputs_flat, _attrs, _result, name)
   _result, = _result
@@ -783,7 +1244,7 @@ def sparse_dense_cwise_div(sp_indices, sp_values, sp_shape, dense, name=None):
     sp_indices: A `Tensor` of type `int64`.
       2-D.  `N x R` matrix with the indices of non-empty values in a
       SparseTensor, possibly not in canonical ordering.
-    sp_values: A `Tensor`. Must be one of the following types: `float32`, `float64`, `int64`, `int32`, `uint8`, `uint16`, `int16`, `int8`, `complex64`, `complex128`, `qint8`, `quint8`, `qint32`, `half`.
+    sp_values: A `Tensor`. Must be one of the following types: `float32`, `float64`, `int32`, `uint8`, `int16`, `int8`, `complex64`, `int64`, `qint8`, `quint8`, `qint32`, `bfloat16`, `uint16`, `complex128`, `half`, `uint32`, `uint64`.
       1-D.  `N` non-empty values corresponding to `sp_indices`.
     sp_shape: A `Tensor` of type `int64`.
       1-D.  Shape of the input SparseTensor.
@@ -793,26 +1254,51 @@ def sparse_dense_cwise_div(sp_indices, sp_values, sp_shape, dense, name=None):
 
   Returns:
     A `Tensor`. Has the same type as `sp_values`.
-    1-D.  The `N` values that are operated on.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "SparseDenseCwiseDiv", sp_indices=sp_indices, sp_values=sp_values,
         sp_shape=sp_shape, dense=dense, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "SparseDenseCwiseDiv", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, _inputs_T = _execute.args_to_matching_eager([sp_values, dense], _ctx)
-    (sp_values, dense) = _inputs_T
-    _attr_T = _attr_T.as_datatype_enum
-    sp_indices = _ops.convert_to_tensor(sp_indices, _dtypes.int64)
-    sp_shape = _ops.convert_to_tensor(sp_shape, _dtypes.int64)
-    _inputs_flat = [sp_indices, sp_values, sp_shape, dense]
-    _attrs = ("T", _attr_T)
-    _result = _execute.execute(b"SparseDenseCwiseDiv", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "SparseDenseCwiseDiv", name, _ctx._post_execution_callbacks,
+        sp_indices, sp_values, sp_shape, dense)
+      return _result
+    except _core._FallbackException:
+      return sparse_dense_cwise_div_eager_fallback(
+          sp_indices, sp_values, sp_shape, dense, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def sparse_dense_cwise_div_eager_fallback(sp_indices, sp_values, sp_shape, dense, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function sparse_dense_cwise_div
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, _inputs_T = _execute.args_to_matching_eager([sp_values, dense], _ctx)
+  (sp_values, dense) = _inputs_T
+  sp_indices = _ops.convert_to_tensor(sp_indices, _dtypes.int64)
+  sp_shape = _ops.convert_to_tensor(sp_shape, _dtypes.int64)
+  _inputs_flat = [sp_indices, sp_values, sp_shape, dense]
+  _attrs = ("T", _attr_T)
+  _result = _execute.execute(b"SparseDenseCwiseDiv", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "SparseDenseCwiseDiv", _inputs_flat, _attrs, _result, name)
   _result, = _result
@@ -833,7 +1319,7 @@ def sparse_dense_cwise_mul(sp_indices, sp_values, sp_shape, dense, name=None):
     sp_indices: A `Tensor` of type `int64`.
       2-D.  `N x R` matrix with the indices of non-empty values in a
       SparseTensor, possibly not in canonical ordering.
-    sp_values: A `Tensor`. Must be one of the following types: `float32`, `float64`, `int64`, `int32`, `uint8`, `uint16`, `int16`, `int8`, `complex64`, `complex128`, `qint8`, `quint8`, `qint32`, `half`.
+    sp_values: A `Tensor`. Must be one of the following types: `float32`, `float64`, `int32`, `uint8`, `int16`, `int8`, `complex64`, `int64`, `qint8`, `quint8`, `qint32`, `bfloat16`, `uint16`, `complex128`, `half`, `uint32`, `uint64`.
       1-D.  `N` non-empty values corresponding to `sp_indices`.
     sp_shape: A `Tensor` of type `int64`.
       1-D.  Shape of the input SparseTensor.
@@ -843,39 +1329,64 @@ def sparse_dense_cwise_mul(sp_indices, sp_values, sp_shape, dense, name=None):
 
   Returns:
     A `Tensor`. Has the same type as `sp_values`.
-    1-D.  The `N` values that are operated on.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "SparseDenseCwiseMul", sp_indices=sp_indices, sp_values=sp_values,
         sp_shape=sp_shape, dense=dense, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "SparseDenseCwiseMul", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, _inputs_T = _execute.args_to_matching_eager([sp_values, dense], _ctx)
-    (sp_values, dense) = _inputs_T
-    _attr_T = _attr_T.as_datatype_enum
-    sp_indices = _ops.convert_to_tensor(sp_indices, _dtypes.int64)
-    sp_shape = _ops.convert_to_tensor(sp_shape, _dtypes.int64)
-    _inputs_flat = [sp_indices, sp_values, sp_shape, dense]
-    _attrs = ("T", _attr_T)
-    _result = _execute.execute(b"SparseDenseCwiseMul", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "SparseDenseCwiseMul", name, _ctx._post_execution_callbacks,
+        sp_indices, sp_values, sp_shape, dense)
+      return _result
+    except _core._FallbackException:
+      return sparse_dense_cwise_mul_eager_fallback(
+          sp_indices, sp_values, sp_shape, dense, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def sparse_dense_cwise_mul_eager_fallback(sp_indices, sp_values, sp_shape, dense, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function sparse_dense_cwise_mul
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, _inputs_T = _execute.args_to_matching_eager([sp_values, dense], _ctx)
+  (sp_values, dense) = _inputs_T
+  sp_indices = _ops.convert_to_tensor(sp_indices, _dtypes.int64)
+  sp_shape = _ops.convert_to_tensor(sp_shape, _dtypes.int64)
+  _inputs_flat = [sp_indices, sp_values, sp_shape, dense]
+  _attrs = ("T", _attr_T)
+  _result = _execute.execute(b"SparseDenseCwiseMul", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "SparseDenseCwiseMul", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
-__sparse_fill_empty_rows_outputs = ["output_indices", "output_values",
-                                   "empty_row_indicator", "reverse_index_map"]
+_sparse_fill_empty_rows_outputs = ["output_indices", "output_values",
+                                  "empty_row_indicator", "reverse_index_map"]
 _SparseFillEmptyRowsOutput = _collections.namedtuple(
-    "SparseFillEmptyRows", __sparse_fill_empty_rows_outputs)
+    "SparseFillEmptyRows", _sparse_fill_empty_rows_outputs)
 
 
-def _sparse_fill_empty_rows(indices, values, dense_shape, default_value, name=None):
+def sparse_fill_empty_rows(indices, values, dense_shape, default_value, name=None):
   r"""Fills empty rows in the input 2-D `SparseTensor` with a default value.
 
   The input `SparseTensor` is represented via the tuple of inputs
@@ -931,41 +1442,67 @@ def _sparse_fill_empty_rows(indices, values, dense_shape, default_value, name=No
     A tuple of `Tensor` objects (output_indices, output_values, empty_row_indicator, reverse_index_map).
 
     output_indices: A `Tensor` of type `int64`.
-    output_values: A `Tensor`. Has the same type as `values`. 1-D. the values of the filled sparse tensor.
-    empty_row_indicator: A `Tensor` of type `bool`. 1-D. whether the dense row was missing in the
-      input sparse tensor.
-    reverse_index_map: A `Tensor` of type `int64`. 1-D. a map from the input indices to the output indices.
+    output_values: A `Tensor`. Has the same type as `values`.
+    empty_row_indicator: A `Tensor` of type `bool`.
+    reverse_index_map: A `Tensor` of type `int64`.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "SparseFillEmptyRows", indices=indices, values=values,
         dense_shape=dense_shape, default_value=default_value, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "SparseFillEmptyRows", _inputs_flat, _attrs, _result, name)
+    _result = _SparseFillEmptyRowsOutput._make(_result)
+    return _result
+
   else:
-    _attr_T, _inputs_T = _execute.args_to_matching_eager([values, default_value], _ctx)
-    (values, default_value) = _inputs_T
-    _attr_T = _attr_T.as_datatype_enum
-    indices = _ops.convert_to_tensor(indices, _dtypes.int64)
-    dense_shape = _ops.convert_to_tensor(dense_shape, _dtypes.int64)
-    _inputs_flat = [indices, values, dense_shape, default_value]
-    _attrs = ("T", _attr_T)
-    _result = _execute.execute(b"SparseFillEmptyRows", 4, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "SparseFillEmptyRows", name, _ctx._post_execution_callbacks, indices,
+        values, dense_shape, default_value)
+      _result = _SparseFillEmptyRowsOutput._make(_result)
+      return _result
+    except _core._FallbackException:
+      return sparse_fill_empty_rows_eager_fallback(
+          indices, values, dense_shape, default_value, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def sparse_fill_empty_rows_eager_fallback(indices, values, dense_shape, default_value, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function sparse_fill_empty_rows
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, _inputs_T = _execute.args_to_matching_eager([values, default_value], _ctx)
+  (values, default_value) = _inputs_T
+  indices = _ops.convert_to_tensor(indices, _dtypes.int64)
+  dense_shape = _ops.convert_to_tensor(dense_shape, _dtypes.int64)
+  _inputs_flat = [indices, values, dense_shape, default_value]
+  _attrs = ("T", _attr_T)
+  _result = _execute.execute(b"SparseFillEmptyRows", 4, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "SparseFillEmptyRows", _inputs_flat, _attrs, _result, name)
   _result = _SparseFillEmptyRowsOutput._make(_result)
   return _result
 
 
-__sparse_fill_empty_rows_grad_outputs = ["d_values", "d_default_value"]
+_sparse_fill_empty_rows_grad_outputs = ["d_values", "d_default_value"]
 _SparseFillEmptyRowsGradOutput = _collections.namedtuple(
-    "SparseFillEmptyRowsGrad", __sparse_fill_empty_rows_grad_outputs)
+    "SparseFillEmptyRowsGrad", _sparse_fill_empty_rows_grad_outputs)
 
 
-def _sparse_fill_empty_rows_grad(reverse_index_map, grad_values, name=None):
+def sparse_fill_empty_rows_grad(reverse_index_map, grad_values, name=None):
   r"""The gradient of SparseFillEmptyRows.
 
   Takes vectors reverse_index_map, shaped `[N]`, and grad_values,
@@ -986,26 +1523,53 @@ def _sparse_fill_empty_rows_grad(reverse_index_map, grad_values, name=None):
   Returns:
     A tuple of `Tensor` objects (d_values, d_default_value).
 
-    d_values: A `Tensor`. Has the same type as `grad_values`. 1-D.  The backprop into values.
-    d_default_value: A `Tensor`. Has the same type as `grad_values`. 0-D.  The backprop into default_value.
+    d_values: A `Tensor`. Has the same type as `grad_values`.
+    d_default_value: A `Tensor`. Has the same type as `grad_values`.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "SparseFillEmptyRowsGrad", reverse_index_map=reverse_index_map,
         grad_values=grad_values, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "SparseFillEmptyRowsGrad", _inputs_flat, _attrs, _result, name)
+    _result = _SparseFillEmptyRowsGradOutput._make(_result)
+    return _result
+
   else:
-    _attr_T, (grad_values,) = _execute.args_to_matching_eager([grad_values], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    reverse_index_map = _ops.convert_to_tensor(reverse_index_map, _dtypes.int64)
-    _inputs_flat = [reverse_index_map, grad_values]
-    _attrs = ("T", _attr_T)
-    _result = _execute.execute(b"SparseFillEmptyRowsGrad", 2,
-                               inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
-                               name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "SparseFillEmptyRowsGrad", name, _ctx._post_execution_callbacks,
+        reverse_index_map, grad_values)
+      _result = _SparseFillEmptyRowsGradOutput._make(_result)
+      return _result
+    except _core._FallbackException:
+      return sparse_fill_empty_rows_grad_eager_fallback(
+          reverse_index_map, grad_values, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def sparse_fill_empty_rows_grad_eager_fallback(reverse_index_map, grad_values, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function sparse_fill_empty_rows_grad
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, (grad_values,) = _execute.args_to_matching_eager([grad_values], _ctx)
+  reverse_index_map = _ops.convert_to_tensor(reverse_index_map, _dtypes.int64)
+  _inputs_flat = [reverse_index_map, grad_values]
+  _attrs = ("T", _attr_T)
+  _result = _execute.execute(b"SparseFillEmptyRowsGrad", 2,
+                             inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
+                             name=name)
   _execute.record_gradient(
       "SparseFillEmptyRowsGrad", _inputs_flat, _attrs, _result, name)
   _result = _SparseFillEmptyRowsGradOutput._make(_result)
@@ -1032,7 +1596,7 @@ def sparse_reduce_max(input_indices, input_values, input_shape, reduction_axes, 
     input_indices: A `Tensor` of type `int64`.
       2-D.  `N x R` matrix with the indices of non-empty values in a
       SparseTensor, possibly not in canonical ordering.
-    input_values: A `Tensor`. Must be one of the following types: `float32`, `float64`, `int32`, `int64`, `uint8`, `int16`, `int8`, `uint16`, `half`.
+    input_values: A `Tensor`. Must be one of the following types: `float32`, `float64`, `int32`, `uint8`, `int16`, `int8`, `int64`, `bfloat16`, `uint16`, `half`, `uint32`, `uint64`.
       1-D.  `N` non-empty values corresponding to `input_indices`.
     input_shape: A `Tensor` of type `int64`.
       1-D.  Shape of the input SparseTensor.
@@ -1044,13 +1608,12 @@ def sparse_reduce_max(input_indices, input_values, input_shape, reduction_axes, 
 
   Returns:
     A `Tensor`. Has the same type as `input_values`.
-    `R-K`-D.  The reduced Tensor.
   """
-  if keep_dims is None:
-    keep_dims = False
-  keep_dims = _execute.make_bool(keep_dims, "keep_dims")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if keep_dims is None:
+      keep_dims = False
+    keep_dims = _execute.make_bool(keep_dims, "keep_dims")
     _, _, _op = _op_def_lib._apply_op_helper(
         "SparseReduceMax", input_indices=input_indices,
         input_values=input_values, input_shape=input_shape,
@@ -1058,16 +1621,47 @@ def sparse_reduce_max(input_indices, input_values, input_shape, reduction_axes, 
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("keep_dims", _op.get_attr("keep_dims"), "T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "SparseReduceMax", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (input_values,) = _execute.args_to_matching_eager([input_values], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    input_indices = _ops.convert_to_tensor(input_indices, _dtypes.int64)
-    input_shape = _ops.convert_to_tensor(input_shape, _dtypes.int64)
-    reduction_axes = _ops.convert_to_tensor(reduction_axes, _dtypes.int32)
-    _inputs_flat = [input_indices, input_values, input_shape, reduction_axes]
-    _attrs = ("keep_dims", keep_dims, "T", _attr_T)
-    _result = _execute.execute(b"SparseReduceMax", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "SparseReduceMax", name, _ctx._post_execution_callbacks,
+        input_indices, input_values, input_shape, reduction_axes, "keep_dims",
+        keep_dims)
+      return _result
+    except _core._FallbackException:
+      return sparse_reduce_max_eager_fallback(
+          input_indices, input_values, input_shape, reduction_axes,
+          keep_dims=keep_dims, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def sparse_reduce_max_eager_fallback(input_indices, input_values, input_shape, reduction_axes, keep_dims=False, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function sparse_reduce_max
+  """
+  _ctx = ctx if ctx else _context.context()
+  if keep_dims is None:
+    keep_dims = False
+  keep_dims = _execute.make_bool(keep_dims, "keep_dims")
+  _attr_T, (input_values,) = _execute.args_to_matching_eager([input_values], _ctx)
+  input_indices = _ops.convert_to_tensor(input_indices, _dtypes.int64)
+  input_shape = _ops.convert_to_tensor(input_shape, _dtypes.int64)
+  reduction_axes = _ops.convert_to_tensor(reduction_axes, _dtypes.int32)
+  _inputs_flat = [input_indices, input_values, input_shape, reduction_axes]
+  _attrs = ("keep_dims", keep_dims, "T", _attr_T)
+  _result = _execute.execute(b"SparseReduceMax", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "SparseReduceMax", _inputs_flat, _attrs, _result, name)
   _result, = _result
@@ -1100,7 +1694,7 @@ def sparse_reduce_max_sparse(input_indices, input_values, input_shape, reduction
     input_indices: A `Tensor` of type `int64`.
       2-D.  `N x R` matrix with the indices of non-empty values in a
       SparseTensor, possibly not in canonical ordering.
-    input_values: A `Tensor`. Must be one of the following types: `float32`, `float64`, `int32`, `int64`, `uint8`, `int16`, `int8`, `uint16`, `half`.
+    input_values: A `Tensor`. Must be one of the following types: `float32`, `float64`, `int32`, `uint8`, `int16`, `int8`, `int64`, `bfloat16`, `uint16`, `half`, `uint32`, `uint64`.
       1-D.  `N` non-empty values corresponding to `input_indices`.
     input_shape: A `Tensor` of type `int64`.
       1-D.  Shape of the input SparseTensor.
@@ -1117,11 +1711,11 @@ def sparse_reduce_max_sparse(input_indices, input_values, input_shape, reduction
     output_values: A `Tensor`. Has the same type as `input_values`.
     output_shape: A `Tensor` of type `int64`.
   """
-  if keep_dims is None:
-    keep_dims = False
-  keep_dims = _execute.make_bool(keep_dims, "keep_dims")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if keep_dims is None:
+      keep_dims = False
+    keep_dims = _execute.make_bool(keep_dims, "keep_dims")
     _, _, _op = _op_def_lib._apply_op_helper(
         "SparseReduceMaxSparse", input_indices=input_indices,
         input_values=input_values, input_shape=input_shape,
@@ -1129,17 +1723,48 @@ def sparse_reduce_max_sparse(input_indices, input_values, input_shape, reduction
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("keep_dims", _op.get_attr("keep_dims"), "T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "SparseReduceMaxSparse", _inputs_flat, _attrs, _result, name)
+    _result = _SparseReduceMaxSparseOutput._make(_result)
+    return _result
+
   else:
-    _attr_T, (input_values,) = _execute.args_to_matching_eager([input_values], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    input_indices = _ops.convert_to_tensor(input_indices, _dtypes.int64)
-    input_shape = _ops.convert_to_tensor(input_shape, _dtypes.int64)
-    reduction_axes = _ops.convert_to_tensor(reduction_axes, _dtypes.int32)
-    _inputs_flat = [input_indices, input_values, input_shape, reduction_axes]
-    _attrs = ("keep_dims", keep_dims, "T", _attr_T)
-    _result = _execute.execute(b"SparseReduceMaxSparse", 3,
-                               inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
-                               name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "SparseReduceMaxSparse", name, _ctx._post_execution_callbacks,
+        input_indices, input_values, input_shape, reduction_axes, "keep_dims",
+        keep_dims)
+      _result = _SparseReduceMaxSparseOutput._make(_result)
+      return _result
+    except _core._FallbackException:
+      return sparse_reduce_max_sparse_eager_fallback(
+          input_indices, input_values, input_shape, reduction_axes,
+          keep_dims=keep_dims, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def sparse_reduce_max_sparse_eager_fallback(input_indices, input_values, input_shape, reduction_axes, keep_dims=False, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function sparse_reduce_max_sparse
+  """
+  _ctx = ctx if ctx else _context.context()
+  if keep_dims is None:
+    keep_dims = False
+  keep_dims = _execute.make_bool(keep_dims, "keep_dims")
+  _attr_T, (input_values,) = _execute.args_to_matching_eager([input_values], _ctx)
+  input_indices = _ops.convert_to_tensor(input_indices, _dtypes.int64)
+  input_shape = _ops.convert_to_tensor(input_shape, _dtypes.int64)
+  reduction_axes = _ops.convert_to_tensor(reduction_axes, _dtypes.int32)
+  _inputs_flat = [input_indices, input_values, input_shape, reduction_axes]
+  _attrs = ("keep_dims", keep_dims, "T", _attr_T)
+  _result = _execute.execute(b"SparseReduceMaxSparse", 3, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "SparseReduceMaxSparse", _inputs_flat, _attrs, _result, name)
   _result = _SparseReduceMaxSparseOutput._make(_result)
@@ -1166,7 +1791,7 @@ def sparse_reduce_sum(input_indices, input_values, input_shape, reduction_axes, 
     input_indices: A `Tensor` of type `int64`.
       2-D.  `N x R` matrix with the indices of non-empty values in a
       SparseTensor, possibly not in canonical ordering.
-    input_values: A `Tensor`. Must be one of the following types: `float32`, `float64`, `int64`, `int32`, `uint8`, `uint16`, `int16`, `int8`, `complex64`, `complex128`, `qint8`, `quint8`, `qint32`, `half`.
+    input_values: A `Tensor`. Must be one of the following types: `float32`, `float64`, `int32`, `uint8`, `int16`, `int8`, `complex64`, `int64`, `qint8`, `quint8`, `qint32`, `bfloat16`, `uint16`, `complex128`, `half`, `uint32`, `uint64`.
       1-D.  `N` non-empty values corresponding to `input_indices`.
     input_shape: A `Tensor` of type `int64`.
       1-D.  Shape of the input SparseTensor.
@@ -1178,13 +1803,12 @@ def sparse_reduce_sum(input_indices, input_values, input_shape, reduction_axes, 
 
   Returns:
     A `Tensor`. Has the same type as `input_values`.
-    `R-K`-D.  The reduced Tensor.
   """
-  if keep_dims is None:
-    keep_dims = False
-  keep_dims = _execute.make_bool(keep_dims, "keep_dims")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if keep_dims is None:
+      keep_dims = False
+    keep_dims = _execute.make_bool(keep_dims, "keep_dims")
     _, _, _op = _op_def_lib._apply_op_helper(
         "SparseReduceSum", input_indices=input_indices,
         input_values=input_values, input_shape=input_shape,
@@ -1192,16 +1816,47 @@ def sparse_reduce_sum(input_indices, input_values, input_shape, reduction_axes, 
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("keep_dims", _op.get_attr("keep_dims"), "T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "SparseReduceSum", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (input_values,) = _execute.args_to_matching_eager([input_values], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    input_indices = _ops.convert_to_tensor(input_indices, _dtypes.int64)
-    input_shape = _ops.convert_to_tensor(input_shape, _dtypes.int64)
-    reduction_axes = _ops.convert_to_tensor(reduction_axes, _dtypes.int32)
-    _inputs_flat = [input_indices, input_values, input_shape, reduction_axes]
-    _attrs = ("keep_dims", keep_dims, "T", _attr_T)
-    _result = _execute.execute(b"SparseReduceSum", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "SparseReduceSum", name, _ctx._post_execution_callbacks,
+        input_indices, input_values, input_shape, reduction_axes, "keep_dims",
+        keep_dims)
+      return _result
+    except _core._FallbackException:
+      return sparse_reduce_sum_eager_fallback(
+          input_indices, input_values, input_shape, reduction_axes,
+          keep_dims=keep_dims, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def sparse_reduce_sum_eager_fallback(input_indices, input_values, input_shape, reduction_axes, keep_dims=False, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function sparse_reduce_sum
+  """
+  _ctx = ctx if ctx else _context.context()
+  if keep_dims is None:
+    keep_dims = False
+  keep_dims = _execute.make_bool(keep_dims, "keep_dims")
+  _attr_T, (input_values,) = _execute.args_to_matching_eager([input_values], _ctx)
+  input_indices = _ops.convert_to_tensor(input_indices, _dtypes.int64)
+  input_shape = _ops.convert_to_tensor(input_shape, _dtypes.int64)
+  reduction_axes = _ops.convert_to_tensor(reduction_axes, _dtypes.int32)
+  _inputs_flat = [input_indices, input_values, input_shape, reduction_axes]
+  _attrs = ("keep_dims", keep_dims, "T", _attr_T)
+  _result = _execute.execute(b"SparseReduceSum", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "SparseReduceSum", _inputs_flat, _attrs, _result, name)
   _result, = _result
@@ -1234,7 +1889,7 @@ def sparse_reduce_sum_sparse(input_indices, input_values, input_shape, reduction
     input_indices: A `Tensor` of type `int64`.
       2-D.  `N x R` matrix with the indices of non-empty values in a
       SparseTensor, possibly not in canonical ordering.
-    input_values: A `Tensor`. Must be one of the following types: `float32`, `float64`, `int64`, `int32`, `uint8`, `uint16`, `int16`, `int8`, `complex64`, `complex128`, `qint8`, `quint8`, `qint32`, `half`.
+    input_values: A `Tensor`. Must be one of the following types: `float32`, `float64`, `int32`, `uint8`, `int16`, `int8`, `complex64`, `int64`, `qint8`, `quint8`, `qint32`, `bfloat16`, `uint16`, `complex128`, `half`, `uint32`, `uint64`.
       1-D.  `N` non-empty values corresponding to `input_indices`.
     input_shape: A `Tensor` of type `int64`.
       1-D.  Shape of the input SparseTensor.
@@ -1251,11 +1906,11 @@ def sparse_reduce_sum_sparse(input_indices, input_values, input_shape, reduction
     output_values: A `Tensor`. Has the same type as `input_values`.
     output_shape: A `Tensor` of type `int64`.
   """
-  if keep_dims is None:
-    keep_dims = False
-  keep_dims = _execute.make_bool(keep_dims, "keep_dims")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if keep_dims is None:
+      keep_dims = False
+    keep_dims = _execute.make_bool(keep_dims, "keep_dims")
     _, _, _op = _op_def_lib._apply_op_helper(
         "SparseReduceSumSparse", input_indices=input_indices,
         input_values=input_values, input_shape=input_shape,
@@ -1263,29 +1918,60 @@ def sparse_reduce_sum_sparse(input_indices, input_values, input_shape, reduction
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("keep_dims", _op.get_attr("keep_dims"), "T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "SparseReduceSumSparse", _inputs_flat, _attrs, _result, name)
+    _result = _SparseReduceSumSparseOutput._make(_result)
+    return _result
+
   else:
-    _attr_T, (input_values,) = _execute.args_to_matching_eager([input_values], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    input_indices = _ops.convert_to_tensor(input_indices, _dtypes.int64)
-    input_shape = _ops.convert_to_tensor(input_shape, _dtypes.int64)
-    reduction_axes = _ops.convert_to_tensor(reduction_axes, _dtypes.int32)
-    _inputs_flat = [input_indices, input_values, input_shape, reduction_axes]
-    _attrs = ("keep_dims", keep_dims, "T", _attr_T)
-    _result = _execute.execute(b"SparseReduceSumSparse", 3,
-                               inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
-                               name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "SparseReduceSumSparse", name, _ctx._post_execution_callbacks,
+        input_indices, input_values, input_shape, reduction_axes, "keep_dims",
+        keep_dims)
+      _result = _SparseReduceSumSparseOutput._make(_result)
+      return _result
+    except _core._FallbackException:
+      return sparse_reduce_sum_sparse_eager_fallback(
+          input_indices, input_values, input_shape, reduction_axes,
+          keep_dims=keep_dims, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def sparse_reduce_sum_sparse_eager_fallback(input_indices, input_values, input_shape, reduction_axes, keep_dims=False, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function sparse_reduce_sum_sparse
+  """
+  _ctx = ctx if ctx else _context.context()
+  if keep_dims is None:
+    keep_dims = False
+  keep_dims = _execute.make_bool(keep_dims, "keep_dims")
+  _attr_T, (input_values,) = _execute.args_to_matching_eager([input_values], _ctx)
+  input_indices = _ops.convert_to_tensor(input_indices, _dtypes.int64)
+  input_shape = _ops.convert_to_tensor(input_shape, _dtypes.int64)
+  reduction_axes = _ops.convert_to_tensor(reduction_axes, _dtypes.int32)
+  _inputs_flat = [input_indices, input_values, input_shape, reduction_axes]
+  _attrs = ("keep_dims", keep_dims, "T", _attr_T)
+  _result = _execute.execute(b"SparseReduceSumSparse", 3, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "SparseReduceSumSparse", _inputs_flat, _attrs, _result, name)
   _result = _SparseReduceSumSparseOutput._make(_result)
   return _result
 
 
-__sparse_reorder_outputs = ["output_indices", "output_values"]
+_sparse_reorder_outputs = ["output_indices", "output_values"]
 _SparseReorderOutput = _collections.namedtuple(
-    "SparseReorder", __sparse_reorder_outputs)
+    "SparseReorder", _sparse_reorder_outputs)
 
 
-def _sparse_reorder(input_indices, input_values, input_shape, name=None):
+def sparse_reorder(input_indices, input_values, input_shape, name=None):
   r"""Reorders a SparseTensor into the canonical, row-major ordering.
 
   Note that by convention, all sparse ops preserve the canonical ordering along
@@ -1310,39 +1996,65 @@ def _sparse_reorder(input_indices, input_values, input_shape, name=None):
   Returns:
     A tuple of `Tensor` objects (output_indices, output_values).
 
-    output_indices: A `Tensor` of type `int64`. 2-D.  `N x R` matrix with the same indices as input_indices, but
-      in canonical row-major ordering.
-    output_values: A `Tensor`. Has the same type as `input_values`. 1-D.  `N` non-empty values corresponding to `output_indices`.
+    output_indices: A `Tensor` of type `int64`.
+    output_values: A `Tensor`. Has the same type as `input_values`.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "SparseReorder", input_indices=input_indices,
         input_values=input_values, input_shape=input_shape, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "SparseReorder", _inputs_flat, _attrs, _result, name)
+    _result = _SparseReorderOutput._make(_result)
+    return _result
+
   else:
-    _attr_T, (input_values,) = _execute.args_to_matching_eager([input_values], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    input_indices = _ops.convert_to_tensor(input_indices, _dtypes.int64)
-    input_shape = _ops.convert_to_tensor(input_shape, _dtypes.int64)
-    _inputs_flat = [input_indices, input_values, input_shape]
-    _attrs = ("T", _attr_T)
-    _result = _execute.execute(b"SparseReorder", 2, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "SparseReorder", name, _ctx._post_execution_callbacks, input_indices,
+        input_values, input_shape)
+      _result = _SparseReorderOutput._make(_result)
+      return _result
+    except _core._FallbackException:
+      return sparse_reorder_eager_fallback(
+          input_indices, input_values, input_shape, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def sparse_reorder_eager_fallback(input_indices, input_values, input_shape, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function sparse_reorder
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, (input_values,) = _execute.args_to_matching_eager([input_values], _ctx)
+  input_indices = _ops.convert_to_tensor(input_indices, _dtypes.int64)
+  input_shape = _ops.convert_to_tensor(input_shape, _dtypes.int64)
+  _inputs_flat = [input_indices, input_values, input_shape]
+  _attrs = ("T", _attr_T)
+  _result = _execute.execute(b"SparseReorder", 2, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "SparseReorder", _inputs_flat, _attrs, _result, name)
   _result = _SparseReorderOutput._make(_result)
   return _result
 
 
-__sparse_reshape_outputs = ["output_indices", "output_shape"]
+_sparse_reshape_outputs = ["output_indices", "output_shape"]
 _SparseReshapeOutput = _collections.namedtuple(
-    "SparseReshape", __sparse_reshape_outputs)
+    "SparseReshape", _sparse_reshape_outputs)
 
 
-def _sparse_reshape(input_indices, input_shape, new_shape, name=None):
+def sparse_reshape(input_indices, input_shape, new_shape, name=None):
   r"""Reshapes a SparseTensor to represent values in a new dense shape.
 
   This operation has the same semantics as reshape on the represented dense
@@ -1374,28 +2086,53 @@ def _sparse_reshape(input_indices, input_shape, new_shape, name=None):
   Returns:
     A tuple of `Tensor` objects (output_indices, output_shape).
 
-    output_indices: A `Tensor` of type `int64`. 2-D.  `N x R_out` matrix with the updated indices of non-empty
-      values in the output SparseTensor.
-    output_shape: A `Tensor` of type `int64`. 1-D.  `R_out` vector with the full dense shape of the output
-      SparseTensor.  This is the same as `new_shape` but with any -1 dimensions
-      filled in.
+    output_indices: A `Tensor` of type `int64`.
+    output_shape: A `Tensor` of type `int64`.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "SparseReshape", input_indices=input_indices, input_shape=input_shape,
         new_shape=new_shape, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = None
+    _execute.record_gradient(
+      "SparseReshape", _inputs_flat, _attrs, _result, name)
+    _result = _SparseReshapeOutput._make(_result)
+    return _result
+
   else:
-    input_indices = _ops.convert_to_tensor(input_indices, _dtypes.int64)
-    input_shape = _ops.convert_to_tensor(input_shape, _dtypes.int64)
-    new_shape = _ops.convert_to_tensor(new_shape, _dtypes.int64)
-    _inputs_flat = [input_indices, input_shape, new_shape]
-    _attrs = None
-    _result = _execute.execute(b"SparseReshape", 2, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "SparseReshape", name, _ctx._post_execution_callbacks, input_indices,
+        input_shape, new_shape)
+      _result = _SparseReshapeOutput._make(_result)
+      return _result
+    except _core._FallbackException:
+      return sparse_reshape_eager_fallback(
+          input_indices, input_shape, new_shape, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def sparse_reshape_eager_fallback(input_indices, input_shape, new_shape, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function sparse_reshape
+  """
+  _ctx = ctx if ctx else _context.context()
+  input_indices = _ops.convert_to_tensor(input_indices, _dtypes.int64)
+  input_shape = _ops.convert_to_tensor(input_shape, _dtypes.int64)
+  new_shape = _ops.convert_to_tensor(new_shape, _dtypes.int64)
+  _inputs_flat = [input_indices, input_shape, new_shape]
+  _attrs = None
+  _result = _execute.execute(b"SparseReshape", 2, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "SparseReshape", _inputs_flat, _attrs, _result, name)
   _result = _SparseReshapeOutput._make(_result)
@@ -1444,33 +2181,132 @@ def sparse_slice(indices, values, shape, start, size, name=None):
     A tuple of `Tensor` objects (output_indices, output_values, output_shape).
 
     output_indices: A `Tensor` of type `int64`.
-    output_values: A `Tensor`. Has the same type as `values`. A list of 1-D tensors represents the values of the output sparse
-      tensors.
-    output_shape: A `Tensor` of type `int64`. A list of 1-D tensors represents the shape of the output sparse
-      tensors.
+    output_values: A `Tensor`. Has the same type as `values`.
+    output_shape: A `Tensor` of type `int64`.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "SparseSlice", indices=indices, values=values, shape=shape,
         start=start, size=size, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "SparseSlice", _inputs_flat, _attrs, _result, name)
+    _result = _SparseSliceOutput._make(_result)
+    return _result
+
   else:
-    _attr_T, (values,) = _execute.args_to_matching_eager([values], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    indices = _ops.convert_to_tensor(indices, _dtypes.int64)
-    shape = _ops.convert_to_tensor(shape, _dtypes.int64)
-    start = _ops.convert_to_tensor(start, _dtypes.int64)
-    size = _ops.convert_to_tensor(size, _dtypes.int64)
-    _inputs_flat = [indices, values, shape, start, size]
-    _attrs = ("T", _attr_T)
-    _result = _execute.execute(b"SparseSlice", 3, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "SparseSlice",
+        name, _ctx._post_execution_callbacks, indices, values, shape, start,
+        size)
+      _result = _SparseSliceOutput._make(_result)
+      return _result
+    except _core._FallbackException:
+      return sparse_slice_eager_fallback(
+          indices, values, shape, start, size, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def sparse_slice_eager_fallback(indices, values, shape, start, size, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function sparse_slice
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, (values,) = _execute.args_to_matching_eager([values], _ctx)
+  indices = _ops.convert_to_tensor(indices, _dtypes.int64)
+  shape = _ops.convert_to_tensor(shape, _dtypes.int64)
+  start = _ops.convert_to_tensor(start, _dtypes.int64)
+  size = _ops.convert_to_tensor(size, _dtypes.int64)
+  _inputs_flat = [indices, values, shape, start, size]
+  _attrs = ("T", _attr_T)
+  _result = _execute.execute(b"SparseSlice", 3, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "SparseSlice", _inputs_flat, _attrs, _result, name)
   _result = _SparseSliceOutput._make(_result)
+  return _result
+
+
+def sparse_slice_grad(backprop_val_grad, input_indices, input_start, output_indices, name=None):
+  r"""The gradient operator for the SparseSlice op.
+
+  This op takes in the upstream gradient w.r.t. non-empty values of
+  the sliced `SparseTensor`, and outputs the gradients w.r.t.
+  the non-empty values of input `SparseTensor`.
+
+  Args:
+    backprop_val_grad: A `Tensor`. Must be one of the following types: `float32`, `float64`, `int32`, `uint8`, `int16`, `int8`, `complex64`, `int64`, `qint8`, `quint8`, `qint32`, `bfloat16`, `uint16`, `complex128`, `half`, `uint32`, `uint64`.
+      1-D. The gradient with respect to
+      the non-empty values of the sliced `SparseTensor`.
+    input_indices: A `Tensor` of type `int64`.
+      2-D.  The `indices` of the input `SparseTensor`.
+    input_start: A `Tensor` of type `int64`.
+      1-D. tensor represents the start of the slice.
+    output_indices: A `Tensor` of type `int64`.
+      2-D.  The `indices` of the sliced `SparseTensor`.
+    name: A name for the operation (optional).
+
+  Returns:
+    A `Tensor`. Has the same type as `backprop_val_grad`.
+  """
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    _, _, _op = _op_def_lib._apply_op_helper(
+        "SparseSliceGrad", backprop_val_grad=backprop_val_grad,
+        input_indices=input_indices, input_start=input_start,
+        output_indices=output_indices, name=name)
+    _result = _op.outputs[:]
+    _inputs_flat = _op.inputs
+    _attrs = ("T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "SparseSliceGrad", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
+  else:
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "SparseSliceGrad", name, _ctx._post_execution_callbacks,
+        backprop_val_grad, input_indices, input_start, output_indices)
+      return _result
+    except _core._FallbackException:
+      return sparse_slice_grad_eager_fallback(
+          backprop_val_grad, input_indices, input_start, output_indices,
+          name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def sparse_slice_grad_eager_fallback(backprop_val_grad, input_indices, input_start, output_indices, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function sparse_slice_grad
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, (backprop_val_grad,) = _execute.args_to_matching_eager([backprop_val_grad], _ctx)
+  input_indices = _ops.convert_to_tensor(input_indices, _dtypes.int64)
+  input_start = _ops.convert_to_tensor(input_start, _dtypes.int64)
+  output_indices = _ops.convert_to_tensor(output_indices, _dtypes.int64)
+  _inputs_flat = [backprop_val_grad, input_indices, input_start, output_indices]
+  _attrs = ("T", _attr_T)
+  _result = _execute.execute(b"SparseSliceGrad", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
+  _execute.record_gradient(
+      "SparseSliceGrad", _inputs_flat, _attrs, _result, name)
+  _result, = _result
   return _result
 
 
@@ -1505,25 +2341,50 @@ def sparse_softmax(sp_indices, sp_values, sp_shape, name=None):
 
   Returns:
     A `Tensor`. Has the same type as `sp_values`.
-    1-D.  The `NNZ` values for the result `SparseTensor`.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "SparseSoftmax", sp_indices=sp_indices, sp_values=sp_values,
         sp_shape=sp_shape, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "SparseSoftmax", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (sp_values,) = _execute.args_to_matching_eager([sp_values], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    sp_indices = _ops.convert_to_tensor(sp_indices, _dtypes.int64)
-    sp_shape = _ops.convert_to_tensor(sp_shape, _dtypes.int64)
-    _inputs_flat = [sp_indices, sp_values, sp_shape]
-    _attrs = ("T", _attr_T)
-    _result = _execute.execute(b"SparseSoftmax", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "SparseSoftmax", name, _ctx._post_execution_callbacks, sp_indices,
+        sp_values, sp_shape)
+      return _result
+    except _core._FallbackException:
+      return sparse_softmax_eager_fallback(
+          sp_indices, sp_values, sp_shape, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def sparse_softmax_eager_fallback(sp_indices, sp_values, sp_shape, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function sparse_softmax
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, (sp_values,) = _execute.args_to_matching_eager([sp_values], _ctx)
+  sp_indices = _ops.convert_to_tensor(sp_indices, _dtypes.int64)
+  sp_shape = _ops.convert_to_tensor(sp_shape, _dtypes.int64)
+  _inputs_flat = [sp_indices, sp_values, sp_shape]
+  _attrs = ("T", _attr_T)
+  _result = _execute.execute(b"SparseSoftmax", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "SparseSoftmax", _inputs_flat, _attrs, _result, name)
   _result, = _result
@@ -1544,7 +2405,7 @@ def sparse_sparse_maximum(a_indices, a_values, a_shape, b_indices, b_values, b_s
     a_indices: A `Tensor` of type `int64`.
       2-D.  `N x R` matrix with the indices of non-empty values in a
       SparseTensor, in the canonical lexicographic ordering.
-    a_values: A `Tensor`. Must be one of the following types: `float32`, `float64`, `int32`, `int64`, `uint8`, `int16`, `int8`, `uint16`, `half`.
+    a_values: A `Tensor`. Must be one of the following types: `float32`, `float64`, `int32`, `uint8`, `int16`, `int8`, `int64`, `bfloat16`, `uint16`, `half`, `uint32`, `uint64`.
       1-D.  `N` non-empty values corresponding to `a_indices`.
     a_shape: A `Tensor` of type `int64`.
       1-D.  Shape of the input SparseTensor.
@@ -1559,11 +2420,11 @@ def sparse_sparse_maximum(a_indices, a_values, a_shape, b_indices, b_values, b_s
   Returns:
     A tuple of `Tensor` objects (output_indices, output_values).
 
-    output_indices: A `Tensor` of type `int64`. 2-D.  The indices of the output SparseTensor.
-    output_values: A `Tensor`. Has the same type as `a_values`. 1-D.  The values of the output SparseTensor.
+    output_indices: A `Tensor` of type `int64`.
+    output_values: A `Tensor`. Has the same type as `a_values`.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "SparseSparseMaximum", a_indices=a_indices, a_values=a_values,
         a_shape=a_shape, b_indices=b_indices, b_values=b_values,
@@ -1571,18 +2432,46 @@ def sparse_sparse_maximum(a_indices, a_values, a_shape, b_indices, b_values, b_s
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "SparseSparseMaximum", _inputs_flat, _attrs, _result, name)
+    _result = _SparseSparseMaximumOutput._make(_result)
+    return _result
+
   else:
-    _attr_T, _inputs_T = _execute.args_to_matching_eager([a_values, b_values], _ctx)
-    (a_values, b_values) = _inputs_T
-    _attr_T = _attr_T.as_datatype_enum
-    a_indices = _ops.convert_to_tensor(a_indices, _dtypes.int64)
-    a_shape = _ops.convert_to_tensor(a_shape, _dtypes.int64)
-    b_indices = _ops.convert_to_tensor(b_indices, _dtypes.int64)
-    b_shape = _ops.convert_to_tensor(b_shape, _dtypes.int64)
-    _inputs_flat = [a_indices, a_values, a_shape, b_indices, b_values, b_shape]
-    _attrs = ("T", _attr_T)
-    _result = _execute.execute(b"SparseSparseMaximum", 2, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "SparseSparseMaximum", name, _ctx._post_execution_callbacks,
+        a_indices, a_values, a_shape, b_indices, b_values, b_shape)
+      _result = _SparseSparseMaximumOutput._make(_result)
+      return _result
+    except _core._FallbackException:
+      return sparse_sparse_maximum_eager_fallback(
+          a_indices, a_values, a_shape, b_indices, b_values, b_shape,
+          name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def sparse_sparse_maximum_eager_fallback(a_indices, a_values, a_shape, b_indices, b_values, b_shape, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function sparse_sparse_maximum
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, _inputs_T = _execute.args_to_matching_eager([a_values, b_values], _ctx)
+  (a_values, b_values) = _inputs_T
+  a_indices = _ops.convert_to_tensor(a_indices, _dtypes.int64)
+  a_shape = _ops.convert_to_tensor(a_shape, _dtypes.int64)
+  b_indices = _ops.convert_to_tensor(b_indices, _dtypes.int64)
+  b_shape = _ops.convert_to_tensor(b_shape, _dtypes.int64)
+  _inputs_flat = [a_indices, a_values, a_shape, b_indices, b_values, b_shape]
+  _attrs = ("T", _attr_T)
+  _result = _execute.execute(b"SparseSparseMaximum", 2, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "SparseSparseMaximum", _inputs_flat, _attrs, _result, name)
   _result = _SparseSparseMaximumOutput._make(_result)
@@ -1603,7 +2492,7 @@ def sparse_sparse_minimum(a_indices, a_values, a_shape, b_indices, b_values, b_s
     a_indices: A `Tensor` of type `int64`.
       2-D.  `N x R` matrix with the indices of non-empty values in a
       SparseTensor, in the canonical lexicographic ordering.
-    a_values: A `Tensor`. Must be one of the following types: `float32`, `float64`, `int64`, `int32`, `uint8`, `uint16`, `int16`, `int8`, `complex64`, `complex128`, `qint8`, `quint8`, `qint32`, `half`.
+    a_values: A `Tensor`. Must be one of the following types: `float32`, `float64`, `int32`, `uint8`, `int16`, `int8`, `complex64`, `int64`, `qint8`, `quint8`, `qint32`, `bfloat16`, `uint16`, `complex128`, `half`, `uint32`, `uint64`.
       1-D.  `N` non-empty values corresponding to `a_indices`.
     a_shape: A `Tensor` of type `int64`.
       1-D.  Shape of the input SparseTensor.
@@ -1618,11 +2507,11 @@ def sparse_sparse_minimum(a_indices, a_values, a_shape, b_indices, b_values, b_s
   Returns:
     A tuple of `Tensor` objects (output_indices, output_values).
 
-    output_indices: A `Tensor` of type `int64`. 2-D.  The indices of the output SparseTensor.
-    output_values: A `Tensor`. Has the same type as `a_values`. 1-D.  The values of the output SparseTensor.
+    output_indices: A `Tensor` of type `int64`.
+    output_values: A `Tensor`. Has the same type as `a_values`.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "SparseSparseMinimum", a_indices=a_indices, a_values=a_values,
         a_shape=a_shape, b_indices=b_indices, b_values=b_values,
@@ -1630,30 +2519,58 @@ def sparse_sparse_minimum(a_indices, a_values, a_shape, b_indices, b_values, b_s
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "SparseSparseMinimum", _inputs_flat, _attrs, _result, name)
+    _result = _SparseSparseMinimumOutput._make(_result)
+    return _result
+
   else:
-    _attr_T, _inputs_T = _execute.args_to_matching_eager([a_values, b_values], _ctx)
-    (a_values, b_values) = _inputs_T
-    _attr_T = _attr_T.as_datatype_enum
-    a_indices = _ops.convert_to_tensor(a_indices, _dtypes.int64)
-    a_shape = _ops.convert_to_tensor(a_shape, _dtypes.int64)
-    b_indices = _ops.convert_to_tensor(b_indices, _dtypes.int64)
-    b_shape = _ops.convert_to_tensor(b_shape, _dtypes.int64)
-    _inputs_flat = [a_indices, a_values, a_shape, b_indices, b_values, b_shape]
-    _attrs = ("T", _attr_T)
-    _result = _execute.execute(b"SparseSparseMinimum", 2, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "SparseSparseMinimum", name, _ctx._post_execution_callbacks,
+        a_indices, a_values, a_shape, b_indices, b_values, b_shape)
+      _result = _SparseSparseMinimumOutput._make(_result)
+      return _result
+    except _core._FallbackException:
+      return sparse_sparse_minimum_eager_fallback(
+          a_indices, a_values, a_shape, b_indices, b_values, b_shape,
+          name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def sparse_sparse_minimum_eager_fallback(a_indices, a_values, a_shape, b_indices, b_values, b_shape, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function sparse_sparse_minimum
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, _inputs_T = _execute.args_to_matching_eager([a_values, b_values], _ctx)
+  (a_values, b_values) = _inputs_T
+  a_indices = _ops.convert_to_tensor(a_indices, _dtypes.int64)
+  a_shape = _ops.convert_to_tensor(a_shape, _dtypes.int64)
+  b_indices = _ops.convert_to_tensor(b_indices, _dtypes.int64)
+  b_shape = _ops.convert_to_tensor(b_shape, _dtypes.int64)
+  _inputs_flat = [a_indices, a_values, a_shape, b_indices, b_values, b_shape]
+  _attrs = ("T", _attr_T)
+  _result = _execute.execute(b"SparseSparseMinimum", 2, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "SparseSparseMinimum", _inputs_flat, _attrs, _result, name)
   _result = _SparseSparseMinimumOutput._make(_result)
   return _result
 
 
-__sparse_split_outputs = ["output_indices", "output_values", "output_shape"]
+_sparse_split_outputs = ["output_indices", "output_values", "output_shape"]
 _SparseSplitOutput = _collections.namedtuple(
-    "SparseSplit", __sparse_split_outputs)
+    "SparseSplit", _sparse_split_outputs)
 
 
-def _sparse_split(split_dim, indices, values, shape, num_split, name=None):
+def sparse_split(split_dim, indices, values, shape, num_split, name=None):
   r"""Split a `SparseTensor` into `num_split` tensors along one dimension.
 
   If the `shape[split_dim]` is not an integer multiple of `num_split`. Slices
@@ -1692,31 +2609,61 @@ def _sparse_split(split_dim, indices, values, shape, num_split, name=None):
     A tuple of `Tensor` objects (output_indices, output_values, output_shape).
 
     output_indices: A list of `num_split` `Tensor` objects with type `int64`.
-    output_values: A list of `num_split` `Tensor` objects with the same type as `values`. A list of 1-D tensors represents the values of the output sparse
-      tensors.
-    output_shape: A list of `num_split` `Tensor` objects with type `int64`. A list of 1-D tensors represents the shape of the output sparse
-      tensors.
+    output_values: A list of `num_split` `Tensor` objects with the same type as `values`.
+    output_shape: A list of `num_split` `Tensor` objects with type `int64`.
   """
-  num_split = _execute.make_int(num_split, "num_split")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    num_split = _execute.make_int(num_split, "num_split")
     _, _, _op = _op_def_lib._apply_op_helper(
         "SparseSplit", split_dim=split_dim, indices=indices, values=values,
         shape=shape, num_split=num_split, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("num_split", _op.get_attr("num_split"), "T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "SparseSplit", _inputs_flat, _attrs, _result, name)
+    _result = [_result[:num_split]] + _result[num_split:]
+    _result = _result[:1] + [_result[1:1 + num_split]] + _result[1 + num_split:]
+    _result = _result[:2] + [_result[2:]]
+    _result = _SparseSplitOutput._make(_result)
+    return _result
+
   else:
-    _attr_T, (values,) = _execute.args_to_matching_eager([values], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    split_dim = _ops.convert_to_tensor(split_dim, _dtypes.int64)
-    indices = _ops.convert_to_tensor(indices, _dtypes.int64)
-    shape = _ops.convert_to_tensor(shape, _dtypes.int64)
-    _inputs_flat = [split_dim, indices, values, shape]
-    _attrs = ("num_split", num_split, "T", _attr_T)
-    _result = _execute.execute(b"SparseSplit", num_split + num_split +
-                               num_split, inputs=_inputs_flat, attrs=_attrs,
-                               ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "SparseSplit",
+        name, _ctx._post_execution_callbacks, split_dim, indices, values,
+        shape, "num_split", num_split)
+      _result = _SparseSplitOutput._make(_result)
+      return _result
+    except _core._FallbackException:
+      return sparse_split_eager_fallback(
+          split_dim, indices, values, shape, num_split=num_split, name=name,
+          ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def sparse_split_eager_fallback(split_dim, indices, values, shape, num_split, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function sparse_split
+  """
+  _ctx = ctx if ctx else _context.context()
+  num_split = _execute.make_int(num_split, "num_split")
+  _attr_T, (values,) = _execute.args_to_matching_eager([values], _ctx)
+  split_dim = _ops.convert_to_tensor(split_dim, _dtypes.int64)
+  indices = _ops.convert_to_tensor(indices, _dtypes.int64)
+  shape = _ops.convert_to_tensor(shape, _dtypes.int64)
+  _inputs_flat = [split_dim, indices, values, shape]
+  _attrs = ("num_split", num_split, "T", _attr_T)
+  _result = _execute.execute(b"SparseSplit", num_split + num_split +
+                             num_split, inputs=_inputs_flat, attrs=_attrs,
+                             ctx=_ctx, name=name)
   _execute.record_gradient(
       "SparseSplit", _inputs_flat, _attrs, _result, name)
   _result = [_result[:num_split]] + _result[num_split:]
@@ -1726,7 +2673,7 @@ def _sparse_split(split_dim, indices, values, shape, num_split, name=None):
   return _result
 
 
-def _sparse_tensor_dense_add(a_indices, a_values, a_shape, b, name=None):
+def sparse_tensor_dense_add(a_indices, a_values, a_shape, b, name=None):
   r"""Adds up a `SparseTensor` and a dense `Tensor`, producing a dense `Tensor`.
 
   This Op does not require `a_indices` be sorted in standard lexicographic order.
@@ -1734,7 +2681,7 @@ def _sparse_tensor_dense_add(a_indices, a_values, a_shape, b, name=None):
   Args:
     a_indices: A `Tensor`. Must be one of the following types: `int32`, `int64`.
       2-D.  The `indices` of the `SparseTensor`, with shape `[nnz, ndims]`.
-    a_values: A `Tensor`. Must be one of the following types: `float32`, `float64`, `int64`, `int32`, `uint8`, `uint16`, `int16`, `int8`, `complex64`, `complex128`, `qint8`, `quint8`, `qint32`, `half`.
+    a_values: A `Tensor`. Must be one of the following types: `float32`, `float64`, `int32`, `uint8`, `int16`, `int8`, `complex64`, `int64`, `qint8`, `quint8`, `qint32`, `bfloat16`, `uint16`, `complex128`, `half`, `uint32`, `uint64`.
       1-D.  The `values` of the `SparseTensor`, with shape `[nnz]`.
     a_shape: A `Tensor`. Must have the same type as `a_indices`.
       1-D.  The `shape` of the `SparseTensor`, with shape `[ndims]`.
@@ -1745,33 +2692,57 @@ def _sparse_tensor_dense_add(a_indices, a_values, a_shape, b, name=None):
   Returns:
     A `Tensor`. Has the same type as `a_values`.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "SparseTensorDenseAdd", a_indices=a_indices, a_values=a_values,
         a_shape=a_shape, b=b, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"), "Tindices", _op.get_attr("Tindices"))
+    _execute.record_gradient(
+      "SparseTensorDenseAdd", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, _inputs_T = _execute.args_to_matching_eager([a_values, b], _ctx)
-    (a_values, b) = _inputs_T
-    _attr_T = _attr_T.as_datatype_enum
-    _attr_Tindices, _inputs_Tindices = _execute.args_to_matching_eager([a_indices, a_shape], _ctx)
-    (a_indices, a_shape) = _inputs_Tindices
-    _attr_Tindices = _attr_Tindices.as_datatype_enum
-    _inputs_flat = [a_indices, a_values, a_shape, b]
-    _attrs = ("T", _attr_T, "Tindices", _attr_Tindices)
-    _result = _execute.execute(b"SparseTensorDenseAdd", 1,
-                               inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
-                               name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "SparseTensorDenseAdd", name, _ctx._post_execution_callbacks,
+        a_indices, a_values, a_shape, b)
+      return _result
+    except _core._FallbackException:
+      return sparse_tensor_dense_add_eager_fallback(
+          a_indices, a_values, a_shape, b, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def sparse_tensor_dense_add_eager_fallback(a_indices, a_values, a_shape, b, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function sparse_tensor_dense_add
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, _inputs_T = _execute.args_to_matching_eager([a_values, b], _ctx)
+  (a_values, b) = _inputs_T
+  _attr_Tindices, _inputs_Tindices = _execute.args_to_matching_eager([a_indices, a_shape], _ctx)
+  (a_indices, a_shape) = _inputs_Tindices
+  _inputs_flat = [a_indices, a_values, a_shape, b]
+  _attrs = ("T", _attr_T, "Tindices", _attr_Tindices)
+  _result = _execute.execute(b"SparseTensorDenseAdd", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "SparseTensorDenseAdd", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
-def _sparse_tensor_dense_mat_mul(a_indices, a_values, a_shape, b, adjoint_a=False, adjoint_b=False, name=None):
+def sparse_tensor_dense_mat_mul(a_indices, a_values, a_shape, b, adjoint_a=False, adjoint_b=False, name=None):
   r"""Multiply SparseTensor (of rank 2) "A" by dense matrix "B".
 
   No validity checking is performed on the indices of A.  However, the following
@@ -1804,14 +2775,14 @@ def _sparse_tensor_dense_mat_mul(a_indices, a_values, a_shape, b, adjoint_a=Fals
   Returns:
     A `Tensor`. Has the same type as `a_values`.
   """
-  if adjoint_a is None:
-    adjoint_a = False
-  adjoint_a = _execute.make_bool(adjoint_a, "adjoint_a")
-  if adjoint_b is None:
-    adjoint_b = False
-  adjoint_b = _execute.make_bool(adjoint_b, "adjoint_b")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if adjoint_a is None:
+      adjoint_a = False
+    adjoint_a = _execute.make_bool(adjoint_a, "adjoint_a")
+    if adjoint_b is None:
+      adjoint_b = False
+    adjoint_b = _execute.make_bool(adjoint_b, "adjoint_b")
     _, _, _op = _op_def_lib._apply_op_helper(
         "SparseTensorDenseMatMul", a_indices=a_indices, a_values=a_values,
         a_shape=a_shape, b=b, adjoint_a=adjoint_a, adjoint_b=adjoint_b,
@@ -1821,26 +2792,59 @@ def _sparse_tensor_dense_mat_mul(a_indices, a_values, a_shape, b, adjoint_a=Fals
     _attrs = ("T", _op.get_attr("T"), "Tindices", _op.get_attr("Tindices"),
               "adjoint_a", _op.get_attr("adjoint_a"), "adjoint_b",
               _op.get_attr("adjoint_b"))
+    _execute.record_gradient(
+      "SparseTensorDenseMatMul", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, _inputs_T = _execute.args_to_matching_eager([a_values, b], _ctx)
-    (a_values, b) = _inputs_T
-    _attr_T = _attr_T.as_datatype_enum
-    _attr_Tindices, (a_indices,) = _execute.args_to_matching_eager([a_indices], _ctx, _dtypes.int64)
-    _attr_Tindices = _attr_Tindices.as_datatype_enum
-    a_shape = _ops.convert_to_tensor(a_shape, _dtypes.int64)
-    _inputs_flat = [a_indices, a_values, a_shape, b]
-    _attrs = ("T", _attr_T, "Tindices", _attr_Tindices, "adjoint_a",
-              adjoint_a, "adjoint_b", adjoint_b)
-    _result = _execute.execute(b"SparseTensorDenseMatMul", 1,
-                               inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
-                               name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "SparseTensorDenseMatMul", name, _ctx._post_execution_callbacks,
+        a_indices, a_values, a_shape, b, "adjoint_a", adjoint_a, "adjoint_b",
+        adjoint_b)
+      return _result
+    except _core._FallbackException:
+      return sparse_tensor_dense_mat_mul_eager_fallback(
+          a_indices, a_values, a_shape, b, adjoint_a=adjoint_a,
+          adjoint_b=adjoint_b, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def sparse_tensor_dense_mat_mul_eager_fallback(a_indices, a_values, a_shape, b, adjoint_a=False, adjoint_b=False, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function sparse_tensor_dense_mat_mul
+  """
+  _ctx = ctx if ctx else _context.context()
+  if adjoint_a is None:
+    adjoint_a = False
+  adjoint_a = _execute.make_bool(adjoint_a, "adjoint_a")
+  if adjoint_b is None:
+    adjoint_b = False
+  adjoint_b = _execute.make_bool(adjoint_b, "adjoint_b")
+  _attr_T, _inputs_T = _execute.args_to_matching_eager([a_values, b], _ctx)
+  (a_values, b) = _inputs_T
+  _attr_Tindices, (a_indices,) = _execute.args_to_matching_eager([a_indices], _ctx, _dtypes.int64)
+  a_shape = _ops.convert_to_tensor(a_shape, _dtypes.int64)
+  _inputs_flat = [a_indices, a_values, a_shape, b]
+  _attrs = ("T", _attr_T, "Tindices", _attr_Tindices, "adjoint_a", adjoint_a,
+  "adjoint_b", adjoint_b)
+  _result = _execute.execute(b"SparseTensorDenseMatMul", 1,
+                             inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
+                             name=name)
   _execute.record_gradient(
       "SparseTensorDenseMatMul", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
-def _sparse_to_dense(sparse_indices, output_shape, sparse_values, default_value, validate_indices=True, name=None):
+def sparse_to_dense(sparse_indices, output_shape, sparse_values, default_value, validate_indices=True, name=None):
   r"""Converts a sparse representation into a dense tensor.
 
   Builds an array `dense` with shape `output_shape` such that
@@ -1882,13 +2886,12 @@ def _sparse_to_dense(sparse_indices, output_shape, sparse_values, default_value,
 
   Returns:
     A `Tensor`. Has the same type as `sparse_values`.
-    Dense output tensor of shape `output_shape`.
   """
-  if validate_indices is None:
-    validate_indices = True
-  validate_indices = _execute.make_bool(validate_indices, "validate_indices")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if validate_indices is None:
+      validate_indices = True
+    validate_indices = _execute.make_bool(validate_indices, "validate_indices")
     _, _, _op = _op_def_lib._apply_op_helper(
         "SparseToDense", sparse_indices=sparse_indices,
         output_shape=output_shape, sparse_values=sparse_values,
@@ -1898,32 +2901,62 @@ def _sparse_to_dense(sparse_indices, output_shape, sparse_values, default_value,
     _inputs_flat = _op.inputs
     _attrs = ("validate_indices", _op.get_attr("validate_indices"), "T",
               _op.get_attr("T"), "Tindices", _op.get_attr("Tindices"))
+    _execute.record_gradient(
+      "SparseToDense", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, _inputs_T = _execute.args_to_matching_eager([sparse_values, default_value], _ctx)
-    (sparse_values, default_value) = _inputs_T
-    _attr_T = _attr_T.as_datatype_enum
-    _attr_Tindices, _inputs_Tindices = _execute.args_to_matching_eager([sparse_indices, output_shape], _ctx)
-    (sparse_indices, output_shape) = _inputs_Tindices
-    _attr_Tindices = _attr_Tindices.as_datatype_enum
-    _inputs_flat = [sparse_indices, output_shape, sparse_values, default_value]
-    _attrs = ("validate_indices", validate_indices, "T", _attr_T, "Tindices",
-              _attr_Tindices)
-    _result = _execute.execute(b"SparseToDense", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "SparseToDense", name, _ctx._post_execution_callbacks, sparse_indices,
+        output_shape, sparse_values, default_value, "validate_indices",
+        validate_indices)
+      return _result
+    except _core._FallbackException:
+      return sparse_to_dense_eager_fallback(
+          sparse_indices, output_shape, sparse_values, default_value,
+          validate_indices=validate_indices, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def sparse_to_dense_eager_fallback(sparse_indices, output_shape, sparse_values, default_value, validate_indices=True, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function sparse_to_dense
+  """
+  _ctx = ctx if ctx else _context.context()
+  if validate_indices is None:
+    validate_indices = True
+  validate_indices = _execute.make_bool(validate_indices, "validate_indices")
+  _attr_T, _inputs_T = _execute.args_to_matching_eager([sparse_values, default_value], _ctx)
+  (sparse_values, default_value) = _inputs_T
+  _attr_Tindices, _inputs_Tindices = _execute.args_to_matching_eager([sparse_indices, output_shape], _ctx)
+  (sparse_indices, output_shape) = _inputs_Tindices
+  _inputs_flat = [sparse_indices, output_shape, sparse_values, default_value]
+  _attrs = ("validate_indices", validate_indices, "T", _attr_T, "Tindices",
+  _attr_Tindices)
+  _result = _execute.execute(b"SparseToDense", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "SparseToDense", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
-__take_many_sparse_from_tensors_map_outputs = ["sparse_indices",
-                                              "sparse_values", "sparse_shape"]
+_take_many_sparse_from_tensors_map_outputs = ["sparse_indices",
+                                             "sparse_values", "sparse_shape"]
 _TakeManySparseFromTensorsMapOutput = _collections.namedtuple(
     "TakeManySparseFromTensorsMap",
-    __take_many_sparse_from_tensors_map_outputs)
+    _take_many_sparse_from_tensors_map_outputs)
 
 
-def _take_many_sparse_from_tensors_map(sparse_handles, dtype, container="", shared_name="", name=None):
+def take_many_sparse_from_tensors_map(sparse_handles, dtype, container="", shared_name="", name=None):
   r"""Read `SparseTensors` from a `SparseTensorsMap` and concatenate them.
 
   The input `sparse_handles` must be an `int64` matrix of shape `[N, 1]` where
@@ -1993,19 +3026,19 @@ def _take_many_sparse_from_tensors_map(sparse_handles, dtype, container="", shar
   Returns:
     A tuple of `Tensor` objects (sparse_indices, sparse_values, sparse_shape).
 
-    sparse_indices: A `Tensor` of type `int64`. 2-D.  The `indices` of the minibatch `SparseTensor`.
-    sparse_values: A `Tensor` of type `dtype`. 1-D.  The `values` of the minibatch `SparseTensor`.
-    sparse_shape: A `Tensor` of type `int64`. 1-D.  The `shape` of the minibatch `SparseTensor`.
+    sparse_indices: A `Tensor` of type `int64`.
+    sparse_values: A `Tensor` of type `dtype`.
+    sparse_shape: A `Tensor` of type `int64`.
   """
-  dtype = _execute.make_type(dtype, "dtype")
-  if container is None:
-    container = ""
-  container = _execute.make_str(container, "container")
-  if shared_name is None:
-    shared_name = ""
-  shared_name = _execute.make_str(shared_name, "shared_name")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    dtype = _execute.make_type(dtype, "dtype")
+    if container is None:
+      container = ""
+    container = _execute.make_str(container, "container")
+    if shared_name is None:
+      shared_name = ""
+    shared_name = _execute.make_str(shared_name, "shared_name")
     _, _, _op = _op_def_lib._apply_op_helper(
         "TakeManySparseFromTensorsMap", sparse_handles=sparse_handles,
         dtype=dtype, container=container, shared_name=shared_name, name=name)
@@ -2014,14 +3047,51 @@ def _take_many_sparse_from_tensors_map(sparse_handles, dtype, container="", shar
     _attrs = ("dtype", _op.get_attr("dtype"), "container",
               _op.get_attr("container"), "shared_name",
               _op.get_attr("shared_name"))
+    _execute.record_gradient(
+      "TakeManySparseFromTensorsMap", _inputs_flat, _attrs, _result, name)
+    _result = _TakeManySparseFromTensorsMapOutput._make(_result)
+    return _result
+
   else:
-    sparse_handles = _ops.convert_to_tensor(sparse_handles, _dtypes.int64)
-    _inputs_flat = [sparse_handles]
-    _attrs = ("dtype", dtype, "container", container, "shared_name",
-              shared_name)
-    _result = _execute.execute(b"TakeManySparseFromTensorsMap", 3,
-                               inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
-                               name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "TakeManySparseFromTensorsMap", name, _ctx._post_execution_callbacks,
+        sparse_handles, "dtype", dtype, "container", container, "shared_name",
+        shared_name)
+      _result = _TakeManySparseFromTensorsMapOutput._make(_result)
+      return _result
+    except _core._FallbackException:
+      return take_many_sparse_from_tensors_map_eager_fallback(
+          sparse_handles, dtype=dtype, container=container,
+          shared_name=shared_name, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def take_many_sparse_from_tensors_map_eager_fallback(sparse_handles, dtype, container="", shared_name="", name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function take_many_sparse_from_tensors_map
+  """
+  _ctx = ctx if ctx else _context.context()
+  dtype = _execute.make_type(dtype, "dtype")
+  if container is None:
+    container = ""
+  container = _execute.make_str(container, "container")
+  if shared_name is None:
+    shared_name = ""
+  shared_name = _execute.make_str(shared_name, "shared_name")
+  sparse_handles = _ops.convert_to_tensor(sparse_handles, _dtypes.int64)
+  _inputs_flat = [sparse_handles]
+  _attrs = ("dtype", dtype, "container", container, "shared_name",
+  shared_name)
+  _result = _execute.execute(b"TakeManySparseFromTensorsMap", 3,
+                             inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
+                             name=name)
   _execute.record_gradient(
       "TakeManySparseFromTensorsMap", _inputs_flat, _attrs, _result, name)
   _result = _TakeManySparseFromTensorsMapOutput._make(_result)
@@ -2134,6 +3204,42 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #   }
 # }
 # op {
+#   name: "DeserializeSparse"
+#   input_arg {
+#     name: "serialized_sparse"
+#     type_attr: "Tserialized"
+#   }
+#   output_arg {
+#     name: "sparse_indices"
+#     type: DT_INT64
+#   }
+#   output_arg {
+#     name: "sparse_values"
+#     type_attr: "dtype"
+#   }
+#   output_arg {
+#     name: "sparse_shape"
+#     type: DT_INT64
+#   }
+#   attr {
+#     name: "dtype"
+#     type: "type"
+#   }
+#   attr {
+#     name: "Tserialized"
+#     type: "type"
+#     default_value {
+#       type: DT_STRING
+#     }
+#     allowed_values {
+#       list {
+#         type: DT_STRING
+#         type: DT_VARIANT
+#       }
+#     }
+#   }
+# }
+# op {
 #   name: "SerializeManySparse"
 #   input_arg {
 #     name: "sparse_indices"
@@ -2149,11 +3255,24 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #   }
 #   output_arg {
 #     name: "serialized_sparse"
-#     type: DT_STRING
+#     type_attr: "out_type"
 #   }
 #   attr {
 #     name: "T"
 #     type: "type"
+#   }
+#   attr {
+#     name: "out_type"
+#     type: "type"
+#     default_value {
+#       type: DT_STRING
+#     }
+#     allowed_values {
+#       list {
+#         type: DT_STRING
+#         type: DT_VARIANT
+#       }
+#     }
 #   }
 # }
 # op {
@@ -2172,11 +3291,24 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #   }
 #   output_arg {
 #     name: "serialized_sparse"
-#     type: DT_STRING
+#     type_attr: "out_type"
 #   }
 #   attr {
 #     name: "T"
 #     type: "type"
+#   }
+#   attr {
+#     name: "out_type"
+#     type: "type"
+#     default_value {
+#       type: DT_STRING
+#     }
+#     allowed_values {
+#       list {
+#         type: DT_STRING
+#         type: DT_VARIANT
+#       }
+#     }
 #   }
 # }
 # op {
@@ -2228,18 +3360,21 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #       list {
 #         type: DT_FLOAT
 #         type: DT_DOUBLE
-#         type: DT_INT64
 #         type: DT_INT32
 #         type: DT_UINT8
-#         type: DT_UINT16
 #         type: DT_INT16
 #         type: DT_INT8
 #         type: DT_COMPLEX64
-#         type: DT_COMPLEX128
+#         type: DT_INT64
 #         type: DT_QINT8
 #         type: DT_QUINT8
 #         type: DT_QINT32
+#         type: DT_BFLOAT16
+#         type: DT_UINT16
+#         type: DT_COMPLEX128
 #         type: DT_HALF
+#         type: DT_UINT32
+#         type: DT_UINT64
 #       }
 #     }
 #   }
@@ -2251,12 +3386,15 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #         type: DT_FLOAT
 #         type: DT_DOUBLE
 #         type: DT_INT32
-#         type: DT_INT64
 #         type: DT_UINT8
 #         type: DT_INT16
 #         type: DT_INT8
+#         type: DT_INT64
+#         type: DT_BFLOAT16
 #         type: DT_UINT16
 #         type: DT_HALF
+#         type: DT_UINT32
+#         type: DT_UINT64
 #       }
 #     }
 #   }
@@ -2294,18 +3432,21 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #       list {
 #         type: DT_FLOAT
 #         type: DT_DOUBLE
-#         type: DT_INT64
 #         type: DT_INT32
 #         type: DT_UINT8
-#         type: DT_UINT16
 #         type: DT_INT16
 #         type: DT_INT8
 #         type: DT_COMPLEX64
-#         type: DT_COMPLEX128
+#         type: DT_INT64
 #         type: DT_QINT8
 #         type: DT_QUINT8
 #         type: DT_QINT32
+#         type: DT_BFLOAT16
+#         type: DT_UINT16
+#         type: DT_COMPLEX128
 #         type: DT_HALF
+#         type: DT_UINT32
+#         type: DT_UINT64
 #       }
 #     }
 #   }
@@ -2476,18 +3617,21 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #       list {
 #         type: DT_FLOAT
 #         type: DT_DOUBLE
-#         type: DT_INT64
 #         type: DT_INT32
 #         type: DT_UINT8
-#         type: DT_UINT16
 #         type: DT_INT16
 #         type: DT_INT8
 #         type: DT_COMPLEX64
-#         type: DT_COMPLEX128
+#         type: DT_INT64
 #         type: DT_QINT8
 #         type: DT_QUINT8
 #         type: DT_QINT32
+#         type: DT_BFLOAT16
+#         type: DT_UINT16
+#         type: DT_COMPLEX128
 #         type: DT_HALF
+#         type: DT_UINT32
+#         type: DT_UINT64
 #       }
 #     }
 #   }
@@ -2521,18 +3665,21 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #       list {
 #         type: DT_FLOAT
 #         type: DT_DOUBLE
-#         type: DT_INT64
 #         type: DT_INT32
 #         type: DT_UINT8
-#         type: DT_UINT16
 #         type: DT_INT16
 #         type: DT_INT8
 #         type: DT_COMPLEX64
-#         type: DT_COMPLEX128
+#         type: DT_INT64
 #         type: DT_QINT8
 #         type: DT_QUINT8
 #         type: DT_QINT32
+#         type: DT_BFLOAT16
+#         type: DT_UINT16
+#         type: DT_COMPLEX128
 #         type: DT_HALF
+#         type: DT_UINT32
+#         type: DT_UINT64
 #       }
 #     }
 #   }
@@ -2566,18 +3713,21 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #       list {
 #         type: DT_FLOAT
 #         type: DT_DOUBLE
-#         type: DT_INT64
 #         type: DT_INT32
 #         type: DT_UINT8
-#         type: DT_UINT16
 #         type: DT_INT16
 #         type: DT_INT8
 #         type: DT_COMPLEX64
-#         type: DT_COMPLEX128
+#         type: DT_INT64
 #         type: DT_QINT8
 #         type: DT_QUINT8
 #         type: DT_QINT32
+#         type: DT_BFLOAT16
+#         type: DT_UINT16
+#         type: DT_COMPLEX128
 #         type: DT_HALF
+#         type: DT_UINT32
+#         type: DT_UINT64
 #       }
 #     }
 #   }
@@ -2681,12 +3831,15 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #         type: DT_FLOAT
 #         type: DT_DOUBLE
 #         type: DT_INT32
-#         type: DT_INT64
 #         type: DT_UINT8
 #         type: DT_INT16
 #         type: DT_INT8
+#         type: DT_INT64
+#         type: DT_BFLOAT16
 #         type: DT_UINT16
 #         type: DT_HALF
+#         type: DT_UINT32
+#         type: DT_UINT64
 #       }
 #     }
 #   }
@@ -2736,12 +3889,15 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #         type: DT_FLOAT
 #         type: DT_DOUBLE
 #         type: DT_INT32
-#         type: DT_INT64
 #         type: DT_UINT8
 #         type: DT_INT16
 #         type: DT_INT8
+#         type: DT_INT64
+#         type: DT_BFLOAT16
 #         type: DT_UINT16
 #         type: DT_HALF
+#         type: DT_UINT32
+#         type: DT_UINT64
 #       }
 #     }
 #   }
@@ -2782,18 +3938,21 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #       list {
 #         type: DT_FLOAT
 #         type: DT_DOUBLE
-#         type: DT_INT64
 #         type: DT_INT32
 #         type: DT_UINT8
-#         type: DT_UINT16
 #         type: DT_INT16
 #         type: DT_INT8
 #         type: DT_COMPLEX64
-#         type: DT_COMPLEX128
+#         type: DT_INT64
 #         type: DT_QINT8
 #         type: DT_QUINT8
 #         type: DT_QINT32
+#         type: DT_BFLOAT16
+#         type: DT_UINT16
+#         type: DT_COMPLEX128
 #         type: DT_HALF
+#         type: DT_UINT32
+#         type: DT_UINT64
 #       }
 #     }
 #   }
@@ -2842,18 +4001,21 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #       list {
 #         type: DT_FLOAT
 #         type: DT_DOUBLE
-#         type: DT_INT64
 #         type: DT_INT32
 #         type: DT_UINT8
-#         type: DT_UINT16
 #         type: DT_INT16
 #         type: DT_INT8
 #         type: DT_COMPLEX64
-#         type: DT_COMPLEX128
+#         type: DT_INT64
 #         type: DT_QINT8
 #         type: DT_QUINT8
 #         type: DT_QINT32
+#         type: DT_BFLOAT16
+#         type: DT_UINT16
+#         type: DT_COMPLEX128
 #         type: DT_HALF
+#         type: DT_UINT32
+#         type: DT_UINT64
 #       }
 #     }
 #   }
@@ -2948,6 +4110,54 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #   }
 # }
 # op {
+#   name: "SparseSliceGrad"
+#   input_arg {
+#     name: "backprop_val_grad"
+#     type_attr: "T"
+#   }
+#   input_arg {
+#     name: "input_indices"
+#     type: DT_INT64
+#   }
+#   input_arg {
+#     name: "input_start"
+#     type: DT_INT64
+#   }
+#   input_arg {
+#     name: "output_indices"
+#     type: DT_INT64
+#   }
+#   output_arg {
+#     name: "val_grad"
+#     type_attr: "T"
+#   }
+#   attr {
+#     name: "T"
+#     type: "type"
+#     allowed_values {
+#       list {
+#         type: DT_FLOAT
+#         type: DT_DOUBLE
+#         type: DT_INT32
+#         type: DT_UINT8
+#         type: DT_INT16
+#         type: DT_INT8
+#         type: DT_COMPLEX64
+#         type: DT_INT64
+#         type: DT_QINT8
+#         type: DT_QUINT8
+#         type: DT_QINT32
+#         type: DT_BFLOAT16
+#         type: DT_UINT16
+#         type: DT_COMPLEX128
+#         type: DT_HALF
+#         type: DT_UINT32
+#         type: DT_UINT64
+#       }
+#     }
+#   }
+# }
+# op {
 #   name: "SparseSoftmax"
 #   input_arg {
 #     name: "sp_indices"
@@ -3018,12 +4228,15 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #         type: DT_FLOAT
 #         type: DT_DOUBLE
 #         type: DT_INT32
-#         type: DT_INT64
 #         type: DT_UINT8
 #         type: DT_INT16
 #         type: DT_INT8
+#         type: DT_INT64
+#         type: DT_BFLOAT16
 #         type: DT_UINT16
 #         type: DT_HALF
+#         type: DT_UINT32
+#         type: DT_UINT64
 #       }
 #     }
 #   }
@@ -3069,18 +4282,21 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #       list {
 #         type: DT_FLOAT
 #         type: DT_DOUBLE
-#         type: DT_INT64
 #         type: DT_INT32
 #         type: DT_UINT8
-#         type: DT_UINT16
 #         type: DT_INT16
 #         type: DT_INT8
 #         type: DT_COMPLEX64
-#         type: DT_COMPLEX128
+#         type: DT_INT64
 #         type: DT_QINT8
 #         type: DT_QUINT8
 #         type: DT_QINT32
+#         type: DT_BFLOAT16
+#         type: DT_UINT16
+#         type: DT_COMPLEX128
 #         type: DT_HALF
+#         type: DT_UINT32
+#         type: DT_UINT64
 #       }
 #     }
 #   }
@@ -3158,18 +4374,21 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #       list {
 #         type: DT_FLOAT
 #         type: DT_DOUBLE
-#         type: DT_INT64
 #         type: DT_INT32
 #         type: DT_UINT8
-#         type: DT_UINT16
 #         type: DT_INT16
 #         type: DT_INT8
 #         type: DT_COMPLEX64
-#         type: DT_COMPLEX128
+#         type: DT_INT64
 #         type: DT_QINT8
 #         type: DT_QUINT8
 #         type: DT_QINT32
+#         type: DT_BFLOAT16
+#         type: DT_UINT16
+#         type: DT_COMPLEX128
 #         type: DT_HALF
+#         type: DT_UINT32
+#         type: DT_UINT64
 #       }
 #     }
 #   }
@@ -3320,4 +4539,4 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #   }
 #   is_stateful: true
 # }
-_op_def_lib = _InitOpDefLibrary(b"\n\253\001\n\031AddManySparseToTensorsMap\022\022\n\016sparse_indices\030\t\022\022\n\rsparse_values\"\001T\022\020\n\014sparse_shape\030\t\032\022\n\016sparse_handles\030\t\"\t\n\001T\022\004type\"\027\n\tcontainer\022\006string\032\002\022\000\"\031\n\013shared_name\022\006string\032\002\022\000\210\001\001\n\246\001\n\025AddSparseToTensorsMap\022\022\n\016sparse_indices\030\t\022\022\n\rsparse_values\"\001T\022\020\n\014sparse_shape\030\t\032\021\n\rsparse_handle\030\t\"\t\n\001T\022\004type\"\027\n\tcontainer\022\006string\032\002\022\000\"\031\n\013shared_name\022\006string\032\002\022\000\210\001\001\n{\n\025DeserializeManySparse\022\025\n\021serialized_sparse\030\007\032\022\n\016sparse_indices\030\t\032\026\n\rsparse_values\"\005dtype\032\020\n\014sparse_shape\030\t\"\r\n\005dtype\022\004type\nq\n\023SerializeManySparse\022\022\n\016sparse_indices\030\t\022\022\n\rsparse_values\"\001T\022\020\n\014sparse_shape\030\t\032\025\n\021serialized_sparse\030\007\"\t\n\001T\022\004type\nm\n\017SerializeSparse\022\022\n\016sparse_indices\030\t\022\022\n\rsparse_values\"\001T\022\020\n\014sparse_shape\030\t\032\025\n\021serialized_sparse\030\007\"\t\n\001T\022\004type\n\340\001\n\tSparseAdd\022\r\n\ta_indices\030\t\022\r\n\010a_values\"\001T\022\013\n\007a_shape\030\t\022\r\n\tb_indices\030\t\022\r\n\010b_values\"\001T\022\013\n\007b_shape\030\t\022\017\n\006thresh\"\005Treal\032\017\n\013sum_indices\030\t\032\017\n\nsum_values\"\001T\032\r\n\tsum_shape\030\t\"\035\n\001T\022\004type:\022\n\0202\016\001\002\t\003\004\021\005\006\010\022\013\014\r\023\"\034\n\005Treal\022\004type:\r\n\0132\t\001\002\003\t\004\005\006\021\023\n\227\001\n\rSparseAddGrad\022\026\n\021backprop_val_grad\"\001T\022\r\n\ta_indices\030\t\022\r\n\tb_indices\030\t\022\017\n\013sum_indices\030\t\032\017\n\na_val_grad\"\001T\032\017\n\nb_val_grad\"\001T\"\035\n\001T\022\004type:\022\n\0202\016\001\002\t\003\004\021\005\006\010\022\013\014\r\023\n\243\001\n\014SparseConcat\022\016\n\007indices\030\t*\001N\022\016\n\006values\"\001T*\001N\022\r\n\006shapes\030\t*\001N\032\022\n\016output_indices\030\t\032\022\n\routput_values\"\001T\032\020\n\014output_shape\030\t\"\021\n\nconcat_dim\022\003int\"\014\n\001N\022\003int(\0010\002\"\t\n\001T\022\004type\n\360\002\n\013SparseCross\022\016\n\007indices\030\t*\001N\022\026\n\006values2\014sparse_types\022\r\n\006shapes\030\t*\001N\022\033\n\014dense_inputs2\013dense_types\032\022\n\016output_indices\030\t\032\031\n\routput_values\"\010out_type\032\020\n\014output_shape\030\t\"\n\n\001N\022\003int(\001\"\025\n\rhashed_output\022\004bool\"\024\n\013num_buckets\022\003int(\001\"\017\n\010hash_key\022\003int\"$\n\014sparse_types\022\nlist(type)(\001:\006\n\0042\002\t\007\"#\n\013dense_types\022\nlist(type)(\001:\006\n\0042\002\t\007\"\030\n\010out_type\022\004type:\006\n\0042\002\t\007\"\035\n\rinternal_type\022\004type:\006\n\0042\002\t\007\n{\n\023SparseDenseCwiseAdd\022\016\n\nsp_indices\030\t\022\016\n\tsp_values\"\001T\022\014\n\010sp_shape\030\t\022\n\n\005dense\"\001T\032\013\n\006output\"\001T\"\035\n\001T\022\004type:\022\n\0202\016\001\002\t\003\004\021\005\006\010\022\013\014\r\023\n{\n\023SparseDenseCwiseDiv\022\016\n\nsp_indices\030\t\022\016\n\tsp_values\"\001T\022\014\n\010sp_shape\030\t\022\n\n\005dense\"\001T\032\013\n\006output\"\001T\"\035\n\001T\022\004type:\022\n\0202\016\001\002\t\003\004\021\005\006\010\022\013\014\r\023\n{\n\023SparseDenseCwiseMul\022\016\n\nsp_indices\030\t\022\016\n\tsp_values\"\001T\022\014\n\010sp_shape\030\t\022\n\n\005dense\"\001T\032\013\n\006output\"\001T\"\035\n\001T\022\004type:\022\n\0202\016\001\002\t\003\004\021\005\006\010\022\013\014\r\023\n\267\001\n\023SparseFillEmptyRows\022\013\n\007indices\030\t\022\013\n\006values\"\001T\022\017\n\013dense_shape\030\t\022\022\n\rdefault_value\"\001T\032\022\n\016output_indices\030\t\032\022\n\routput_values\"\001T\032\027\n\023empty_row_indicator\030\n\032\025\n\021reverse_index_map\030\t\"\t\n\001T\022\004type\nr\n\027SparseFillEmptyRowsGrad\022\025\n\021reverse_index_map\030\t\022\020\n\013grad_values\"\001T\032\r\n\010d_values\"\001T\032\024\n\017d_default_value\"\001T\"\t\n\001T\022\004type\n\232\001\n\017SparseReduceMax\022\021\n\rinput_indices\030\t\022\021\n\014input_values\"\001T\022\017\n\013input_shape\030\t\022\022\n\016reduction_axes\030\003\032\013\n\006output\"\001T\"\025\n\tkeep_dims\022\004bool\032\002(\000\"\030\n\001T\022\004type:\r\n\0132\t\001\002\003\t\004\005\006\021\023\n\315\001\n\025SparseReduceMaxSparse\022\021\n\rinput_indices\030\t\022\021\n\014input_values\"\001T\022\017\n\013input_shape\030\t\022\022\n\016reduction_axes\030\003\032\022\n\016output_indices\030\t\032\022\n\routput_values\"\001T\032\020\n\014output_shape\030\t\"\025\n\tkeep_dims\022\004bool\032\002(\000\"\030\n\001T\022\004type:\r\n\0132\t\001\002\003\t\004\005\006\021\023\n\237\001\n\017SparseReduceSum\022\021\n\rinput_indices\030\t\022\021\n\014input_values\"\001T\022\017\n\013input_shape\030\t\022\022\n\016reduction_axes\030\003\032\013\n\006output\"\001T\"\025\n\tkeep_dims\022\004bool\032\002(\000\"\035\n\001T\022\004type:\022\n\0202\016\001\002\t\003\004\021\005\006\010\022\013\014\r\023\n\322\001\n\025SparseReduceSumSparse\022\021\n\rinput_indices\030\t\022\021\n\014input_values\"\001T\022\017\n\013input_shape\030\t\022\022\n\016reduction_axes\030\003\032\022\n\016output_indices\030\t\032\022\n\routput_values\"\001T\032\020\n\014output_shape\030\t\"\025\n\tkeep_dims\022\004bool\032\002(\000\"\035\n\001T\022\004type:\022\n\0202\016\001\002\t\003\004\021\005\006\010\022\013\014\r\023\ny\n\rSparseReorder\022\021\n\rinput_indices\030\t\022\021\n\014input_values\"\001T\022\017\n\013input_shape\030\t\032\022\n\016output_indices\030\t\032\022\n\routput_values\"\001T\"\t\n\001T\022\004type\nh\n\rSparseReshape\022\021\n\rinput_indices\030\t\022\017\n\013input_shape\030\t\022\r\n\tnew_shape\030\t\032\022\n\016output_indices\030\t\032\020\n\014output_shape\030\t\n\214\001\n\013SparseSlice\022\013\n\007indices\030\t\022\013\n\006values\"\001T\022\t\n\005shape\030\t\022\t\n\005start\030\t\022\010\n\004size\030\t\032\022\n\016output_indices\030\t\032\022\n\routput_values\"\001T\032\020\n\014output_shape\030\t\"\t\n\001T\022\004type\n]\n\rSparseSoftmax\022\016\n\nsp_indices\030\t\022\016\n\tsp_values\"\001T\022\014\n\010sp_shape\030\t\032\013\n\006output\"\001T\"\021\n\001T\022\004type:\006\n\0042\002\001\002\n\255\001\n\023SparseSparseMaximum\022\r\n\ta_indices\030\t\022\r\n\010a_values\"\001T\022\013\n\007a_shape\030\t\022\r\n\tb_indices\030\t\022\r\n\010b_values\"\001T\022\013\n\007b_shape\030\t\032\022\n\016output_indices\030\t\032\022\n\routput_values\"\001T\"\030\n\001T\022\004type:\r\n\0132\t\001\002\003\t\004\005\006\021\023\n\262\001\n\023SparseSparseMinimum\022\r\n\ta_indices\030\t\022\r\n\010a_values\"\001T\022\013\n\007a_shape\030\t\022\r\n\tb_indices\030\t\022\r\n\010b_values\"\001T\022\013\n\007b_shape\030\t\032\022\n\016output_indices\030\t\032\022\n\routput_values\"\001T\"\035\n\001T\022\004type:\022\n\0202\016\001\002\t\003\004\021\005\006\010\022\013\014\r\023\n\275\001\n\013SparseSplit\022\r\n\tsplit_dim\030\t\022\013\n\007indices\030\t\022\013\n\006values\"\001T\022\t\n\005shape\030\t\032\035\n\016output_indices\030\t*\tnum_split\032\035\n\routput_values\"\001T*\tnum_split\032\033\n\014output_shape\030\t*\tnum_split\"\024\n\tnum_split\022\003int(\0010\001\"\t\n\001T\022\004type\n\237\001\n\024SparseTensorDenseAdd\022\025\n\ta_indices\"\010Tindices\022\r\n\010a_values\"\001T\022\023\n\007a_shape\"\010Tindices\022\006\n\001b\"\001T\032\013\n\006output\"\001T\"\035\n\001T\022\004type:\022\n\0202\016\001\002\t\003\004\021\005\006\010\022\013\014\r\023\"\030\n\010Tindices\022\004type:\006\n\0042\002\003\t\n\271\001\n\027SparseTensorDenseMatMul\022\025\n\ta_indices\"\010Tindices\022\r\n\010a_values\"\001T\022\013\n\007a_shape\030\t\022\006\n\001b\"\001T\032\014\n\007product\"\001T\"\t\n\001T\022\004type\"\034\n\010Tindices\022\004type\032\0020\t:\006\n\0042\002\003\t\"\025\n\tadjoint_a\022\004bool\032\002(\000\"\025\n\tadjoint_b\022\004bool\032\002(\000\n\274\001\n\rSparseToDense\022\032\n\016sparse_indices\"\010Tindices\022\030\n\014output_shape\"\010Tindices\022\022\n\rsparse_values\"\001T\022\022\n\rdefault_value\"\001T\032\n\n\005dense\"\001T\"\034\n\020validate_indices\022\004bool\032\002(\001\"\t\n\001T\022\004type\"\030\n\010Tindices\022\004type:\006\n\0042\002\003\t\n\266\001\n\034TakeManySparseFromTensorsMap\022\022\n\016sparse_handles\030\t\032\022\n\016sparse_indices\030\t\032\026\n\rsparse_values\"\005dtype\032\020\n\014sparse_shape\030\t\"\r\n\005dtype\022\004type\"\027\n\tcontainer\022\006string\032\002\022\000\"\031\n\013shared_name\022\006string\032\002\022\000\210\001\001")
+_op_def_lib = _InitOpDefLibrary(b"\n\253\001\n\031AddManySparseToTensorsMap\022\022\n\016sparse_indices\030\t\022\022\n\rsparse_values\"\001T\022\020\n\014sparse_shape\030\t\032\022\n\016sparse_handles\030\t\"\t\n\001T\022\004type\"\027\n\tcontainer\022\006string\032\002\022\000\"\031\n\013shared_name\022\006string\032\002\022\000\210\001\001\n\246\001\n\025AddSparseToTensorsMap\022\022\n\016sparse_indices\030\t\022\022\n\rsparse_values\"\001T\022\020\n\014sparse_shape\030\t\032\021\n\rsparse_handle\030\t\"\t\n\001T\022\004type\"\027\n\tcontainer\022\006string\032\002\022\000\"\031\n\013shared_name\022\006string\032\002\022\000\210\001\001\n{\n\025DeserializeManySparse\022\025\n\021serialized_sparse\030\007\032\022\n\016sparse_indices\030\t\032\026\n\rsparse_values\"\005dtype\032\020\n\014sparse_shape\030\t\"\r\n\005dtype\022\004type\n\243\001\n\021DeserializeSparse\022 \n\021serialized_sparse\"\013Tserialized\032\022\n\016sparse_indices\030\t\032\026\n\rsparse_values\"\005dtype\032\020\n\014sparse_shape\030\t\"\r\n\005dtype\022\004type\"\037\n\013Tserialized\022\004type\032\0020\007:\006\n\0042\002\007\025\n\227\001\n\023SerializeManySparse\022\022\n\016sparse_indices\030\t\022\022\n\rsparse_values\"\001T\022\020\n\014sparse_shape\030\t\032\035\n\021serialized_sparse\"\010out_type\"\t\n\001T\022\004type\"\034\n\010out_type\022\004type\032\0020\007:\006\n\0042\002\007\025\n\223\001\n\017SerializeSparse\022\022\n\016sparse_indices\030\t\022\022\n\rsparse_values\"\001T\022\020\n\014sparse_shape\030\t\032\035\n\021serialized_sparse\"\010out_type\"\t\n\001T\022\004type\"\034\n\010out_type\022\004type\032\0020\007:\006\n\0042\002\007\025\n\346\001\n\tSparseAdd\022\r\n\ta_indices\030\t\022\r\n\010a_values\"\001T\022\013\n\007a_shape\030\t\022\r\n\tb_indices\030\t\022\r\n\010b_values\"\001T\022\013\n\007b_shape\030\t\022\017\n\006thresh\"\005Treal\032\017\n\013sum_indices\030\t\032\017\n\nsum_values\"\001T\032\r\n\tsum_shape\030\t\" \n\001T\022\004type:\025\n\0232\021\001\002\003\004\005\006\010\t\013\014\r\016\021\022\023\026\027\"\037\n\005Treal\022\004type:\020\n\0162\014\001\002\003\004\005\006\t\016\021\023\026\027\n\232\001\n\rSparseAddGrad\022\026\n\021backprop_val_grad\"\001T\022\r\n\ta_indices\030\t\022\r\n\tb_indices\030\t\022\017\n\013sum_indices\030\t\032\017\n\na_val_grad\"\001T\032\017\n\nb_val_grad\"\001T\" \n\001T\022\004type:\025\n\0232\021\001\002\003\004\005\006\010\t\013\014\r\016\021\022\023\026\027\n\243\001\n\014SparseConcat\022\016\n\007indices\030\t*\001N\022\016\n\006values\"\001T*\001N\022\r\n\006shapes\030\t*\001N\032\022\n\016output_indices\030\t\032\022\n\routput_values\"\001T\032\020\n\014output_shape\030\t\"\021\n\nconcat_dim\022\003int\"\014\n\001N\022\003int(\0010\002\"\t\n\001T\022\004type\n\360\002\n\013SparseCross\022\016\n\007indices\030\t*\001N\022\026\n\006values2\014sparse_types\022\r\n\006shapes\030\t*\001N\022\033\n\014dense_inputs2\013dense_types\032\022\n\016output_indices\030\t\032\031\n\routput_values\"\010out_type\032\020\n\014output_shape\030\t\"\n\n\001N\022\003int(\001\"\025\n\rhashed_output\022\004bool\"\024\n\013num_buckets\022\003int(\001\"\017\n\010hash_key\022\003int\"$\n\014sparse_types\022\nlist(type)(\001:\006\n\0042\002\t\007\"#\n\013dense_types\022\nlist(type)(\001:\006\n\0042\002\t\007\"\030\n\010out_type\022\004type:\006\n\0042\002\t\007\"\035\n\rinternal_type\022\004type:\006\n\0042\002\t\007\n~\n\023SparseDenseCwiseAdd\022\016\n\nsp_indices\030\t\022\016\n\tsp_values\"\001T\022\014\n\010sp_shape\030\t\022\n\n\005dense\"\001T\032\013\n\006output\"\001T\" \n\001T\022\004type:\025\n\0232\021\001\002\003\004\005\006\010\t\013\014\r\016\021\022\023\026\027\n~\n\023SparseDenseCwiseDiv\022\016\n\nsp_indices\030\t\022\016\n\tsp_values\"\001T\022\014\n\010sp_shape\030\t\022\n\n\005dense\"\001T\032\013\n\006output\"\001T\" \n\001T\022\004type:\025\n\0232\021\001\002\003\004\005\006\010\t\013\014\r\016\021\022\023\026\027\n~\n\023SparseDenseCwiseMul\022\016\n\nsp_indices\030\t\022\016\n\tsp_values\"\001T\022\014\n\010sp_shape\030\t\022\n\n\005dense\"\001T\032\013\n\006output\"\001T\" \n\001T\022\004type:\025\n\0232\021\001\002\003\004\005\006\010\t\013\014\r\016\021\022\023\026\027\n\267\001\n\023SparseFillEmptyRows\022\013\n\007indices\030\t\022\013\n\006values\"\001T\022\017\n\013dense_shape\030\t\022\022\n\rdefault_value\"\001T\032\022\n\016output_indices\030\t\032\022\n\routput_values\"\001T\032\027\n\023empty_row_indicator\030\n\032\025\n\021reverse_index_map\030\t\"\t\n\001T\022\004type\nr\n\027SparseFillEmptyRowsGrad\022\025\n\021reverse_index_map\030\t\022\020\n\013grad_values\"\001T\032\r\n\010d_values\"\001T\032\024\n\017d_default_value\"\001T\"\t\n\001T\022\004type\n\235\001\n\017SparseReduceMax\022\021\n\rinput_indices\030\t\022\021\n\014input_values\"\001T\022\017\n\013input_shape\030\t\022\022\n\016reduction_axes\030\003\032\013\n\006output\"\001T\"\025\n\tkeep_dims\022\004bool\032\002(\000\"\033\n\001T\022\004type:\020\n\0162\014\001\002\003\004\005\006\t\016\021\023\026\027\n\320\001\n\025SparseReduceMaxSparse\022\021\n\rinput_indices\030\t\022\021\n\014input_values\"\001T\022\017\n\013input_shape\030\t\022\022\n\016reduction_axes\030\003\032\022\n\016output_indices\030\t\032\022\n\routput_values\"\001T\032\020\n\014output_shape\030\t\"\025\n\tkeep_dims\022\004bool\032\002(\000\"\033\n\001T\022\004type:\020\n\0162\014\001\002\003\004\005\006\t\016\021\023\026\027\n\242\001\n\017SparseReduceSum\022\021\n\rinput_indices\030\t\022\021\n\014input_values\"\001T\022\017\n\013input_shape\030\t\022\022\n\016reduction_axes\030\003\032\013\n\006output\"\001T\"\025\n\tkeep_dims\022\004bool\032\002(\000\" \n\001T\022\004type:\025\n\0232\021\001\002\003\004\005\006\010\t\013\014\r\016\021\022\023\026\027\n\325\001\n\025SparseReduceSumSparse\022\021\n\rinput_indices\030\t\022\021\n\014input_values\"\001T\022\017\n\013input_shape\030\t\022\022\n\016reduction_axes\030\003\032\022\n\016output_indices\030\t\032\022\n\routput_values\"\001T\032\020\n\014output_shape\030\t\"\025\n\tkeep_dims\022\004bool\032\002(\000\" \n\001T\022\004type:\025\n\0232\021\001\002\003\004\005\006\010\t\013\014\r\016\021\022\023\026\027\ny\n\rSparseReorder\022\021\n\rinput_indices\030\t\022\021\n\014input_values\"\001T\022\017\n\013input_shape\030\t\032\022\n\016output_indices\030\t\032\022\n\routput_values\"\001T\"\t\n\001T\022\004type\nh\n\rSparseReshape\022\021\n\rinput_indices\030\t\022\017\n\013input_shape\030\t\022\r\n\tnew_shape\030\t\032\022\n\016output_indices\030\t\032\020\n\014output_shape\030\t\n\214\001\n\013SparseSlice\022\013\n\007indices\030\t\022\013\n\006values\"\001T\022\t\n\005shape\030\t\022\t\n\005start\030\t\022\010\n\004size\030\t\032\022\n\016output_indices\030\t\032\022\n\routput_values\"\001T\032\020\n\014output_shape\030\t\"\t\n\001T\022\004type\n\222\001\n\017SparseSliceGrad\022\026\n\021backprop_val_grad\"\001T\022\021\n\rinput_indices\030\t\022\017\n\013input_start\030\t\022\022\n\016output_indices\030\t\032\r\n\010val_grad\"\001T\" \n\001T\022\004type:\025\n\0232\021\001\002\003\004\005\006\010\t\013\014\r\016\021\022\023\026\027\n]\n\rSparseSoftmax\022\016\n\nsp_indices\030\t\022\016\n\tsp_values\"\001T\022\014\n\010sp_shape\030\t\032\013\n\006output\"\001T\"\021\n\001T\022\004type:\006\n\0042\002\001\002\n\260\001\n\023SparseSparseMaximum\022\r\n\ta_indices\030\t\022\r\n\010a_values\"\001T\022\013\n\007a_shape\030\t\022\r\n\tb_indices\030\t\022\r\n\010b_values\"\001T\022\013\n\007b_shape\030\t\032\022\n\016output_indices\030\t\032\022\n\routput_values\"\001T\"\033\n\001T\022\004type:\020\n\0162\014\001\002\003\004\005\006\t\016\021\023\026\027\n\265\001\n\023SparseSparseMinimum\022\r\n\ta_indices\030\t\022\r\n\010a_values\"\001T\022\013\n\007a_shape\030\t\022\r\n\tb_indices\030\t\022\r\n\010b_values\"\001T\022\013\n\007b_shape\030\t\032\022\n\016output_indices\030\t\032\022\n\routput_values\"\001T\" \n\001T\022\004type:\025\n\0232\021\001\002\003\004\005\006\010\t\013\014\r\016\021\022\023\026\027\n\275\001\n\013SparseSplit\022\r\n\tsplit_dim\030\t\022\013\n\007indices\030\t\022\013\n\006values\"\001T\022\t\n\005shape\030\t\032\035\n\016output_indices\030\t*\tnum_split\032\035\n\routput_values\"\001T*\tnum_split\032\033\n\014output_shape\030\t*\tnum_split\"\024\n\tnum_split\022\003int(\0010\001\"\t\n\001T\022\004type\n\242\001\n\024SparseTensorDenseAdd\022\025\n\ta_indices\"\010Tindices\022\r\n\010a_values\"\001T\022\023\n\007a_shape\"\010Tindices\022\006\n\001b\"\001T\032\013\n\006output\"\001T\" \n\001T\022\004type:\025\n\0232\021\001\002\003\004\005\006\010\t\013\014\r\016\021\022\023\026\027\"\030\n\010Tindices\022\004type:\006\n\0042\002\003\t\n\271\001\n\027SparseTensorDenseMatMul\022\025\n\ta_indices\"\010Tindices\022\r\n\010a_values\"\001T\022\013\n\007a_shape\030\t\022\006\n\001b\"\001T\032\014\n\007product\"\001T\"\t\n\001T\022\004type\"\034\n\010Tindices\022\004type\032\0020\t:\006\n\0042\002\003\t\"\025\n\tadjoint_a\022\004bool\032\002(\000\"\025\n\tadjoint_b\022\004bool\032\002(\000\n\274\001\n\rSparseToDense\022\032\n\016sparse_indices\"\010Tindices\022\030\n\014output_shape\"\010Tindices\022\022\n\rsparse_values\"\001T\022\022\n\rdefault_value\"\001T\032\n\n\005dense\"\001T\"\034\n\020validate_indices\022\004bool\032\002(\001\"\t\n\001T\022\004type\"\030\n\010Tindices\022\004type:\006\n\0042\002\003\t\n\266\001\n\034TakeManySparseFromTensorsMap\022\022\n\016sparse_handles\030\t\032\022\n\016sparse_indices\030\t\032\026\n\rsparse_values\"\005dtype\032\020\n\014sparse_shape\030\t\"\r\n\005dtype\022\004type\"\027\n\tcontainer\022\006string\032\002\022\000\"\031\n\013shared_name\022\006string\032\002\022\000\210\001\001")

@@ -5,11 +5,14 @@ Original C++ source file: array_ops.cc
 """
 
 import collections as _collections
+import six as _six
 
-from tensorflow.python.eager import execute as _execute
+from tensorflow.python import pywrap_tensorflow as _pywrap_tensorflow
 from tensorflow.python.eager import context as _context
 from tensorflow.python.eager import core as _core
+from tensorflow.python.eager import execute as _execute
 from tensorflow.python.framework import dtypes as _dtypes
+from tensorflow.python.framework import errors as _errors
 from tensorflow.python.framework import tensor_shape as _tensor_shape
 
 from tensorflow.core.framework import op_def_pb2 as _op_def_pb2
@@ -18,6 +21,8 @@ from tensorflow.python.framework import common_shapes as _common_shapes
 from tensorflow.python.framework import op_def_registry as _op_def_registry
 from tensorflow.python.framework import ops as _ops
 from tensorflow.python.framework import op_def_library as _op_def_library
+from tensorflow.python.util.deprecation import deprecated_endpoints
+from tensorflow.python.util.tf_export import tf_export
 
 
 def batch_matrix_band_part(input, num_lower, num_upper, name=None):
@@ -32,23 +37,49 @@ def batch_matrix_band_part(input, num_lower, num_upper, name=None):
   Returns:
     A `Tensor`. Has the same type as `input`.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "BatchMatrixBandPart", input=input, num_lower=num_lower,
         num_upper=num_upper, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "BatchMatrixBandPart", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    num_lower = _ops.convert_to_tensor(num_lower, _dtypes.int64)
-    num_upper = _ops.convert_to_tensor(num_upper, _dtypes.int64)
-    _inputs_flat = [input, num_lower, num_upper]
-    _attrs = ("T", _attr_T)
-    _result = _execute.execute(b"BatchMatrixBandPart", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "BatchMatrixBandPart", name, _ctx._post_execution_callbacks, input,
+        num_lower, num_upper)
+      return _result
+    except _core._FallbackException:
+      return batch_matrix_band_part_eager_fallback(
+          input, num_lower, num_upper, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def batch_matrix_band_part_eager_fallback(input, num_lower, num_upper, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function batch_matrix_band_part
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
+  num_lower = _ops.convert_to_tensor(num_lower, _dtypes.int64)
+  num_upper = _ops.convert_to_tensor(num_upper, _dtypes.int64)
+  _inputs_flat = [input, num_lower, num_upper]
+  _attrs = ("T", _attr_T)
+  _result = _execute.execute(b"BatchMatrixBandPart", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "BatchMatrixBandPart", _inputs_flat, _attrs, _result, name)
   _result, = _result
@@ -65,20 +96,45 @@ def batch_matrix_diag(diagonal, name=None):
   Returns:
     A `Tensor`. Has the same type as `diagonal`.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "BatchMatrixDiag", diagonal=diagonal, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "BatchMatrixDiag", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (diagonal,) = _execute.args_to_matching_eager([diagonal], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    _inputs_flat = [diagonal]
-    _attrs = ("T", _attr_T)
-    _result = _execute.execute(b"BatchMatrixDiag", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "BatchMatrixDiag", name, _ctx._post_execution_callbacks, diagonal)
+      return _result
+    except _core._FallbackException:
+      return batch_matrix_diag_eager_fallback(
+          diagonal, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def batch_matrix_diag_eager_fallback(diagonal, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function batch_matrix_diag
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, (diagonal,) = _execute.args_to_matching_eager([diagonal], _ctx)
+  _inputs_flat = [diagonal]
+  _attrs = ("T", _attr_T)
+  _result = _execute.execute(b"BatchMatrixDiag", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "BatchMatrixDiag", _inputs_flat, _attrs, _result, name)
   _result, = _result
@@ -95,20 +151,45 @@ def batch_matrix_diag_part(input, name=None):
   Returns:
     A `Tensor`. Has the same type as `input`.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "BatchMatrixDiagPart", input=input, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "BatchMatrixDiagPart", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    _inputs_flat = [input]
-    _attrs = ("T", _attr_T)
-    _result = _execute.execute(b"BatchMatrixDiagPart", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "BatchMatrixDiagPart", name, _ctx._post_execution_callbacks, input)
+      return _result
+    except _core._FallbackException:
+      return batch_matrix_diag_part_eager_fallback(
+          input, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def batch_matrix_diag_part_eager_fallback(input, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function batch_matrix_diag_part
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
+  _inputs_flat = [input]
+  _attrs = ("T", _attr_T)
+  _result = _execute.execute(b"BatchMatrixDiagPart", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "BatchMatrixDiagPart", _inputs_flat, _attrs, _result, name)
   _result, = _result
@@ -126,28 +207,54 @@ def batch_matrix_set_diag(input, diagonal, name=None):
   Returns:
     A `Tensor`. Has the same type as `input`.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "BatchMatrixSetDiag", input=input, diagonal=diagonal, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "BatchMatrixSetDiag", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, _inputs_T = _execute.args_to_matching_eager([input, diagonal], _ctx)
-    (input, diagonal) = _inputs_T
-    _attr_T = _attr_T.as_datatype_enum
-    _inputs_flat = [input, diagonal]
-    _attrs = ("T", _attr_T)
-    _result = _execute.execute(b"BatchMatrixSetDiag", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "BatchMatrixSetDiag", name, _ctx._post_execution_callbacks, input,
+        diagonal)
+      return _result
+    except _core._FallbackException:
+      return batch_matrix_set_diag_eager_fallback(
+          input, diagonal, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def batch_matrix_set_diag_eager_fallback(input, diagonal, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function batch_matrix_set_diag
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, _inputs_T = _execute.args_to_matching_eager([input, diagonal], _ctx)
+  (input, diagonal) = _inputs_T
+  _inputs_flat = [input, diagonal]
+  _attrs = ("T", _attr_T)
+  _result = _execute.execute(b"BatchMatrixSetDiag", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "BatchMatrixSetDiag", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
-def _batch_to_space(input, crops, block_size, name=None):
+def batch_to_space(input, crops, block_size, name=None):
   r"""BatchToSpace for 4-D tensors of type T.
 
   This is a legacy version of the more general BatchToSpaceND.
@@ -174,77 +281,10 @@ def _batch_to_space(input, crops, block_size, name=None):
 
   Returns:
     A `Tensor`. Has the same type as `input`.
-    4-D with shape `[batch, height, width, depth]`, where:
-
-          height = height_pad - crop_top - crop_bottom
-          width = width_pad - crop_left - crop_right
-
-    The attr `block_size` must be greater than one. It indicates the block size.
-
-    Some examples:
-
-    (1) For the following input of shape `[4, 1, 1, 1]` and block_size of 2:
-
-    ```
-    [[[[1]]], [[[2]]], [[[3]]], [[[4]]]]
-    ```
-
-    The output tensor has shape `[1, 2, 2, 1]` and value:
-
-    ```
-    x = [[[[1], [2]], [[3], [4]]]]
-    ```
-
-    (2) For the following input of shape `[4, 1, 1, 3]` and block_size of 2:
-
-    ```
-    [[[1, 2, 3]], [[4, 5, 6]], [[7, 8, 9]], [[10, 11, 12]]]
-    ```
-
-    The output tensor has shape `[1, 2, 2, 3]` and value:
-
-    ```
-    x = [[[[1, 2, 3], [4, 5, 6]],
-          [[7, 8, 9], [10, 11, 12]]]]
-    ```
-
-    (3) For the following input of shape `[4, 2, 2, 1]` and block_size of 2:
-
-    ```
-    x = [[[[1], [3]], [[9], [11]]],
-         [[[2], [4]], [[10], [12]]],
-         [[[5], [7]], [[13], [15]]],
-         [[[6], [8]], [[14], [16]]]]
-    ```
-
-    The output tensor has shape `[1, 4, 4, 1]` and value:
-
-    ```
-    x = [[[1],   [2],  [3],  [4]],
-         [[5],   [6],  [7],  [8]],
-         [[9],  [10], [11],  [12]],
-         [[13], [14], [15],  [16]]]
-    ```
-
-    (4) For the following input of shape `[8, 1, 2, 1]` and block_size of 2:
-
-    ```
-    x = [[[[1], [3]]], [[[9], [11]]], [[[2], [4]]], [[[10], [12]]],
-         [[[5], [7]]], [[[13], [15]]], [[[6], [8]]], [[[14], [16]]]]
-    ```
-
-    The output tensor has shape `[2, 2, 4, 1]` and value:
-
-    ```
-    x = [[[[1], [3]], [[5], [7]]],
-         [[[2], [4]], [[10], [12]]],
-         [[[5], [7]], [[13], [15]]],
-         [[[6], [8]], [[14], [16]]]]
-    ```
   """
-  block_size = _execute.make_int(block_size, "block_size")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    block_size = _execute.make_int(block_size, "block_size")
     _, _, _op = _op_def_lib._apply_op_helper(
         "BatchToSpace", input=input, crops=crops, block_size=block_size,
         name=name)
@@ -252,21 +292,49 @@ def _batch_to_space(input, crops, block_size, name=None):
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"), "block_size",
               _op.get_attr("block_size"), "Tidx", _op.get_attr("Tidx"))
+    _execute.record_gradient(
+      "BatchToSpace", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    _attr_Tidx, (crops,) = _execute.args_to_matching_eager([crops], _ctx, _dtypes.int32)
-    _attr_Tidx = _attr_Tidx.as_datatype_enum
-    _inputs_flat = [input, crops]
-    _attrs = ("T", _attr_T, "block_size", block_size, "Tidx", _attr_Tidx)
-    _result = _execute.execute(b"BatchToSpace", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "BatchToSpace",
+        name, _ctx._post_execution_callbacks, input, crops, "block_size",
+        block_size)
+      return _result
+    except _core._FallbackException:
+      return batch_to_space_eager_fallback(
+          input, crops, block_size=block_size, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def batch_to_space_eager_fallback(input, crops, block_size, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function batch_to_space
+  """
+  _ctx = ctx if ctx else _context.context()
+  block_size = _execute.make_int(block_size, "block_size")
+  _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
+  _attr_Tidx, (crops,) = _execute.args_to_matching_eager([crops], _ctx, _dtypes.int32)
+  _inputs_flat = [input, crops]
+  _attrs = ("T", _attr_T, "block_size", block_size, "Tidx", _attr_Tidx)
+  _result = _execute.execute(b"BatchToSpace", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "BatchToSpace", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
+@tf_export('manip.batch_to_space_nd', 'batch_to_space_nd')
+@deprecated_endpoints('batch_to_space_nd')
 def batch_to_space_nd(input, block_shape, crops, name=None):
   r"""BatchToSpace for N-D tensors of type T.
 
@@ -398,8 +466,8 @@ def batch_to_space_nd(input, block_shape, crops, name=None):
   Returns:
     A `Tensor`. Has the same type as `input`.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "BatchToSpaceND", input=input, block_shape=block_shape, crops=crops,
         name=name)
@@ -407,24 +475,49 @@ def batch_to_space_nd(input, block_shape, crops, name=None):
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"), "Tblock_shape",
               _op.get_attr("Tblock_shape"), "Tcrops", _op.get_attr("Tcrops"))
+    _execute.record_gradient(
+      "BatchToSpaceND", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    _attr_Tblock_shape, (block_shape,) = _execute.args_to_matching_eager([block_shape], _ctx, _dtypes.int32)
-    _attr_Tblock_shape = _attr_Tblock_shape.as_datatype_enum
-    _attr_Tcrops, (crops,) = _execute.args_to_matching_eager([crops], _ctx, _dtypes.int32)
-    _attr_Tcrops = _attr_Tcrops.as_datatype_enum
-    _inputs_flat = [input, block_shape, crops]
-    _attrs = ("T", _attr_T, "Tblock_shape", _attr_Tblock_shape, "Tcrops",
-              _attr_Tcrops)
-    _result = _execute.execute(b"BatchToSpaceND", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "BatchToSpaceND", name, _ctx._post_execution_callbacks, input,
+        block_shape, crops)
+      return _result
+    except _core._FallbackException:
+      return batch_to_space_nd_eager_fallback(
+          input, block_shape, crops, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def batch_to_space_nd_eager_fallback(input, block_shape, crops, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function batch_to_space_nd
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
+  _attr_Tblock_shape, (block_shape,) = _execute.args_to_matching_eager([block_shape], _ctx, _dtypes.int32)
+  _attr_Tcrops, (crops,) = _execute.args_to_matching_eager([crops], _ctx, _dtypes.int32)
+  _inputs_flat = [input, block_shape, crops]
+  _attrs = ("T", _attr_T, "Tblock_shape", _attr_Tblock_shape, "Tcrops",
+  _attr_Tcrops)
+  _result = _execute.execute(b"BatchToSpaceND", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "BatchToSpaceND", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
+@tf_export('bitcast')
 def bitcast(input, type, name=None):
   r"""Bitcasts a tensor from one type to another without copying data.
 
@@ -442,35 +535,61 @@ def bitcast(input, type, name=None):
   endian orderings will give different results.
 
   Args:
-    input: A `Tensor`. Must be one of the following types: `float32`, `float64`, `int64`, `int32`, `uint8`, `uint16`, `int8`, `int16`, `complex64`, `complex128`, `qint8`, `quint8`, `qint16`, `quint16`, `qint32`, `half`.
-    type: A `tf.DType` from: `tf.float32, tf.float64, tf.int64, tf.int32, tf.uint8, tf.uint16, tf.int8, tf.int16, tf.complex64, tf.complex128, tf.qint8, tf.quint8, tf.qint16, tf.quint16, tf.qint32, tf.half`.
+    input: A `Tensor`. Must be one of the following types: `bfloat16`, `half`, `float32`, `float64`, `int64`, `int32`, `uint8`, `uint16`, `uint32`, `uint64`, `int8`, `int16`, `complex64`, `complex128`, `qint8`, `quint8`, `qint16`, `quint16`, `qint32`.
+    type: A `tf.DType` from: `tf.bfloat16, tf.half, tf.float32, tf.float64, tf.int64, tf.int32, tf.uint8, tf.uint16, tf.uint32, tf.uint64, tf.int8, tf.int16, tf.complex64, tf.complex128, tf.qint8, tf.quint8, tf.qint16, tf.quint16, tf.qint32`.
     name: A name for the operation (optional).
 
   Returns:
     A `Tensor` of type `type`.
   """
-  type = _execute.make_type(type, "type")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    type = _execute.make_type(type, "type")
     _, _, _op = _op_def_lib._apply_op_helper(
         "Bitcast", input=input, type=type, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"), "type", _op.get_attr("type"))
+    _execute.record_gradient(
+      "Bitcast", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    _inputs_flat = [input]
-    _attrs = ("T", _attr_T, "type", type)
-    _result = _execute.execute(b"Bitcast", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "Bitcast",
+        name, _ctx._post_execution_callbacks, input, "type", type)
+      return _result
+    except _core._FallbackException:
+      return bitcast_eager_fallback(
+          input, type=type, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def bitcast_eager_fallback(input, type, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function bitcast
+  """
+  _ctx = ctx if ctx else _context.context()
+  type = _execute.make_type(type, "type")
+  _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
+  _inputs_flat = [input]
+  _attrs = ("T", _attr_T, "type", type)
+  _result = _execute.execute(b"Bitcast", 1, inputs=_inputs_flat, attrs=_attrs,
+                             ctx=_ctx, name=name)
   _execute.record_gradient(
       "Bitcast", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
-def _broadcast_args(s0, s1, name=None):
+def broadcast_args(s0, s1, name=None):
   r"""Return the shape of s0 op s1 with broadcast.
 
   Given `s0` and `s1`, tensors that represent shapes, compute `r0`, the
@@ -484,33 +603,58 @@ def _broadcast_args(s0, s1, name=None):
   Returns:
     A `Tensor`. Has the same type as `s0`.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "BroadcastArgs", s0=s0, s1=s1, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "BroadcastArgs", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, _inputs_T = _execute.args_to_matching_eager([s0, s1], _ctx, _dtypes.int32)
-    (s0, s1) = _inputs_T
-    _attr_T = _attr_T.as_datatype_enum
-    _inputs_flat = [s0, s1]
-    _attrs = ("T", _attr_T)
-    _result = _execute.execute(b"BroadcastArgs", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "BroadcastArgs", name, _ctx._post_execution_callbacks, s0, s1)
+      return _result
+    except _core._FallbackException:
+      return broadcast_args_eager_fallback(
+          s0, s1, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def broadcast_args_eager_fallback(s0, s1, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function broadcast_args
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, _inputs_T = _execute.args_to_matching_eager([s0, s1], _ctx, _dtypes.int32)
+  (s0, s1) = _inputs_T
+  _inputs_flat = [s0, s1]
+  _attrs = ("T", _attr_T)
+  _result = _execute.execute(b"BroadcastArgs", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "BroadcastArgs", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
-__broadcast_gradient_args_outputs = ["r0", "r1"]
+_broadcast_gradient_args_outputs = ["r0", "r1"]
 _BroadcastGradientArgsOutput = _collections.namedtuple(
-    "BroadcastGradientArgs", __broadcast_gradient_args_outputs)
+    "BroadcastGradientArgs", _broadcast_gradient_args_outputs)
 
 
-def _broadcast_gradient_args(s0, s1, name=None):
+def broadcast_gradient_args(s0, s1, name=None):
   r"""Return the reduction indices for computing gradients of s0 op s1 with broadcast.
 
   This is typically used by gradient computations for a broadcasting operation.
@@ -526,28 +670,132 @@ def _broadcast_gradient_args(s0, s1, name=None):
     r0: A `Tensor`. Has the same type as `s0`.
     r1: A `Tensor`. Has the same type as `s0`.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "BroadcastGradientArgs", s0=s0, s1=s1, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "BroadcastGradientArgs", _inputs_flat, _attrs, _result, name)
+    _result = _BroadcastGradientArgsOutput._make(_result)
+    return _result
+
   else:
-    _attr_T, _inputs_T = _execute.args_to_matching_eager([s0, s1], _ctx, _dtypes.int32)
-    (s0, s1) = _inputs_T
-    _attr_T = _attr_T.as_datatype_enum
-    _inputs_flat = [s0, s1]
-    _attrs = ("T", _attr_T)
-    _result = _execute.execute(b"BroadcastGradientArgs", 2,
-                               inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
-                               name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "BroadcastGradientArgs", name, _ctx._post_execution_callbacks, s0, s1)
+      _result = _BroadcastGradientArgsOutput._make(_result)
+      return _result
+    except _core._FallbackException:
+      return broadcast_gradient_args_eager_fallback(
+          s0, s1, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def broadcast_gradient_args_eager_fallback(s0, s1, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function broadcast_gradient_args
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, _inputs_T = _execute.args_to_matching_eager([s0, s1], _ctx, _dtypes.int32)
+  (s0, s1) = _inputs_T
+  _inputs_flat = [s0, s1]
+  _attrs = ("T", _attr_T)
+  _result = _execute.execute(b"BroadcastGradientArgs", 2, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "BroadcastGradientArgs", _inputs_flat, _attrs, _result, name)
   _result = _BroadcastGradientArgsOutput._make(_result)
   return _result
 
 
+@tf_export('broadcast_to')
+def broadcast_to(input, shape, name=None):
+  r"""Broadcast an array for a compatible shape.
+
+  Broadcasting is the process of making arrays to have compatible shapes
+  for arithmetic operations. Two shapes are compatible if for each
+  dimension pair they are either equal or one of them is one. When trying
+  to broadcast a Tensor to a shape, it starts with the trailing dimensions,
+  and works its way forward.
+
+  For example,
+  ```
+  >>> x = tf.constant([1, 2, 3])
+  >>> y = tf.broadcast_to(x, [3, 3])
+  >>> sess.run(y)
+  array([[1, 2, 3],
+         [1, 2, 3],
+         [1, 2, 3]], dtype=int32)
+  ```
+  In the above example, the input Tensor with the shape of `[1, 3]`
+  is broadcasted to output Tensor with shape of `[3, 3]`.
+
+  Args:
+    input: A `Tensor`. A Tensor to broadcast.
+    shape: A `Tensor`. Must be one of the following types: `int32`, `int64`.
+      An 1-D `int` Tensor. The shape of the desired output.
+    name: A name for the operation (optional).
+
+  Returns:
+    A `Tensor`. Has the same type as `input`.
+  """
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    _, _, _op = _op_def_lib._apply_op_helper(
+        "BroadcastTo", input=input, shape=shape, name=name)
+    _result = _op.outputs[:]
+    _inputs_flat = _op.inputs
+    _attrs = ("T", _op.get_attr("T"), "Tidx", _op.get_attr("Tidx"))
+    _execute.record_gradient(
+      "BroadcastTo", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
+  else:
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "BroadcastTo",
+        name, _ctx._post_execution_callbacks, input, shape)
+      return _result
+    except _core._FallbackException:
+      return broadcast_to_eager_fallback(
+          input, shape, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def broadcast_to_eager_fallback(input, shape, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function broadcast_to
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
+  _attr_Tidx, (shape,) = _execute.args_to_matching_eager([shape], _ctx, _dtypes.int32)
+  _inputs_flat = [input, shape]
+  _attrs = ("T", _attr_T, "Tidx", _attr_Tidx)
+  _result = _execute.execute(b"BroadcastTo", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
+  _execute.record_gradient(
+      "BroadcastTo", _inputs_flat, _attrs, _result, name)
+  _result, = _result
+  return _result
+
+
+@tf_export('debugging.check_numerics', 'check_numerics')
+@deprecated_endpoints('check_numerics')
 def check_numerics(tensor, message, name=None):
   r"""Checks a tensor for NaN and Inf values.
 
@@ -555,35 +803,62 @@ def check_numerics(tensor, message, name=None):
   that are not a number (NaN) or infinity (Inf). Otherwise, passes `tensor` as-is.
 
   Args:
-    tensor: A `Tensor`. Must be one of the following types: `half`, `float32`, `float64`.
+    tensor: A `Tensor`. Must be one of the following types: `bfloat16`, `half`, `float32`, `float64`.
     message: A `string`. Prefix of the error message.
     name: A name for the operation (optional).
 
   Returns:
     A `Tensor`. Has the same type as `tensor`.
   """
-  message = _execute.make_str(message, "message")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    message = _execute.make_str(message, "message")
     _, _, _op = _op_def_lib._apply_op_helper(
         "CheckNumerics", tensor=tensor, message=message, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"), "message", _op.get_attr("message"))
+    _execute.record_gradient(
+      "CheckNumerics", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (tensor,) = _execute.args_to_matching_eager([tensor], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    _inputs_flat = [tensor]
-    _attrs = ("T", _attr_T, "message", message)
-    _result = _execute.execute(b"CheckNumerics", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "CheckNumerics", name, _ctx._post_execution_callbacks, tensor,
+        "message", message)
+      return _result
+    except _core._FallbackException:
+      return check_numerics_eager_fallback(
+          tensor, message=message, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def check_numerics_eager_fallback(tensor, message, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function check_numerics
+  """
+  _ctx = ctx if ctx else _context.context()
+  message = _execute.make_str(message, "message")
+  _attr_T, (tensor,) = _execute.args_to_matching_eager([tensor], _ctx)
+  _inputs_flat = [tensor]
+  _attrs = ("T", _attr_T, "message", message)
+  _result = _execute.execute(b"CheckNumerics", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "CheckNumerics", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
-def _concat(concat_dim, values, name=None):
+def concat(concat_dim, values, name=None):
   r"""Concatenates tensors along one dimension.
 
   Args:
@@ -597,37 +872,64 @@ def _concat(concat_dim, values, name=None):
 
   Returns:
     A `Tensor`. Has the same type as `values`.
-    A `Tensor` with the concatenation of values stacked along the
-    `concat_dim` dimension.  This tensor's shape matches that of `values` except
-    in `concat_dim` where it has the sum of the sizes.
   """
-  if not isinstance(values, (list, tuple)):
-    raise TypeError(
-        "Expected list for 'values' argument to "
-        "'concat' Op, not %r." % values)
-  _attr_N = len(values)
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if not isinstance(values, (list, tuple)):
+      raise TypeError(
+          "Expected list for 'values' argument to "
+          "'concat' Op, not %r." % values)
+    _attr_N = len(values)
     _, _, _op = _op_def_lib._apply_op_helper(
         "Concat", concat_dim=concat_dim, values=values, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("N", _op.get_attr("N"), "T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "Concat", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, values = _execute.args_to_matching_eager(list(values), _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    concat_dim = _ops.convert_to_tensor(concat_dim, _dtypes.int32)
-    _inputs_flat = [concat_dim] + list(values)
-    _attrs = ("N", _attr_N, "T", _attr_T)
-    _result = _execute.execute(b"Concat", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "Concat", name,
+        _ctx._post_execution_callbacks, concat_dim, values)
+      return _result
+    except _core._FallbackException:
+      return concat_eager_fallback(
+          concat_dim, values, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def concat_eager_fallback(concat_dim, values, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function concat
+  """
+  _ctx = ctx if ctx else _context.context()
+  if not isinstance(values, (list, tuple)):
+    raise TypeError(
+        "Expected list for 'values' argument to "
+        "'concat' Op, not %r." % values)
+  _attr_N = len(values)
+  _attr_T, values = _execute.args_to_matching_eager(list(values), _ctx)
+  concat_dim = _ops.convert_to_tensor(concat_dim, _dtypes.int32)
+  _inputs_flat = [concat_dim] + list(values)
+  _attrs = ("N", _attr_N, "T", _attr_T)
+  _result = _execute.execute(b"Concat", 1, inputs=_inputs_flat, attrs=_attrs,
+                             ctx=_ctx, name=name)
   _execute.record_gradient(
       "Concat", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
-def _concat_offset(concat_dim, shape, name=None):
+def concat_offset(concat_dim, shape, name=None):
   r"""Computes offsets of concat inputs within its output.
 
   For example:
@@ -650,34 +952,62 @@ def _concat_offset(concat_dim, shape, name=None):
 
   Returns:
     A list with the same length as `shape` of `Tensor` objects with type `int32`.
-    The `N` int32 vectors representing the starting offset
-    of input tensors within the concatenated output.
   """
-  if not isinstance(shape, (list, tuple)):
-    raise TypeError(
-        "Expected list for 'shape' argument to "
-        "'concat_offset' Op, not %r." % shape)
-  _attr_N = len(shape)
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if not isinstance(shape, (list, tuple)):
+      raise TypeError(
+          "Expected list for 'shape' argument to "
+          "'concat_offset' Op, not %r." % shape)
+    _attr_N = len(shape)
     _, _, _op = _op_def_lib._apply_op_helper(
         "ConcatOffset", concat_dim=concat_dim, shape=shape, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("N", _op.get_attr("N"))
+    _execute.record_gradient(
+      "ConcatOffset", _inputs_flat, _attrs, _result, name)
+    return _result
+
   else:
-    concat_dim = _ops.convert_to_tensor(concat_dim, _dtypes.int32)
-    shape = _ops.convert_n_to_tensor(shape, _dtypes.int32)
-    _inputs_flat = [concat_dim] + list(shape)
-    _attrs = ("N", _attr_N)
-    _result = _execute.execute(b"ConcatOffset", _attr_N, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "ConcatOffset",
+        name, _ctx._post_execution_callbacks, concat_dim, shape)
+      return _result
+    except _core._FallbackException:
+      return concat_offset_eager_fallback(
+          concat_dim, shape, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def concat_offset_eager_fallback(concat_dim, shape, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function concat_offset
+  """
+  _ctx = ctx if ctx else _context.context()
+  if not isinstance(shape, (list, tuple)):
+    raise TypeError(
+        "Expected list for 'shape' argument to "
+        "'concat_offset' Op, not %r." % shape)
+  _attr_N = len(shape)
+  concat_dim = _ops.convert_to_tensor(concat_dim, _dtypes.int32)
+  shape = _ops.convert_n_to_tensor(shape, _dtypes.int32)
+  _inputs_flat = [concat_dim] + list(shape)
+  _attrs = ("N", _attr_N)
+  _result = _execute.execute(b"ConcatOffset", _attr_N, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "ConcatOffset", _inputs_flat, _attrs, _result, name)
   return _result
 
 
-def _concat_v2(values, axis, name=None):
+def concat_v2(values, axis, name=None):
   r"""Concatenates tensors along one dimension.
 
   Args:
@@ -691,39 +1021,126 @@ def _concat_v2(values, axis, name=None):
 
   Returns:
     A `Tensor`. Has the same type as `values`.
-    A `Tensor` with the concatenation of values stacked along the
-    `concat_dim` dimension.  This tensor's shape matches that of `values` except
-    in `concat_dim` where it has the sum of the sizes.
   """
-  if not isinstance(values, (list, tuple)):
-    raise TypeError(
-        "Expected list for 'values' argument to "
-        "'concat_v2' Op, not %r." % values)
-  _attr_N = len(values)
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if not isinstance(values, (list, tuple)):
+      raise TypeError(
+          "Expected list for 'values' argument to "
+          "'concat_v2' Op, not %r." % values)
+    _attr_N = len(values)
     _, _, _op = _op_def_lib._apply_op_helper(
         "ConcatV2", values=values, axis=axis, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("N", _op.get_attr("N"), "T", _op.get_attr("T"), "Tidx",
               _op.get_attr("Tidx"))
+    _execute.record_gradient(
+      "ConcatV2", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, values = _execute.args_to_matching_eager(list(values), _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    _attr_Tidx, (axis,) = _execute.args_to_matching_eager([axis], _ctx, _dtypes.int32)
-    _attr_Tidx = _attr_Tidx.as_datatype_enum
-    _inputs_flat = list(values) + [axis]
-    _attrs = ("N", _attr_N, "T", _attr_T, "Tidx", _attr_Tidx)
-    _result = _execute.execute(b"ConcatV2", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "ConcatV2",
+        name, _ctx._post_execution_callbacks, values, axis)
+      return _result
+    except _core._FallbackException:
+      return concat_v2_eager_fallback(
+          values, axis, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def concat_v2_eager_fallback(values, axis, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function concat_v2
+  """
+  _ctx = ctx if ctx else _context.context()
+  if not isinstance(values, (list, tuple)):
+    raise TypeError(
+        "Expected list for 'values' argument to "
+        "'concat_v2' Op, not %r." % values)
+  _attr_N = len(values)
+  _attr_T, values = _execute.args_to_matching_eager(list(values), _ctx)
+  _attr_Tidx, (axis,) = _execute.args_to_matching_eager([axis], _ctx, _dtypes.int32)
+  _inputs_flat = list(values) + [axis]
+  _attrs = ("N", _attr_N, "T", _attr_T, "Tidx", _attr_Tidx)
+  _result = _execute.execute(b"ConcatV2", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "ConcatV2", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
-def _const(value, dtype, name=None):
+def conjugate_transpose(x, perm, name=None):
+  r"""Shuffle dimensions of x according to a permutation and conjugate the result.
+
+  The output `y` has the same rank as `x`. The shapes of `x` and `y` satisfy:
+    `y.shape[i] == x.shape[perm[i]] for i in [0, 1, ..., rank(x) - 1]`
+    `y[i,j,k,...,s,t,u] == conj(x[perm[i], perm[j], perm[k],...,perm[s], perm[t], perm[u]])`
+
+  Args:
+    x: A `Tensor`.
+    perm: A `Tensor`. Must be one of the following types: `int32`, `int64`.
+    name: A name for the operation (optional).
+
+  Returns:
+    A `Tensor`. Has the same type as `x`.
+  """
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    _, _, _op = _op_def_lib._apply_op_helper(
+        "ConjugateTranspose", x=x, perm=perm, name=name)
+    _result = _op.outputs[:]
+    _inputs_flat = _op.inputs
+    _attrs = ("T", _op.get_attr("T"), "Tperm", _op.get_attr("Tperm"))
+    _execute.record_gradient(
+      "ConjugateTranspose", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
+  else:
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "ConjugateTranspose", name, _ctx._post_execution_callbacks, x, perm)
+      return _result
+    except _core._FallbackException:
+      return conjugate_transpose_eager_fallback(
+          x, perm, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def conjugate_transpose_eager_fallback(x, perm, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function conjugate_transpose
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, (x,) = _execute.args_to_matching_eager([x], _ctx)
+  _attr_Tperm, (perm,) = _execute.args_to_matching_eager([perm], _ctx, _dtypes.int32)
+  _inputs_flat = [x, perm]
+  _attrs = ("T", _attr_T, "Tperm", _attr_Tperm)
+  _result = _execute.execute(b"ConjugateTranspose", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
+  _execute.record_gradient(
+      "ConjugateTranspose", _inputs_flat, _attrs, _result, name)
+  _result, = _result
+  return _result
+
+
+def const(value, dtype, name=None):
   r"""Returns a constant tensor.
 
   Args:
@@ -734,31 +1151,60 @@ def _const(value, dtype, name=None):
   Returns:
     A `Tensor` of type `dtype`.
   """
-  value = _execute.make_tensor(value, "value")
-  dtype = _execute.make_type(dtype, "dtype")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    value = _execute.make_tensor(value, "value")
+    dtype = _execute.make_type(dtype, "dtype")
     _, _, _op = _op_def_lib._apply_op_helper(
         "Const", value=value, dtype=dtype, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("value", _op.get_attr("value"), "dtype", _op.get_attr("dtype"))
+    _execute.record_gradient(
+      "Const", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _inputs_flat = []
-    _attrs = ("value", value, "dtype", dtype)
-    _result = _execute.execute(b"Const", 1, inputs=_inputs_flat, attrs=_attrs,
-                               ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "Const", name,
+        _ctx._post_execution_callbacks, "value", value, "dtype", dtype)
+      return _result
+    except _core._FallbackException:
+      return const_eager_fallback(
+          value=value, dtype=dtype, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def const_eager_fallback(value, dtype, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function const
+  """
+  _ctx = ctx if ctx else _context.context()
+  value = _execute.make_tensor(value, "value")
+  dtype = _execute.make_type(dtype, "dtype")
+  _inputs_flat = []
+  _attrs = ("value", value, "dtype", dtype)
+  _result = _execute.execute(b"Const", 1, inputs=_inputs_flat, attrs=_attrs,
+                             ctx=_ctx, name=name)
   _execute.record_gradient(
       "Const", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
-def _debug_gradient_identity(input, name=None):
+def debug_gradient_identity(input, name=None):
   r"""Identity op for gradient debugging.
 
   This op is hidden from public in Python. It is used by TensorFlow Debugger to
   register gradient tensors for gradient debugging.
+  This op operates on non-reference-type tensors.
 
   Args:
     input: A `Tensor`.
@@ -767,23 +1213,134 @@ def _debug_gradient_identity(input, name=None):
   Returns:
     A `Tensor`. Has the same type as `input`.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "DebugGradientIdentity", input=input, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "DebugGradientIdentity", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    _inputs_flat = [input]
-    _attrs = ("T", _attr_T)
-    _result = _execute.execute(b"DebugGradientIdentity", 1,
-                               inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
-                               name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "DebugGradientIdentity", name, _ctx._post_execution_callbacks, input)
+      return _result
+    except _core._FallbackException:
+      return debug_gradient_identity_eager_fallback(
+          input, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def debug_gradient_identity_eager_fallback(input, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function debug_gradient_identity
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
+  _inputs_flat = [input]
+  _attrs = ("T", _attr_T)
+  _result = _execute.execute(b"DebugGradientIdentity", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "DebugGradientIdentity", _inputs_flat, _attrs, _result, name)
+  _result, = _result
+  return _result
+
+
+def debug_gradient_ref_identity(input, name=None):
+  r"""Identity op for gradient debugging.
+
+  This op is hidden from public in Python. It is used by TensorFlow Debugger to
+  register gradient tensors for gradient debugging.
+  This op operates on reference-type tensors.
+
+  Args:
+    input: A mutable `Tensor`.
+    name: A name for the operation (optional).
+
+  Returns:
+    A mutable `Tensor`. Has the same type as `input`.
+  """
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    _, _, _op = _op_def_lib._apply_op_helper(
+        "DebugGradientRefIdentity", input=input, name=name)
+    _result = _op.outputs[:]
+    _inputs_flat = _op.inputs
+    _attrs = ("T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "DebugGradientRefIdentity", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
+  else:
+    raise RuntimeError("debug_gradient_ref_identity op does not support eager execution. Arg 'output' is a ref.")
+
+
+  raise RuntimeError("debug_gradient_ref_identity op does not support eager execution. Arg 'output' is a ref.")
+
+def deep_copy(x, name=None):
+  r"""Makes a copy of `x`.
+
+  Args:
+    x: A `Tensor`. The source tensor of type `T`.
+    name: A name for the operation (optional).
+
+  Returns:
+    A `Tensor`. Has the same type as `x`.
+  """
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    _, _, _op = _op_def_lib._apply_op_helper(
+        "DeepCopy", x=x, name=name)
+    _result = _op.outputs[:]
+    _inputs_flat = _op.inputs
+    _attrs = ("T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "DeepCopy", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
+  else:
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "DeepCopy",
+        name, _ctx._post_execution_callbacks, x)
+      return _result
+    except _core._FallbackException:
+      return deep_copy_eager_fallback(
+          x, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def deep_copy_eager_fallback(x, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function deep_copy
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, (x,) = _execute.args_to_matching_eager([x], _ctx)
+  _inputs_flat = [x]
+  _attrs = ("T", _attr_T)
+  _result = _execute.execute(b"DeepCopy", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
+  _execute.record_gradient(
+      "DeepCopy", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
@@ -811,7 +1368,7 @@ def depth_to_space(input, block_size, data_format="NHWC", name=None):
     "NHWC": `[ batch, height, width, channels ]`
     "NCHW": `[ batch, channels, height, width ]`
     "NCHW_VECT_C":
-        `qint8 [ batch, channels / 4, height, width, channels % 4 ]`
+        `qint8 [ batch, channels / 4, height, width, 4 ]`
 
   It is useful to consider the operation as transforming a 6-D Tensor.
   e.g. for data_format = NHWC,
@@ -891,12 +1448,12 @@ def depth_to_space(input, block_size, data_format="NHWC", name=None):
   Returns:
     A `Tensor`. Has the same type as `input`.
   """
-  block_size = _execute.make_int(block_size, "block_size")
-  if data_format is None:
-    data_format = "NHWC"
-  data_format = _execute.make_str(data_format, "data_format")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    block_size = _execute.make_int(block_size, "block_size")
+    if data_format is None:
+      data_format = "NHWC"
+    data_format = _execute.make_str(data_format, "data_format")
     _, _, _op = _op_def_lib._apply_op_helper(
         "DepthToSpace", input=input, block_size=block_size,
         data_format=data_format, name=name)
@@ -905,20 +1462,53 @@ def depth_to_space(input, block_size, data_format="NHWC", name=None):
     _attrs = ("T", _op.get_attr("T"), "block_size",
               _op.get_attr("block_size"), "data_format",
               _op.get_attr("data_format"))
+    _execute.record_gradient(
+      "DepthToSpace", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    _inputs_flat = [input]
-    _attrs = ("T", _attr_T, "block_size", block_size, "data_format",
-              data_format)
-    _result = _execute.execute(b"DepthToSpace", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "DepthToSpace",
+        name, _ctx._post_execution_callbacks, input, "block_size", block_size,
+        "data_format", data_format)
+      return _result
+    except _core._FallbackException:
+      return depth_to_space_eager_fallback(
+          input, block_size=block_size, data_format=data_format, name=name,
+          ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def depth_to_space_eager_fallback(input, block_size, data_format="NHWC", name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function depth_to_space
+  """
+  _ctx = ctx if ctx else _context.context()
+  block_size = _execute.make_int(block_size, "block_size")
+  if data_format is None:
+    data_format = "NHWC"
+  data_format = _execute.make_str(data_format, "data_format")
+  _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
+  _inputs_flat = [input]
+  _attrs = ("T", _attr_T, "block_size", block_size, "data_format",
+  data_format)
+  _result = _execute.execute(b"DepthToSpace", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "DepthToSpace", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
+@tf_export('quantization.dequantize', 'dequantize')
+@deprecated_endpoints('dequantize')
 def dequantize(input, min_range, max_range, mode="MIN_COMBINED", name=None):
   r"""Dequantize the 'input' tensor into a float Tensor.
 
@@ -947,10 +1537,10 @@ def dequantize(input, min_range, max_range, mode="MIN_COMBINED", name=None):
   If the mode is 'MIN_FIRST', then this approach is used:
 
   ```c++
-  number_of_steps = 1 << (# of bits in T)
-  range_adjust = number_of_steps / (number_of_steps - 1)
+  num_discrete_values = 1 << (# of bits in T)
+  range_adjust = num_discrete_values / (num_discrete_values - 1)
   range = (range_max - range_min) * range_adjust
-  range_scale = range / number_of_steps
+  range_scale = range / num_discrete_values
   const double offset_input = static_cast<double>(input) - lowest_quantized;
   result = range_min + ((input - numeric_limits<T>::min()) * range_scale)
   ```
@@ -997,7 +1587,7 @@ def dequantize(input, min_range, max_range, mode="MIN_COMBINED", name=None):
   ```
 
   Args:
-    input: A `Tensor`. Must be one of the following types: `qint8`, `quint8`, `qint16`, `quint16`, `qint32`.
+    input: A `Tensor`. Must be one of the following types: `qint8`, `quint8`, `qint32`, `qint16`, `quint16`.
     min_range: A `Tensor` of type `float32`.
       The minimum scalar value possibly produced for the input.
     max_range: A `Tensor` of type `float32`.
@@ -1008,32 +1598,63 @@ def dequantize(input, min_range, max_range, mode="MIN_COMBINED", name=None):
   Returns:
     A `Tensor` of type `float32`.
   """
-  if mode is None:
-    mode = "MIN_COMBINED"
-  mode = _execute.make_str(mode, "mode")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if mode is None:
+      mode = "MIN_COMBINED"
+    mode = _execute.make_str(mode, "mode")
     _, _, _op = _op_def_lib._apply_op_helper(
         "Dequantize", input=input, min_range=min_range, max_range=max_range,
         mode=mode, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"), "mode", _op.get_attr("mode"))
+    _execute.record_gradient(
+      "Dequantize", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    min_range = _ops.convert_to_tensor(min_range, _dtypes.float32)
-    max_range = _ops.convert_to_tensor(max_range, _dtypes.float32)
-    _inputs_flat = [input, min_range, max_range]
-    _attrs = ("T", _attr_T, "mode", mode)
-    _result = _execute.execute(b"Dequantize", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "Dequantize",
+        name, _ctx._post_execution_callbacks, input, min_range, max_range,
+        "mode", mode)
+      return _result
+    except _core._FallbackException:
+      return dequantize_eager_fallback(
+          input, min_range, max_range, mode=mode, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def dequantize_eager_fallback(input, min_range, max_range, mode="MIN_COMBINED", name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function dequantize
+  """
+  _ctx = ctx if ctx else _context.context()
+  if mode is None:
+    mode = "MIN_COMBINED"
+  mode = _execute.make_str(mode, "mode")
+  _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
+  min_range = _ops.convert_to_tensor(min_range, _dtypes.float32)
+  max_range = _ops.convert_to_tensor(max_range, _dtypes.float32)
+  _inputs_flat = [input, min_range, max_range]
+  _attrs = ("T", _attr_T, "mode", mode)
+  _result = _execute.execute(b"Dequantize", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "Dequantize", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
+@tf_export('linalg.tensor_diag', 'diag')
+@deprecated_endpoints('diag')
 def diag(diagonal, name=None):
   r"""Returns a diagonal tensor with a given diagonal values.
 
@@ -1056,33 +1677,60 @@ def diag(diagonal, name=None):
   ```
 
   Args:
-    diagonal: A `Tensor`. Must be one of the following types: `float32`, `float64`, `int32`, `int64`, `complex64`, `complex128`.
-      Rank k tensor where k is at most 3.
+    diagonal: A `Tensor`. Must be one of the following types: `bfloat16`, `half`, `float32`, `float64`, `int32`, `int64`, `complex64`, `complex128`.
+      Rank k tensor where k is at most 1.
     name: A name for the operation (optional).
 
   Returns:
     A `Tensor`. Has the same type as `diagonal`.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "Diag", diagonal=diagonal, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "Diag", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (diagonal,) = _execute.args_to_matching_eager([diagonal], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    _inputs_flat = [diagonal]
-    _attrs = ("T", _attr_T)
-    _result = _execute.execute(b"Diag", 1, inputs=_inputs_flat, attrs=_attrs,
-                               ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "Diag", name,
+        _ctx._post_execution_callbacks, diagonal)
+      return _result
+    except _core._FallbackException:
+      return diag_eager_fallback(
+          diagonal, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def diag_eager_fallback(diagonal, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function diag
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, (diagonal,) = _execute.args_to_matching_eager([diagonal], _ctx)
+  _inputs_flat = [diagonal]
+  _attrs = ("T", _attr_T)
+  _result = _execute.execute(b"Diag", 1, inputs=_inputs_flat, attrs=_attrs,
+                             ctx=_ctx, name=name)
   _execute.record_gradient(
       "Diag", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
+@tf_export('linalg.tensor_diag_part', 'diag_part')
+@deprecated_endpoints('diag_part')
 def diag_part(input, name=None):
   r"""Returns the diagonal part of the tensor.
 
@@ -1106,34 +1754,59 @@ def diag_part(input, name=None):
   ```
 
   Args:
-    input: A `Tensor`. Must be one of the following types: `float32`, `float64`, `int32`, `int64`, `complex64`, `complex128`.
-      Rank k tensor where k is 2, 4, or 6.
+    input: A `Tensor`. Must be one of the following types: `bfloat16`, `half`, `float32`, `float64`, `int32`, `int64`, `complex64`, `complex128`.
+      Rank k tensor where k is even and not zero.
     name: A name for the operation (optional).
 
   Returns:
-    A `Tensor`. Has the same type as `input`. The extracted diagonal.
+    A `Tensor`. Has the same type as `input`.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "DiagPart", input=input, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "DiagPart", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    _inputs_flat = [input]
-    _attrs = ("T", _attr_T)
-    _result = _execute.execute(b"DiagPart", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "DiagPart",
+        name, _ctx._post_execution_callbacks, input)
+      return _result
+    except _core._FallbackException:
+      return diag_part_eager_fallback(
+          input, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def diag_part_eager_fallback(input, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function diag_part
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
+  _inputs_flat = [input]
+  _attrs = ("T", _attr_T)
+  _result = _execute.execute(b"DiagPart", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "DiagPart", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
-def _edit_distance(hypothesis_indices, hypothesis_values, hypothesis_shape, truth_indices, truth_values, truth_shape, normalize=True, name=None):
+def edit_distance(hypothesis_indices, hypothesis_values, hypothesis_shape, truth_indices, truth_values, truth_shape, normalize=True, name=None):
   r"""Computes the (possibly normalized) Levenshtein Edit Distance.
 
   The inputs are variable-length sequences provided by SparseTensors
@@ -1167,42 +1840,13 @@ def _edit_distance(hypothesis_indices, hypothesis_values, hypothesis_shape, trut
     name: A name for the operation (optional).
 
   Returns:
-    A `Tensor` of type `float32`. A dense float tensor with rank R - 1.
-
-    For the example input:
-
-        // hypothesis represents a 2x1 matrix with variable-length values:
-        //   (0,0) = ["a"]
-        //   (1,0) = ["b"]
-        hypothesis_indices = [[0, 0, 0],
-                              [1, 0, 0]]
-        hypothesis_values = ["a", "b"]
-        hypothesis_shape = [2, 1, 1]
-
-        // truth represents a 2x2 matrix with variable-length values:
-        //   (0,0) = []
-        //   (0,1) = ["a"]
-        //   (1,0) = ["b", "c"]
-        //   (1,1) = ["a"]
-        truth_indices = [[0, 1, 0],
-                         [1, 0, 0],
-                         [1, 0, 1],
-                         [1, 1, 0]]
-        truth_values = ["a", "b", "c", "a"]
-        truth_shape = [2, 2, 2]
-        normalize = true
-
-    The output will be:
-
-        // output is a 2x2 matrix with edit distances normalized by truth lengths.
-        output = [[inf, 1.0],  // (0,0): no truth, (0,1): no hypothesis
-                  [0.5, 1.0]]  // (1,0): addition, (1,1): no hypothesis
+    A `Tensor` of type `float32`.
   """
-  if normalize is None:
-    normalize = True
-  normalize = _execute.make_bool(normalize, "normalize")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if normalize is None:
+      normalize = True
+    normalize = _execute.make_bool(normalize, "normalize")
     _, _, _op = _op_def_lib._apply_op_helper(
         "EditDistance", hypothesis_indices=hypothesis_indices,
         hypothesis_values=hypothesis_values,
@@ -1212,30 +1856,193 @@ def _edit_distance(hypothesis_indices, hypothesis_values, hypothesis_shape, trut
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("normalize", _op.get_attr("normalize"), "T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "EditDistance", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, _inputs_T = _execute.args_to_matching_eager([hypothesis_values, truth_values], _ctx)
-    (hypothesis_values, truth_values) = _inputs_T
-    _attr_T = _attr_T.as_datatype_enum
-    hypothesis_indices = _ops.convert_to_tensor(hypothesis_indices, _dtypes.int64)
-    hypothesis_shape = _ops.convert_to_tensor(hypothesis_shape, _dtypes.int64)
-    truth_indices = _ops.convert_to_tensor(truth_indices, _dtypes.int64)
-    truth_shape = _ops.convert_to_tensor(truth_shape, _dtypes.int64)
-    _inputs_flat = [hypothesis_indices, hypothesis_values, hypothesis_shape, truth_indices, truth_values, truth_shape]
-    _attrs = ("normalize", normalize, "T", _attr_T)
-    _result = _execute.execute(b"EditDistance", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "EditDistance",
+        name, _ctx._post_execution_callbacks, hypothesis_indices,
+        hypothesis_values, hypothesis_shape, truth_indices, truth_values,
+        truth_shape, "normalize", normalize)
+      return _result
+    except _core._FallbackException:
+      return edit_distance_eager_fallback(
+          hypothesis_indices, hypothesis_values, hypothesis_shape,
+          truth_indices, truth_values, truth_shape, normalize=normalize,
+          name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def edit_distance_eager_fallback(hypothesis_indices, hypothesis_values, hypothesis_shape, truth_indices, truth_values, truth_shape, normalize=True, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function edit_distance
+  """
+  _ctx = ctx if ctx else _context.context()
+  if normalize is None:
+    normalize = True
+  normalize = _execute.make_bool(normalize, "normalize")
+  _attr_T, _inputs_T = _execute.args_to_matching_eager([hypothesis_values, truth_values], _ctx)
+  (hypothesis_values, truth_values) = _inputs_T
+  hypothesis_indices = _ops.convert_to_tensor(hypothesis_indices, _dtypes.int64)
+  hypothesis_shape = _ops.convert_to_tensor(hypothesis_shape, _dtypes.int64)
+  truth_indices = _ops.convert_to_tensor(truth_indices, _dtypes.int64)
+  truth_shape = _ops.convert_to_tensor(truth_shape, _dtypes.int64)
+  _inputs_flat = [hypothesis_indices, hypothesis_values, hypothesis_shape, truth_indices, truth_values, truth_shape]
+  _attrs = ("normalize", normalize, "T", _attr_T)
+  _result = _execute.execute(b"EditDistance", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "EditDistance", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
-def _expand_dims(input, dim, name=None):
+def empty(shape, dtype, init=False, name=None):
+  r"""Creates a tensor with the given shape.
+
+This operation creates a tensor of `shape` and `dtype`.
+
+  Args:
+    shape: A `Tensor` of type `int32`.
+      1-D. Represents the shape of the output tensor.
+    dtype: A `tf.DType`.
+    init: An optional `bool`. Defaults to `False`.
+      If True, initialize the returned tensor with the default value of dtype.  Otherwise, the implementation is free not to initializethe tensor's content.
+    name: A name for the operation (optional).
+
+  Returns:
+    A `Tensor` of type `dtype`.
+  """
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    dtype = _execute.make_type(dtype, "dtype")
+    if init is None:
+      init = False
+    init = _execute.make_bool(init, "init")
+    _, _, _op = _op_def_lib._apply_op_helper(
+        "Empty", shape=shape, dtype=dtype, init=init, name=name)
+    _result = _op.outputs[:]
+    _inputs_flat = _op.inputs
+    _attrs = ("dtype", _op.get_attr("dtype"), "init", _op.get_attr("init"))
+    _execute.record_gradient(
+      "Empty", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
+  else:
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "Empty", name,
+        _ctx._post_execution_callbacks, shape, "dtype", dtype, "init", init)
+      return _result
+    except _core._FallbackException:
+      return empty_eager_fallback(
+          shape, dtype=dtype, init=init, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def empty_eager_fallback(shape, dtype, init=False, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function empty
+  """
+  _ctx = ctx if ctx else _context.context()
+  dtype = _execute.make_type(dtype, "dtype")
+  if init is None:
+    init = False
+  init = _execute.make_bool(init, "init")
+  shape = _ops.convert_to_tensor(shape, _dtypes.int32)
+  _inputs_flat = [shape]
+  _attrs = ("dtype", dtype, "init", init)
+  _result = _execute.execute(b"Empty", 1, inputs=_inputs_flat, attrs=_attrs,
+                             ctx=_ctx, name=name)
+  _execute.record_gradient(
+      "Empty", _inputs_flat, _attrs, _result, name)
+  _result, = _result
+  return _result
+
+
+def ensure_shape(input, shape, name=None):
+  r"""Ensures that the tensor's shape matches the expected shape.
+
+  Raises an error if the input tensor's shape does not match the specified shape.
+  Returns the input tensor otherwise.
+
+  Args:
+    input: A `Tensor`. A tensor, whose shape is to be validated.
+    shape: A `tf.TensorShape` or list of `ints`.
+      The expected (possibly partially specified) shape of the input tensor.
+    name: A name for the operation (optional).
+
+  Returns:
+    A `Tensor`. Has the same type as `input`.
+  """
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    shape = _execute.make_shape(shape, "shape")
+    _, _, _op = _op_def_lib._apply_op_helper(
+        "EnsureShape", input=input, shape=shape, name=name)
+    _result = _op.outputs[:]
+    _inputs_flat = _op.inputs
+    _attrs = ("shape", _op.get_attr("shape"), "T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "EnsureShape", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
+  else:
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "EnsureShape",
+        name, _ctx._post_execution_callbacks, input, "shape", shape)
+      return _result
+    except _core._FallbackException:
+      return ensure_shape_eager_fallback(
+          input, shape=shape, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def ensure_shape_eager_fallback(input, shape, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function ensure_shape
+  """
+  _ctx = ctx if ctx else _context.context()
+  shape = _execute.make_shape(shape, "shape")
+  _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
+  _inputs_flat = [input]
+  _attrs = ("shape", shape, "T", _attr_T)
+  _result = _execute.execute(b"EnsureShape", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
+  _execute.record_gradient(
+      "EnsureShape", _inputs_flat, _attrs, _result, name)
+  _result, = _result
+  return _result
+
+
+def expand_dims(input, axis, name=None):
   r"""Inserts a dimension of 1 into a tensor's shape.
 
   Given a tensor `input`, this operation inserts a dimension of 1 at the
-  dimension index `dim` of `input`'s shape. The dimension index `dim` starts at
-  zero; if you specify a negative number for `dim` it is counted backward from
+  dimension index `axis` of `input`'s shape. The dimension index `axis` starts at
+  zero; if you specify a negative number for `axis` it is counted backward from
   the end.
 
   This operation is useful if you want to add a batch dimension to a single
@@ -1266,7 +2073,7 @@ def _expand_dims(input, dim, name=None):
 
   Args:
     input: A `Tensor`.
-    dim: A `Tensor`. Must be one of the following types: `int32`, `int64`.
+    axis: A `Tensor`. Must be one of the following types: `int32`, `int64`.
       0-D (scalar). Specifies the dimension index at which to
       expand the shape of `input`. Must be in the range
       `[-rank(input) - 1, rank(input)]`.
@@ -1274,36 +2081,60 @@ def _expand_dims(input, dim, name=None):
 
   Returns:
     A `Tensor`. Has the same type as `input`.
-    Contains the same data as `input`, but its shape has an additional
-    dimension of size 1 added.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
-        "ExpandDims", input=input, dim=dim, name=name)
+        "ExpandDims", input=input, dim=axis, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"), "Tdim", _op.get_attr("Tdim"))
+    _execute.record_gradient(
+      "ExpandDims", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    _attr_Tdim, (dim,) = _execute.args_to_matching_eager([dim], _ctx, _dtypes.int32)
-    _attr_Tdim = _attr_Tdim.as_datatype_enum
-    _inputs_flat = [input, dim]
-    _attrs = ("T", _attr_T, "Tdim", _attr_Tdim)
-    _result = _execute.execute(b"ExpandDims", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "ExpandDims",
+        name, _ctx._post_execution_callbacks, input, axis)
+      return _result
+    except _core._FallbackException:
+      return expand_dims_eager_fallback(
+          input, axis, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def expand_dims_eager_fallback(input, axis, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function expand_dims
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
+  _attr_Tdim, (axis,) = _execute.args_to_matching_eager([axis], _ctx, _dtypes.int32)
+  _inputs_flat = [input, axis]
+  _attrs = ("T", _attr_T, "Tdim", _attr_Tdim)
+  _result = _execute.execute(b"ExpandDims", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "ExpandDims", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
+@tf_export('image.extract_image_patches', 'extract_image_patches')
+@deprecated_endpoints('extract_image_patches')
 def extract_image_patches(images, ksizes, strides, rates, padding, name=None):
   r"""Extract `patches` from `images` and put them in the "depth" output dimension.
 
   Args:
-    images: A `Tensor`. Must be one of the following types: `float32`, `float64`, `int32`, `int64`, `uint8`, `int16`, `int8`, `uint16`, `half`.
+    images: A `Tensor`. Must be one of the following types: `float32`, `float64`, `int32`, `uint8`, `int16`, `int8`, `int64`, `bfloat16`, `uint16`, `half`, `uint32`, `uint64`.
       4-D Tensor with shape `[batch, in_rows, in_cols, depth]`.
     ksizes: A list of `ints` that has length `>= 4`.
       The size of the sliding window for each dimension of `images`.
@@ -1331,11 +2162,63 @@ def extract_image_patches(images, ksizes, strides, rates, padding, name=None):
 
   Returns:
     A `Tensor`. Has the same type as `images`.
-    4-D Tensor with shape `[batch, out_rows, out_cols, ksize_rows *
-    ksize_cols * depth]` containing image patches with size
-    `ksize_rows x ksize_cols x depth` vectorized in the "depth" dimension. Note
-    `out_rows` and `out_cols` are the dimensions of the output patches.
   """
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if not isinstance(ksizes, (list, tuple)):
+      raise TypeError(
+          "Expected list for 'ksizes' argument to "
+          "'extract_image_patches' Op, not %r." % ksizes)
+    ksizes = [_execute.make_int(_i, "ksizes") for _i in ksizes]
+    if not isinstance(strides, (list, tuple)):
+      raise TypeError(
+          "Expected list for 'strides' argument to "
+          "'extract_image_patches' Op, not %r." % strides)
+    strides = [_execute.make_int(_i, "strides") for _i in strides]
+    if not isinstance(rates, (list, tuple)):
+      raise TypeError(
+          "Expected list for 'rates' argument to "
+          "'extract_image_patches' Op, not %r." % rates)
+    rates = [_execute.make_int(_i, "rates") for _i in rates]
+    padding = _execute.make_str(padding, "padding")
+    _, _, _op = _op_def_lib._apply_op_helper(
+        "ExtractImagePatches", images=images, ksizes=ksizes, strides=strides,
+        rates=rates, padding=padding, name=name)
+    _result = _op.outputs[:]
+    _inputs_flat = _op.inputs
+    _attrs = ("ksizes", _op.get_attr("ksizes"), "strides",
+              _op.get_attr("strides"), "rates", _op.get_attr("rates"), "T",
+              _op.get_attr("T"), "padding", _op.get_attr("padding"))
+    _execute.record_gradient(
+      "ExtractImagePatches", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
+  else:
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "ExtractImagePatches", name, _ctx._post_execution_callbacks, images,
+        "ksizes", ksizes, "strides", strides, "rates", rates, "padding",
+        padding)
+      return _result
+    except _core._FallbackException:
+      return extract_image_patches_eager_fallback(
+          images, ksizes=ksizes, strides=strides, rates=rates,
+          padding=padding, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def extract_image_patches_eager_fallback(images, ksizes, strides, rates, padding, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function extract_image_patches
+  """
+  _ctx = ctx if ctx else _context.context()
   if not isinstance(ksizes, (list, tuple)):
     raise TypeError(
         "Expected list for 'ksizes' argument to "
@@ -1352,30 +2235,20 @@ def extract_image_patches(images, ksizes, strides, rates, padding, name=None):
         "'extract_image_patches' Op, not %r." % rates)
   rates = [_execute.make_int(_i, "rates") for _i in rates]
   padding = _execute.make_str(padding, "padding")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
-    _, _, _op = _op_def_lib._apply_op_helper(
-        "ExtractImagePatches", images=images, ksizes=ksizes, strides=strides,
-        rates=rates, padding=padding, name=name)
-    _result = _op.outputs[:]
-    _inputs_flat = _op.inputs
-    _attrs = ("ksizes", _op.get_attr("ksizes"), "strides",
-              _op.get_attr("strides"), "rates", _op.get_attr("rates"), "T",
-              _op.get_attr("T"), "padding", _op.get_attr("padding"))
-  else:
-    _attr_T, (images,) = _execute.args_to_matching_eager([images], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    _inputs_flat = [images]
-    _attrs = ("ksizes", ksizes, "strides", strides, "rates", rates, "T",
-              _attr_T, "padding", padding)
-    _result = _execute.execute(b"ExtractImagePatches", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+  _attr_T, (images,) = _execute.args_to_matching_eager([images], _ctx)
+  _inputs_flat = [images]
+  _attrs = ("ksizes", ksizes, "strides", strides, "rates", rates, "T",
+  _attr_T, "padding", padding)
+  _result = _execute.execute(b"ExtractImagePatches", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "ExtractImagePatches", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
+@tf_export('quantization.fake_quant_with_min_max_args', 'fake_quant_with_min_max_args')
+@deprecated_endpoints('fake_quant_with_min_max_args')
 def fake_quant_with_min_max_args(inputs, min=-6, max=6, num_bits=8, narrow_range=False, name=None):
   r"""Fake-quantize the 'inputs' tensor, type float to 'outputs' tensor of same type.
 
@@ -1383,7 +2256,7 @@ def fake_quant_with_min_max_args(inputs, min=-6, max=6, num_bits=8, narrow_range
   `inputs` values are quantized into the quantization range (`[0; 2^num_bits - 1]`
   when `narrow_range` is false and `[1; 2^num_bits - 1]` when it is true) and
   then de-quantized and output as floats in `[min; max]` interval.
-  `num_bits` is the bitwidth of the quantization; between 2 and 8, inclusive.
+  `num_bits` is the bitwidth of the quantization; between 2 and 16, inclusive.
 
   Quantization is called fake since the output is still in floating point.
 
@@ -1398,6 +2271,58 @@ def fake_quant_with_min_max_args(inputs, min=-6, max=6, num_bits=8, narrow_range
   Returns:
     A `Tensor` of type `float32`.
   """
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if min is None:
+      min = -6
+    min = _execute.make_float(min, "min")
+    if max is None:
+      max = 6
+    max = _execute.make_float(max, "max")
+    if num_bits is None:
+      num_bits = 8
+    num_bits = _execute.make_int(num_bits, "num_bits")
+    if narrow_range is None:
+      narrow_range = False
+    narrow_range = _execute.make_bool(narrow_range, "narrow_range")
+    _, _, _op = _op_def_lib._apply_op_helper(
+        "FakeQuantWithMinMaxArgs", inputs=inputs, min=min, max=max,
+        num_bits=num_bits, narrow_range=narrow_range, name=name)
+    _result = _op.outputs[:]
+    _inputs_flat = _op.inputs
+    _attrs = ("min", _op.get_attr("min"), "max", _op.get_attr("max"),
+              "num_bits", _op.get_attr("num_bits"), "narrow_range",
+              _op.get_attr("narrow_range"))
+    _execute.record_gradient(
+      "FakeQuantWithMinMaxArgs", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
+  else:
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "FakeQuantWithMinMaxArgs", name, _ctx._post_execution_callbacks,
+        inputs, "min", min, "max", max, "num_bits", num_bits, "narrow_range",
+        narrow_range)
+      return _result
+    except _core._FallbackException:
+      return fake_quant_with_min_max_args_eager_fallback(
+          inputs, min=min, max=max, num_bits=num_bits,
+          narrow_range=narrow_range, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def fake_quant_with_min_max_args_eager_fallback(inputs, min=-6, max=6, num_bits=8, narrow_range=False, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function fake_quant_with_min_max_args
+  """
+  _ctx = ctx if ctx else _context.context()
   if min is None:
     min = -6
   min = _execute.make_float(min, "min")
@@ -1410,30 +2335,21 @@ def fake_quant_with_min_max_args(inputs, min=-6, max=6, num_bits=8, narrow_range
   if narrow_range is None:
     narrow_range = False
   narrow_range = _execute.make_bool(narrow_range, "narrow_range")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
-    _, _, _op = _op_def_lib._apply_op_helper(
-        "FakeQuantWithMinMaxArgs", inputs=inputs, min=min, max=max,
-        num_bits=num_bits, narrow_range=narrow_range, name=name)
-    _result = _op.outputs[:]
-    _inputs_flat = _op.inputs
-    _attrs = ("min", _op.get_attr("min"), "max", _op.get_attr("max"),
-              "num_bits", _op.get_attr("num_bits"), "narrow_range",
-              _op.get_attr("narrow_range"))
-  else:
-    inputs = _ops.convert_to_tensor(inputs, _dtypes.float32)
-    _inputs_flat = [inputs]
-    _attrs = ("min", min, "max", max, "num_bits", num_bits, "narrow_range",
-              narrow_range)
-    _result = _execute.execute(b"FakeQuantWithMinMaxArgs", 1,
-                               inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
-                               name=name)
+  inputs = _ops.convert_to_tensor(inputs, _dtypes.float32)
+  _inputs_flat = [inputs]
+  _attrs = ("min", min, "max", max, "num_bits", num_bits, "narrow_range",
+  narrow_range)
+  _result = _execute.execute(b"FakeQuantWithMinMaxArgs", 1,
+                             inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
+                             name=name)
   _execute.record_gradient(
       "FakeQuantWithMinMaxArgs", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
+@tf_export('quantization.fake_quant_with_min_max_args_gradient', 'fake_quant_with_min_max_args_gradient')
+@deprecated_endpoints('fake_quant_with_min_max_args_gradient')
 def fake_quant_with_min_max_args_gradient(gradients, inputs, min=-6, max=6, num_bits=8, narrow_range=False, name=None):
   r"""Compute gradients for a FakeQuantWithMinMaxArgs operation.
 
@@ -1450,9 +2366,60 @@ def fake_quant_with_min_max_args_gradient(gradients, inputs, min=-6, max=6, num_
 
   Returns:
     A `Tensor` of type `float32`.
-    Backpropagated gradients below the FakeQuantWithMinMaxArgs operation:
-    `gradients * (inputs >= min && inputs <= max)`.
   """
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if min is None:
+      min = -6
+    min = _execute.make_float(min, "min")
+    if max is None:
+      max = 6
+    max = _execute.make_float(max, "max")
+    if num_bits is None:
+      num_bits = 8
+    num_bits = _execute.make_int(num_bits, "num_bits")
+    if narrow_range is None:
+      narrow_range = False
+    narrow_range = _execute.make_bool(narrow_range, "narrow_range")
+    _, _, _op = _op_def_lib._apply_op_helper(
+        "FakeQuantWithMinMaxArgsGradient", gradients=gradients, inputs=inputs,
+        min=min, max=max, num_bits=num_bits, narrow_range=narrow_range,
+        name=name)
+    _result = _op.outputs[:]
+    _inputs_flat = _op.inputs
+    _attrs = ("min", _op.get_attr("min"), "max", _op.get_attr("max"),
+              "num_bits", _op.get_attr("num_bits"), "narrow_range",
+              _op.get_attr("narrow_range"))
+    _execute.record_gradient(
+      "FakeQuantWithMinMaxArgsGradient", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
+  else:
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "FakeQuantWithMinMaxArgsGradient", name,
+        _ctx._post_execution_callbacks, gradients, inputs, "min", min, "max",
+        max, "num_bits", num_bits, "narrow_range", narrow_range)
+      return _result
+    except _core._FallbackException:
+      return fake_quant_with_min_max_args_gradient_eager_fallback(
+          gradients, inputs, min=min, max=max, num_bits=num_bits,
+          narrow_range=narrow_range, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def fake_quant_with_min_max_args_gradient_eager_fallback(gradients, inputs, min=-6, max=6, num_bits=8, narrow_range=False, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function fake_quant_with_min_max_args_gradient
+  """
+  _ctx = ctx if ctx else _context.context()
   if min is None:
     min = -6
   min = _execute.make_float(min, "min")
@@ -1465,32 +2432,22 @@ def fake_quant_with_min_max_args_gradient(gradients, inputs, min=-6, max=6, num_
   if narrow_range is None:
     narrow_range = False
   narrow_range = _execute.make_bool(narrow_range, "narrow_range")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
-    _, _, _op = _op_def_lib._apply_op_helper(
-        "FakeQuantWithMinMaxArgsGradient", gradients=gradients, inputs=inputs,
-        min=min, max=max, num_bits=num_bits, narrow_range=narrow_range,
-        name=name)
-    _result = _op.outputs[:]
-    _inputs_flat = _op.inputs
-    _attrs = ("min", _op.get_attr("min"), "max", _op.get_attr("max"),
-              "num_bits", _op.get_attr("num_bits"), "narrow_range",
-              _op.get_attr("narrow_range"))
-  else:
-    gradients = _ops.convert_to_tensor(gradients, _dtypes.float32)
-    inputs = _ops.convert_to_tensor(inputs, _dtypes.float32)
-    _inputs_flat = [gradients, inputs]
-    _attrs = ("min", min, "max", max, "num_bits", num_bits, "narrow_range",
-              narrow_range)
-    _result = _execute.execute(b"FakeQuantWithMinMaxArgsGradient", 1,
-                               inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
-                               name=name)
+  gradients = _ops.convert_to_tensor(gradients, _dtypes.float32)
+  inputs = _ops.convert_to_tensor(inputs, _dtypes.float32)
+  _inputs_flat = [gradients, inputs]
+  _attrs = ("min", min, "max", max, "num_bits", num_bits, "narrow_range",
+  narrow_range)
+  _result = _execute.execute(b"FakeQuantWithMinMaxArgsGradient", 1,
+                             inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
+                             name=name)
   _execute.record_gradient(
       "FakeQuantWithMinMaxArgsGradient", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
+@tf_export('quantization.fake_quant_with_min_max_vars', 'fake_quant_with_min_max_vars')
+@deprecated_endpoints('fake_quant_with_min_max_vars')
 def fake_quant_with_min_max_vars(inputs, min, max, num_bits=8, narrow_range=False, name=None):
   r"""Fake-quantize the 'inputs' tensor of type float via global float scalars `min`
 
@@ -1500,7 +2457,7 @@ def fake_quant_with_min_max_vars(inputs, min, max, num_bits=8, narrow_range=Fals
   `inputs` values are quantized into the quantization range (`[0; 2^num_bits - 1]`
   when `narrow_range` is false and `[1; 2^num_bits - 1]` when it is true) and
   then de-quantized and output as floats in `[min; max]` interval.
-  `num_bits` is the bitwidth of the quantization; between 2 and 8, inclusive.
+  `num_bits` is the bitwidth of the quantization; between 2 and 16, inclusive.
 
   This operation has a gradient and thus allows for training `min` and `max`
   values.
@@ -1516,14 +2473,14 @@ def fake_quant_with_min_max_vars(inputs, min, max, num_bits=8, narrow_range=Fals
   Returns:
     A `Tensor` of type `float32`.
   """
-  if num_bits is None:
-    num_bits = 8
-  num_bits = _execute.make_int(num_bits, "num_bits")
-  if narrow_range is None:
-    narrow_range = False
-  narrow_range = _execute.make_bool(narrow_range, "narrow_range")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if num_bits is None:
+      num_bits = 8
+    num_bits = _execute.make_int(num_bits, "num_bits")
+    if narrow_range is None:
+      narrow_range = False
+    narrow_range = _execute.make_bool(narrow_range, "narrow_range")
     _, _, _op = _op_def_lib._apply_op_helper(
         "FakeQuantWithMinMaxVars", inputs=inputs, min=min, max=max,
         num_bits=num_bits, narrow_range=narrow_range, name=name)
@@ -1531,15 +2488,49 @@ def fake_quant_with_min_max_vars(inputs, min, max, num_bits=8, narrow_range=Fals
     _inputs_flat = _op.inputs
     _attrs = ("num_bits", _op.get_attr("num_bits"), "narrow_range",
               _op.get_attr("narrow_range"))
+    _execute.record_gradient(
+      "FakeQuantWithMinMaxVars", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    inputs = _ops.convert_to_tensor(inputs, _dtypes.float32)
-    min = _ops.convert_to_tensor(min, _dtypes.float32)
-    max = _ops.convert_to_tensor(max, _dtypes.float32)
-    _inputs_flat = [inputs, min, max]
-    _attrs = ("num_bits", num_bits, "narrow_range", narrow_range)
-    _result = _execute.execute(b"FakeQuantWithMinMaxVars", 1,
-                               inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
-                               name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "FakeQuantWithMinMaxVars", name, _ctx._post_execution_callbacks,
+        inputs, min, max, "num_bits", num_bits, "narrow_range", narrow_range)
+      return _result
+    except _core._FallbackException:
+      return fake_quant_with_min_max_vars_eager_fallback(
+          inputs, min, max, num_bits=num_bits, narrow_range=narrow_range,
+          name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def fake_quant_with_min_max_vars_eager_fallback(inputs, min, max, num_bits=8, narrow_range=False, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function fake_quant_with_min_max_vars
+  """
+  _ctx = ctx if ctx else _context.context()
+  if num_bits is None:
+    num_bits = 8
+  num_bits = _execute.make_int(num_bits, "num_bits")
+  if narrow_range is None:
+    narrow_range = False
+  narrow_range = _execute.make_bool(narrow_range, "narrow_range")
+  inputs = _ops.convert_to_tensor(inputs, _dtypes.float32)
+  min = _ops.convert_to_tensor(min, _dtypes.float32)
+  max = _ops.convert_to_tensor(max, _dtypes.float32)
+  _inputs_flat = [inputs, min, max]
+  _attrs = ("num_bits", num_bits, "narrow_range", narrow_range)
+  _result = _execute.execute(b"FakeQuantWithMinMaxVars", 1,
+                             inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
+                             name=name)
   _execute.record_gradient(
       "FakeQuantWithMinMaxVars", _inputs_flat, _attrs, _result, name)
   _result, = _result
@@ -1554,6 +2545,8 @@ _FakeQuantWithMinMaxVarsGradientOutput = _collections.namedtuple(
     _fake_quant_with_min_max_vars_gradient_outputs)
 
 
+@tf_export('quantization.fake_quant_with_min_max_vars_gradient', 'fake_quant_with_min_max_vars_gradient')
+@deprecated_endpoints('fake_quant_with_min_max_vars_gradient')
 def fake_quant_with_min_max_vars_gradient(gradients, inputs, min, max, num_bits=8, narrow_range=False, name=None):
   r"""Compute gradients for a FakeQuantWithMinMaxVars operation.
 
@@ -1574,21 +2567,18 @@ def fake_quant_with_min_max_vars_gradient(gradients, inputs, min, max, num_bits=
   Returns:
     A tuple of `Tensor` objects (backprops_wrt_input, backprop_wrt_min, backprop_wrt_max).
 
-    backprops_wrt_input: A `Tensor` of type `float32`. Backpropagated gradients w.r.t. inputs:
-      `gradients * (inputs >= min && inputs <= max)`.
-    backprop_wrt_min: A `Tensor` of type `float32`. Backpropagated gradients w.r.t. min parameter:
-      `sum(gradients * (inputs < min))`.
-    backprop_wrt_max: A `Tensor` of type `float32`. Backpropagated gradients w.r.t. max parameter:
-      `sum(gradients * (inputs > max))`.
+    backprops_wrt_input: A `Tensor` of type `float32`.
+    backprop_wrt_min: A `Tensor` of type `float32`.
+    backprop_wrt_max: A `Tensor` of type `float32`.
   """
-  if num_bits is None:
-    num_bits = 8
-  num_bits = _execute.make_int(num_bits, "num_bits")
-  if narrow_range is None:
-    narrow_range = False
-  narrow_range = _execute.make_bool(narrow_range, "narrow_range")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if num_bits is None:
+      num_bits = 8
+    num_bits = _execute.make_int(num_bits, "num_bits")
+    if narrow_range is None:
+      narrow_range = False
+    narrow_range = _execute.make_bool(narrow_range, "narrow_range")
     _, _, _op = _op_def_lib._apply_op_helper(
         "FakeQuantWithMinMaxVarsGradient", gradients=gradients, inputs=inputs,
         min=min, max=max, num_bits=num_bits, narrow_range=narrow_range,
@@ -1597,22 +2587,60 @@ def fake_quant_with_min_max_vars_gradient(gradients, inputs, min, max, num_bits=
     _inputs_flat = _op.inputs
     _attrs = ("num_bits", _op.get_attr("num_bits"), "narrow_range",
               _op.get_attr("narrow_range"))
+    _execute.record_gradient(
+      "FakeQuantWithMinMaxVarsGradient", _inputs_flat, _attrs, _result, name)
+    _result = _FakeQuantWithMinMaxVarsGradientOutput._make(_result)
+    return _result
+
   else:
-    gradients = _ops.convert_to_tensor(gradients, _dtypes.float32)
-    inputs = _ops.convert_to_tensor(inputs, _dtypes.float32)
-    min = _ops.convert_to_tensor(min, _dtypes.float32)
-    max = _ops.convert_to_tensor(max, _dtypes.float32)
-    _inputs_flat = [gradients, inputs, min, max]
-    _attrs = ("num_bits", num_bits, "narrow_range", narrow_range)
-    _result = _execute.execute(b"FakeQuantWithMinMaxVarsGradient", 3,
-                               inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
-                               name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "FakeQuantWithMinMaxVarsGradient", name,
+        _ctx._post_execution_callbacks, gradients, inputs, min, max,
+        "num_bits", num_bits, "narrow_range", narrow_range)
+      _result = _FakeQuantWithMinMaxVarsGradientOutput._make(_result)
+      return _result
+    except _core._FallbackException:
+      return fake_quant_with_min_max_vars_gradient_eager_fallback(
+          gradients, inputs, min, max, num_bits=num_bits,
+          narrow_range=narrow_range, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def fake_quant_with_min_max_vars_gradient_eager_fallback(gradients, inputs, min, max, num_bits=8, narrow_range=False, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function fake_quant_with_min_max_vars_gradient
+  """
+  _ctx = ctx if ctx else _context.context()
+  if num_bits is None:
+    num_bits = 8
+  num_bits = _execute.make_int(num_bits, "num_bits")
+  if narrow_range is None:
+    narrow_range = False
+  narrow_range = _execute.make_bool(narrow_range, "narrow_range")
+  gradients = _ops.convert_to_tensor(gradients, _dtypes.float32)
+  inputs = _ops.convert_to_tensor(inputs, _dtypes.float32)
+  min = _ops.convert_to_tensor(min, _dtypes.float32)
+  max = _ops.convert_to_tensor(max, _dtypes.float32)
+  _inputs_flat = [gradients, inputs, min, max]
+  _attrs = ("num_bits", num_bits, "narrow_range", narrow_range)
+  _result = _execute.execute(b"FakeQuantWithMinMaxVarsGradient", 3,
+                             inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
+                             name=name)
   _execute.record_gradient(
       "FakeQuantWithMinMaxVarsGradient", _inputs_flat, _attrs, _result, name)
   _result = _FakeQuantWithMinMaxVarsGradientOutput._make(_result)
   return _result
 
 
+@tf_export('quantization.fake_quant_with_min_max_vars_per_channel', 'fake_quant_with_min_max_vars_per_channel')
+@deprecated_endpoints('fake_quant_with_min_max_vars_per_channel')
 def fake_quant_with_min_max_vars_per_channel(inputs, min, max, num_bits=8, narrow_range=False, name=None):
   r"""Fake-quantize the 'inputs' tensor of type float and one of the shapes: `[d]`,
 
@@ -1623,7 +2651,7 @@ def fake_quant_with_min_max_vars_per_channel(inputs, min, max, num_bits=8, narro
   `inputs` values are quantized into the quantization range (`[0; 2^num_bits - 1]`
   when `narrow_range` is false and `[1; 2^num_bits - 1]` when it is true) and
   then de-quantized and output as floats in `[min; max]` interval.
-  `num_bits` is the bitwidth of the quantization; between 2 and 8, inclusive.
+  `num_bits` is the bitwidth of the quantization; between 2 and 16, inclusive.
 
   This operation has a gradient and thus allows for training `min` and `max`
   values.
@@ -1639,14 +2667,14 @@ def fake_quant_with_min_max_vars_per_channel(inputs, min, max, num_bits=8, narro
   Returns:
     A `Tensor` of type `float32`.
   """
-  if num_bits is None:
-    num_bits = 8
-  num_bits = _execute.make_int(num_bits, "num_bits")
-  if narrow_range is None:
-    narrow_range = False
-  narrow_range = _execute.make_bool(narrow_range, "narrow_range")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if num_bits is None:
+      num_bits = 8
+    num_bits = _execute.make_int(num_bits, "num_bits")
+    if narrow_range is None:
+      narrow_range = False
+    narrow_range = _execute.make_bool(narrow_range, "narrow_range")
     _, _, _op = _op_def_lib._apply_op_helper(
         "FakeQuantWithMinMaxVarsPerChannel", inputs=inputs, min=min, max=max,
         num_bits=num_bits, narrow_range=narrow_range, name=name)
@@ -1654,15 +2682,50 @@ def fake_quant_with_min_max_vars_per_channel(inputs, min, max, num_bits=8, narro
     _inputs_flat = _op.inputs
     _attrs = ("num_bits", _op.get_attr("num_bits"), "narrow_range",
               _op.get_attr("narrow_range"))
+    _execute.record_gradient(
+      "FakeQuantWithMinMaxVarsPerChannel", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    inputs = _ops.convert_to_tensor(inputs, _dtypes.float32)
-    min = _ops.convert_to_tensor(min, _dtypes.float32)
-    max = _ops.convert_to_tensor(max, _dtypes.float32)
-    _inputs_flat = [inputs, min, max]
-    _attrs = ("num_bits", num_bits, "narrow_range", narrow_range)
-    _result = _execute.execute(b"FakeQuantWithMinMaxVarsPerChannel", 1,
-                               inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
-                               name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "FakeQuantWithMinMaxVarsPerChannel", name,
+        _ctx._post_execution_callbacks, inputs, min, max, "num_bits",
+        num_bits, "narrow_range", narrow_range)
+      return _result
+    except _core._FallbackException:
+      return fake_quant_with_min_max_vars_per_channel_eager_fallback(
+          inputs, min, max, num_bits=num_bits, narrow_range=narrow_range,
+          name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def fake_quant_with_min_max_vars_per_channel_eager_fallback(inputs, min, max, num_bits=8, narrow_range=False, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function fake_quant_with_min_max_vars_per_channel
+  """
+  _ctx = ctx if ctx else _context.context()
+  if num_bits is None:
+    num_bits = 8
+  num_bits = _execute.make_int(num_bits, "num_bits")
+  if narrow_range is None:
+    narrow_range = False
+  narrow_range = _execute.make_bool(narrow_range, "narrow_range")
+  inputs = _ops.convert_to_tensor(inputs, _dtypes.float32)
+  min = _ops.convert_to_tensor(min, _dtypes.float32)
+  max = _ops.convert_to_tensor(max, _dtypes.float32)
+  _inputs_flat = [inputs, min, max]
+  _attrs = ("num_bits", num_bits, "narrow_range", narrow_range)
+  _result = _execute.execute(b"FakeQuantWithMinMaxVarsPerChannel", 1,
+                             inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
+                             name=name)
   _execute.record_gradient(
       "FakeQuantWithMinMaxVarsPerChannel", _inputs_flat, _attrs, _result, name)
   _result, = _result
@@ -1677,6 +2740,8 @@ _FakeQuantWithMinMaxVarsPerChannelGradientOutput = _collections.namedtuple(
     _fake_quant_with_min_max_vars_per_channel_gradient_outputs)
 
 
+@tf_export('quantization.fake_quant_with_min_max_vars_per_channel_gradient', 'fake_quant_with_min_max_vars_per_channel_gradient')
+@deprecated_endpoints('fake_quant_with_min_max_vars_per_channel_gradient')
 def fake_quant_with_min_max_vars_per_channel_gradient(gradients, inputs, min, max, num_bits=8, narrow_range=False, name=None):
   r"""Compute gradients for a FakeQuantWithMinMaxVarsPerChannel operation.
 
@@ -1691,7 +2756,7 @@ def fake_quant_with_min_max_vars_per_channel_gradient(gradients, inputs, min, ma
     min: A `Tensor` of type `float32`.
     max: A `Tensor` of type `float32`.
     num_bits: An optional `int`. Defaults to `8`.
-      The bitwidth of the quantization; between 2 and 8, inclusive.
+      The bitwidth of the quantization; between 2 and 16, inclusive.
     narrow_range: An optional `bool`. Defaults to `False`.
       Whether to quantize into 2^num_bits - 1 distinct values.
     name: A name for the operation (optional).
@@ -1699,22 +2764,18 @@ def fake_quant_with_min_max_vars_per_channel_gradient(gradients, inputs, min, ma
   Returns:
     A tuple of `Tensor` objects (backprops_wrt_input, backprop_wrt_min, backprop_wrt_max).
 
-    backprops_wrt_input: A `Tensor` of type `float32`. Backpropagated gradients w.r.t. inputs, shape same as
-      `inputs`:
-        `gradients * (inputs >= min && inputs <= max)`.
-    backprop_wrt_min: A `Tensor` of type `float32`. Backpropagated gradients w.r.t. min parameter, shape `[d]`:
-      `sum_per_d(gradients * (inputs < min))`.
-    backprop_wrt_max: A `Tensor` of type `float32`. Backpropagated gradients w.r.t. max parameter, shape `[d]`:
-      `sum_per_d(gradients * (inputs > max))`.
+    backprops_wrt_input: A `Tensor` of type `float32`.
+    backprop_wrt_min: A `Tensor` of type `float32`.
+    backprop_wrt_max: A `Tensor` of type `float32`.
   """
-  if num_bits is None:
-    num_bits = 8
-  num_bits = _execute.make_int(num_bits, "num_bits")
-  if narrow_range is None:
-    narrow_range = False
-  narrow_range = _execute.make_bool(narrow_range, "narrow_range")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if num_bits is None:
+      num_bits = 8
+    num_bits = _execute.make_int(num_bits, "num_bits")
+    if narrow_range is None:
+      narrow_range = False
+    narrow_range = _execute.make_bool(narrow_range, "narrow_range")
     _, _, _op = _op_def_lib._apply_op_helper(
         "FakeQuantWithMinMaxVarsPerChannelGradient", gradients=gradients,
         inputs=inputs, min=min, max=max, num_bits=num_bits,
@@ -1723,22 +2784,59 @@ def fake_quant_with_min_max_vars_per_channel_gradient(gradients, inputs, min, ma
     _inputs_flat = _op.inputs
     _attrs = ("num_bits", _op.get_attr("num_bits"), "narrow_range",
               _op.get_attr("narrow_range"))
+    _execute.record_gradient(
+      "FakeQuantWithMinMaxVarsPerChannelGradient", _inputs_flat, _attrs, _result, name)
+    _result = _FakeQuantWithMinMaxVarsPerChannelGradientOutput._make(_result)
+    return _result
+
   else:
-    gradients = _ops.convert_to_tensor(gradients, _dtypes.float32)
-    inputs = _ops.convert_to_tensor(inputs, _dtypes.float32)
-    min = _ops.convert_to_tensor(min, _dtypes.float32)
-    max = _ops.convert_to_tensor(max, _dtypes.float32)
-    _inputs_flat = [gradients, inputs, min, max]
-    _attrs = ("num_bits", num_bits, "narrow_range", narrow_range)
-    _result = _execute.execute(b"FakeQuantWithMinMaxVarsPerChannelGradient",
-                               3, inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
-                               name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "FakeQuantWithMinMaxVarsPerChannelGradient", name,
+        _ctx._post_execution_callbacks, gradients, inputs, min, max,
+        "num_bits", num_bits, "narrow_range", narrow_range)
+      _result = _FakeQuantWithMinMaxVarsPerChannelGradientOutput._make(_result)
+      return _result
+    except _core._FallbackException:
+      return fake_quant_with_min_max_vars_per_channel_gradient_eager_fallback(
+          gradients, inputs, min, max, num_bits=num_bits,
+          narrow_range=narrow_range, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def fake_quant_with_min_max_vars_per_channel_gradient_eager_fallback(gradients, inputs, min, max, num_bits=8, narrow_range=False, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function fake_quant_with_min_max_vars_per_channel_gradient
+  """
+  _ctx = ctx if ctx else _context.context()
+  if num_bits is None:
+    num_bits = 8
+  num_bits = _execute.make_int(num_bits, "num_bits")
+  if narrow_range is None:
+    narrow_range = False
+  narrow_range = _execute.make_bool(narrow_range, "narrow_range")
+  gradients = _ops.convert_to_tensor(gradients, _dtypes.float32)
+  inputs = _ops.convert_to_tensor(inputs, _dtypes.float32)
+  min = _ops.convert_to_tensor(min, _dtypes.float32)
+  max = _ops.convert_to_tensor(max, _dtypes.float32)
+  _inputs_flat = [gradients, inputs, min, max]
+  _attrs = ("num_bits", num_bits, "narrow_range", narrow_range)
+  _result = _execute.execute(b"FakeQuantWithMinMaxVarsPerChannelGradient", 3,
+                             inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
+                             name=name)
   _execute.record_gradient(
       "FakeQuantWithMinMaxVarsPerChannelGradient", _inputs_flat, _attrs, _result, name)
   _result = _FakeQuantWithMinMaxVarsPerChannelGradientOutput._make(_result)
   return _result
 
 
+@tf_export('fill')
 def fill(dims, value, name=None):
   r"""Creates a tensor filled with a scalar value.
 
@@ -1752,8 +2850,18 @@ def fill(dims, value, name=None):
                        [9, 9, 9]]
   ```
 
+  `tf.fill` differs from `tf.constant` in a few ways:
+
+  *   `tf.fill` only supports scalar contents, whereas `tf.constant` supports
+      Tensor values.
+  *   `tf.fill` creates an Op in the computation graph that constructs the actual
+      Tensor value at runtime. This is in contrast to `tf.constant` which embeds
+      the entire Tensor into the graph with a `Const` node.
+  *   Because `tf.fill` evaluates at graph runtime, it supports dynamic shapes
+      based on other runtime Tensors, unlike `tf.constant`.
+
   Args:
-    dims: A `Tensor` of type `int32`.
+    dims: A `Tensor`. Must be one of the following types: `int32`, `int64`.
       1-D. Represents the shape of the output tensor.
     value: A `Tensor`. 0-D (scalar). Value to fill the returned tensor.
 
@@ -1765,21 +2873,47 @@ def fill(dims, value, name=None):
   Returns:
     A `Tensor`. Has the same type as `value`.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "Fill", dims=dims, value=value, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
-    _attrs = ("T", _op.get_attr("T"))
+    _attrs = ("T", _op.get_attr("T"), "index_type",
+              _op.get_attr("index_type"))
+    _execute.record_gradient(
+      "Fill", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (value,) = _execute.args_to_matching_eager([value], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    dims = _ops.convert_to_tensor(dims, _dtypes.int32)
-    _inputs_flat = [dims, value]
-    _attrs = ("T", _attr_T)
-    _result = _execute.execute(b"Fill", 1, inputs=_inputs_flat, attrs=_attrs,
-                               ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "Fill", name,
+        _ctx._post_execution_callbacks, dims, value)
+      return _result
+    except _core._FallbackException:
+      return fill_eager_fallback(
+          dims, value, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def fill_eager_fallback(dims, value, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function fill
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, (value,) = _execute.args_to_matching_eager([value], _ctx)
+  _attr_index_type, (dims,) = _execute.args_to_matching_eager([dims], _ctx, _dtypes.int32)
+  _inputs_flat = [dims, value]
+  _attrs = ("T", _attr_T, "index_type", _attr_index_type)
+  _result = _execute.execute(b"Fill", 1, inputs=_inputs_flat, attrs=_attrs,
+                             ctx=_ctx, name=name)
   _execute.record_gradient(
       "Fill", _inputs_flat, _attrs, _result, name)
   _result, = _result
@@ -1824,11 +2958,11 @@ def gather(params, indices, validate_indices=True, name=None):
   Returns:
     A `Tensor`. Has the same type as `params`.
   """
-  if validate_indices is None:
-    validate_indices = True
-  validate_indices = _execute.make_bool(validate_indices, "validate_indices")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if validate_indices is None:
+      validate_indices = True
+    validate_indices = _execute.make_bool(validate_indices, "validate_indices")
     _, _, _op = _op_def_lib._apply_op_helper(
         "Gather", params=params, indices=indices,
         validate_indices=validate_indices, name=name)
@@ -1836,22 +2970,53 @@ def gather(params, indices, validate_indices=True, name=None):
     _inputs_flat = _op.inputs
     _attrs = ("validate_indices", _op.get_attr("validate_indices"), "Tparams",
               _op.get_attr("Tparams"), "Tindices", _op.get_attr("Tindices"))
+    _execute.record_gradient(
+      "Gather", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_Tparams, (params,) = _execute.args_to_matching_eager([params], _ctx)
-    _attr_Tparams = _attr_Tparams.as_datatype_enum
-    _attr_Tindices, (indices,) = _execute.args_to_matching_eager([indices], _ctx)
-    _attr_Tindices = _attr_Tindices.as_datatype_enum
-    _inputs_flat = [params, indices]
-    _attrs = ("validate_indices", validate_indices, "Tparams", _attr_Tparams,
-              "Tindices", _attr_Tindices)
-    _result = _execute.execute(b"Gather", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "Gather", name,
+        _ctx._post_execution_callbacks, params, indices, "validate_indices",
+        validate_indices)
+      return _result
+    except _core._FallbackException:
+      return gather_eager_fallback(
+          params, indices, validate_indices=validate_indices, name=name,
+          ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def gather_eager_fallback(params, indices, validate_indices=True, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function gather
+  """
+  _ctx = ctx if ctx else _context.context()
+  if validate_indices is None:
+    validate_indices = True
+  validate_indices = _execute.make_bool(validate_indices, "validate_indices")
+  _attr_Tparams, (params,) = _execute.args_to_matching_eager([params], _ctx)
+  _attr_Tindices, (indices,) = _execute.args_to_matching_eager([indices], _ctx)
+  _inputs_flat = [params, indices]
+  _attrs = ("validate_indices", validate_indices, "Tparams", _attr_Tparams,
+  "Tindices", _attr_Tindices)
+  _result = _execute.execute(b"Gather", 1, inputs=_inputs_flat, attrs=_attrs,
+                             ctx=_ctx, name=name)
   _execute.record_gradient(
       "Gather", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
+@tf_export('manip.gather_nd', 'gather_nd')
+@deprecated_endpoints('gather_nd')
 def gather_nd(params, indices, name=None):
   r"""Gather slices from `params` into a Tensor with shape specified by `indices`.
 
@@ -1859,9 +3024,9 @@ def gather_nd(params, indices, name=None):
   (K-1)-dimensional tensor of indices into `params`, where each element defines a
   slice of `params`:
 
-      output[i_0, ..., i_{K-2}] = params[indices[i0, ..., i_{K-2}]]
+      output[\\(i_0, ..., i_{K-2}\\)] = params[indices[\\(i_0, ..., i_{K-2}\\)]]
 
-  Whereas in @{tf.gather} `indices` defines slices into the first
+  Whereas in `tf.gather` `indices` defines slices into the first
   dimension of `params`, in `tf.gather_nd`, `indices` defines slices into the
   first `N` dimensions of `params`, where `N = indices.shape[-1]`.
 
@@ -1876,6 +3041,10 @@ def gather_nd(params, indices, name=None):
   of `params`.  The output tensor has shape
 
       indices.shape[:-1] + params.shape[indices.shape[-1]:]
+
+  Note that on CPU, if an out of bound index is found, an error is returned.
+  On GPU, if an out of bound index is found, a 0 is stored in the
+  corresponding output value.
 
   Some examples below.
 
@@ -1954,6 +3123,8 @@ def gather_nd(params, indices, name=None):
       output = [['b0', 'b1'], ['d0', 'c1']]
   ```
 
+  See also `tf.gather` and `tf.batch_gather`.
+
   Args:
     params: A `Tensor`. The tensor from which to gather values.
     indices: A `Tensor`. Must be one of the following types: `int32`, `int64`.
@@ -1962,26 +3133,48 @@ def gather_nd(params, indices, name=None):
 
   Returns:
     A `Tensor`. Has the same type as `params`.
-    Values from `params` gathered from indices given by `indices`, with
-    shape `indices.shape[:-1] + params.shape[indices.shape[-1]:]`.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "GatherNd", params=params, indices=indices, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("Tparams", _op.get_attr("Tparams"), "Tindices",
               _op.get_attr("Tindices"))
+    _execute.record_gradient(
+      "GatherNd", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_Tparams, (params,) = _execute.args_to_matching_eager([params], _ctx)
-    _attr_Tparams = _attr_Tparams.as_datatype_enum
-    _attr_Tindices, (indices,) = _execute.args_to_matching_eager([indices], _ctx)
-    _attr_Tindices = _attr_Tindices.as_datatype_enum
-    _inputs_flat = [params, indices]
-    _attrs = ("Tparams", _attr_Tparams, "Tindices", _attr_Tindices)
-    _result = _execute.execute(b"GatherNd", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "GatherNd",
+        name, _ctx._post_execution_callbacks, params, indices)
+      return _result
+    except _core._FallbackException:
+      return gather_nd_eager_fallback(
+          params, indices, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def gather_nd_eager_fallback(params, indices, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function gather_nd
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_Tparams, (params,) = _execute.args_to_matching_eager([params], _ctx)
+  _attr_Tindices, (indices,) = _execute.args_to_matching_eager([indices], _ctx)
+  _inputs_flat = [params, indices]
+  _attrs = ("Tparams", _attr_Tparams, "Tindices", _attr_Tindices)
+  _result = _execute.execute(b"GatherNd", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "GatherNd", _inputs_flat, _attrs, _result, name)
   _result, = _result
@@ -2013,6 +3206,12 @@ def gather_v2(params, indices, axis, name=None):
   <img style="width:100%" src="https://www.tensorflow.org/images/Gather.png" alt>
   </div>
 
+  Note that on CPU, if an out of bound index is found, an error is returned.
+  On GPU, if an out of bound index is found, a 0 is stored in the
+  corresponding output value.
+
+  See also `tf.batch_gather` and `tf.gather_nd`.
+
   Args:
     params: A `Tensor`.
       The tensor from which to gather values. Must be at least rank
@@ -2026,31 +3225,115 @@ def gather_v2(params, indices, axis, name=None):
 
   Returns:
     A `Tensor`. Has the same type as `params`.
-    Values from `params` gathered from indices given by `indices`, with
-    shape `params.shape[:axis] + indices.shape + params.shape[axis + 1:]`.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "GatherV2", params=params, indices=indices, axis=axis, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("Tparams", _op.get_attr("Tparams"), "Tindices",
               _op.get_attr("Tindices"), "Taxis", _op.get_attr("Taxis"))
+    _execute.record_gradient(
+      "GatherV2", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_Tparams, (params,) = _execute.args_to_matching_eager([params], _ctx)
-    _attr_Tparams = _attr_Tparams.as_datatype_enum
-    _attr_Tindices, (indices,) = _execute.args_to_matching_eager([indices], _ctx)
-    _attr_Tindices = _attr_Tindices.as_datatype_enum
-    _attr_Taxis, (axis,) = _execute.args_to_matching_eager([axis], _ctx)
-    _attr_Taxis = _attr_Taxis.as_datatype_enum
-    _inputs_flat = [params, indices, axis]
-    _attrs = ("Tparams", _attr_Tparams, "Tindices", _attr_Tindices, "Taxis",
-              _attr_Taxis)
-    _result = _execute.execute(b"GatherV2", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "GatherV2",
+        name, _ctx._post_execution_callbacks, params, indices, axis)
+      return _result
+    except _core._FallbackException:
+      return gather_v2_eager_fallback(
+          params, indices, axis, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def gather_v2_eager_fallback(params, indices, axis, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function gather_v2
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_Tparams, (params,) = _execute.args_to_matching_eager([params], _ctx)
+  _attr_Tindices, (indices,) = _execute.args_to_matching_eager([indices], _ctx)
+  _attr_Taxis, (axis,) = _execute.args_to_matching_eager([axis], _ctx)
+  _inputs_flat = [params, indices, axis]
+  _attrs = ("Tparams", _attr_Tparams, "Tindices", _attr_Tindices, "Taxis",
+  _attr_Taxis)
+  _result = _execute.execute(b"GatherV2", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "GatherV2", _inputs_flat, _attrs, _result, name)
+  _result, = _result
+  return _result
+
+
+@tf_export('guarantee_const')
+def guarantee_const(input, name=None):
+  r"""Gives a guarantee to the TF runtime that the input tensor is a constant.
+
+  The runtime is then free to make optimizations based on this.
+
+  Only accepts value typed tensors as inputs and rejects resource variable handles
+  as input.
+
+  Returns the input tensor without modification.
+
+  Args:
+    input: A `Tensor`.
+    name: A name for the operation (optional).
+
+  Returns:
+    A `Tensor`. Has the same type as `input`.
+  """
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    _, _, _op = _op_def_lib._apply_op_helper(
+        "GuaranteeConst", input=input, name=name)
+    _result = _op.outputs[:]
+    _inputs_flat = _op.inputs
+    _attrs = ("T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "GuaranteeConst", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
+  else:
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "GuaranteeConst", name, _ctx._post_execution_callbacks, input)
+      return _result
+    except _core._FallbackException:
+      return guarantee_const_eager_fallback(
+          input, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def guarantee_const_eager_fallback(input, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function guarantee_const
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
+  _inputs_flat = [input]
+  _attrs = ("T", _attr_T)
+  _result = _execute.execute(b"GuaranteeConst", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
+  _execute.record_gradient(
+      "GuaranteeConst", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
@@ -2065,26 +3348,52 @@ def identity(input, name=None):
   Returns:
     A `Tensor`. Has the same type as `input`.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "Identity", input=input, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "Identity", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    _inputs_flat = [input]
-    _attrs = ("T", _attr_T)
-    _result = _execute.execute(b"Identity", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "Identity",
+        name, _ctx._post_execution_callbacks, input)
+      return _result
+    except _core._FallbackException:
+      return identity_eager_fallback(
+          input, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def identity_eager_fallback(input, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function identity
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
+  _inputs_flat = [input]
+  _attrs = ("T", _attr_T)
+  _result = _execute.execute(b"Identity", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "Identity", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
+@tf_export('identity_n')
 def identity_n(input, name=None):
   r"""Returns a list of tensors with the same shapes and contents as the input
 
@@ -2111,20 +3420,44 @@ def identity_n(input, name=None):
   Returns:
     A list of `Tensor` objects. Has the same type as `input`.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "IdentityN", input=input, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "IdentityN", _inputs_flat, _attrs, _result, name)
+    return _result
+
   else:
-    _attr_T, input = _execute.convert_to_mixed_eager_tensors(input, _ctx)
-    _attr_T = [_t.as_datatype_enum for _t in _attr_T]
-    _inputs_flat = list(input)
-    _attrs = ("T", _attr_T)
-    _result = _execute.execute(b"IdentityN", len(input), inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "IdentityN",
+        name, _ctx._post_execution_callbacks, input)
+      return _result
+    except _core._FallbackException:
+      return identity_n_eager_fallback(
+          input, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def identity_n_eager_fallback(input, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function identity_n
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, input = _execute.convert_to_mixed_eager_tensors(input, _ctx)
+  _inputs_flat = list(input)
+  _attrs = ("T", _attr_T)
+  _result = _execute.execute(b"IdentityN", len(input), inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "IdentityN", _inputs_flat, _attrs, _result, name)
   return _result
@@ -2146,11 +3479,11 @@ def immutable_const(dtype, shape, memory_region_name, name=None):
   Returns:
     A `Tensor` of type `dtype`.
   """
-  dtype = _execute.make_type(dtype, "dtype")
-  shape = _execute.make_shape(shape, "shape")
-  memory_region_name = _execute.make_str(memory_region_name, "memory_region_name")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    dtype = _execute.make_type(dtype, "dtype")
+    shape = _execute.make_shape(shape, "shape")
+    memory_region_name = _execute.make_str(memory_region_name, "memory_region_name")
     _, _, _op = _op_def_lib._apply_op_helper(
         "ImmutableConst", dtype=dtype, shape=shape,
         memory_region_name=memory_region_name, name=name)
@@ -2158,18 +3491,240 @@ def immutable_const(dtype, shape, memory_region_name, name=None):
     _inputs_flat = _op.inputs
     _attrs = ("dtype", _op.get_attr("dtype"), "shape", _op.get_attr("shape"),
               "memory_region_name", _op.get_attr("memory_region_name"))
+    _execute.record_gradient(
+      "ImmutableConst", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _inputs_flat = []
-    _attrs = ("dtype", dtype, "shape", shape, "memory_region_name",
-              memory_region_name)
-    _result = _execute.execute(b"ImmutableConst", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "ImmutableConst", name, _ctx._post_execution_callbacks, "dtype",
+        dtype, "shape", shape, "memory_region_name", memory_region_name)
+      return _result
+    except _core._FallbackException:
+      return immutable_const_eager_fallback(
+          dtype=dtype, shape=shape, memory_region_name=memory_region_name,
+          name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def immutable_const_eager_fallback(dtype, shape, memory_region_name, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function immutable_const
+  """
+  _ctx = ctx if ctx else _context.context()
+  dtype = _execute.make_type(dtype, "dtype")
+  shape = _execute.make_shape(shape, "shape")
+  memory_region_name = _execute.make_str(memory_region_name, "memory_region_name")
+  _inputs_flat = []
+  _attrs = ("dtype", dtype, "shape", shape, "memory_region_name",
+  memory_region_name)
+  _result = _execute.execute(b"ImmutableConst", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "ImmutableConst", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
+def inplace_add(x, i, v, name=None):
+  r"""    Adds v into specified rows of x.
+
+    Computes y = x; y[i, :] += v; return y.
+
+  Args:
+    x: A `Tensor`. A `Tensor` of type T.
+    i: A `Tensor` of type `int32`.
+      A vector. Indices into the left-most dimension of `x`.
+    v: A `Tensor`. Must have the same type as `x`.
+      A `Tensor` of type T. Same dimension sizes as x except the first dimension, which must be the same as i's size.
+    name: A name for the operation (optional).
+
+  Returns:
+    A `Tensor`. Has the same type as `x`.
+  """
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    _, _, _op = _op_def_lib._apply_op_helper(
+        "InplaceAdd", x=x, i=i, v=v, name=name)
+    _result = _op.outputs[:]
+    _inputs_flat = _op.inputs
+    _attrs = ("T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "InplaceAdd", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
+  else:
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "InplaceAdd",
+        name, _ctx._post_execution_callbacks, x, i, v)
+      return _result
+    except _core._FallbackException:
+      return inplace_add_eager_fallback(
+          x, i, v, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def inplace_add_eager_fallback(x, i, v, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function inplace_add
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, _inputs_T = _execute.args_to_matching_eager([x, v], _ctx)
+  (x, v) = _inputs_T
+  i = _ops.convert_to_tensor(i, _dtypes.int32)
+  _inputs_flat = [x, i, v]
+  _attrs = ("T", _attr_T)
+  _result = _execute.execute(b"InplaceAdd", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
+  _execute.record_gradient(
+      "InplaceAdd", _inputs_flat, _attrs, _result, name)
+  _result, = _result
+  return _result
+
+
+def inplace_sub(x, i, v, name=None):
+  r"""    Subtracts `v` into specified rows of `x`.
+
+    Computes y = x; y[i, :] -= v; return y.
+
+  Args:
+    x: A `Tensor`. A `Tensor` of type T.
+    i: A `Tensor` of type `int32`.
+      A vector. Indices into the left-most dimension of `x`.
+    v: A `Tensor`. Must have the same type as `x`.
+      A `Tensor` of type T. Same dimension sizes as x except the first dimension, which must be the same as i's size.
+    name: A name for the operation (optional).
+
+  Returns:
+    A `Tensor`. Has the same type as `x`.
+  """
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    _, _, _op = _op_def_lib._apply_op_helper(
+        "InplaceSub", x=x, i=i, v=v, name=name)
+    _result = _op.outputs[:]
+    _inputs_flat = _op.inputs
+    _attrs = ("T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "InplaceSub", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
+  else:
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "InplaceSub",
+        name, _ctx._post_execution_callbacks, x, i, v)
+      return _result
+    except _core._FallbackException:
+      return inplace_sub_eager_fallback(
+          x, i, v, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def inplace_sub_eager_fallback(x, i, v, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function inplace_sub
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, _inputs_T = _execute.args_to_matching_eager([x, v], _ctx)
+  (x, v) = _inputs_T
+  i = _ops.convert_to_tensor(i, _dtypes.int32)
+  _inputs_flat = [x, i, v]
+  _attrs = ("T", _attr_T)
+  _result = _execute.execute(b"InplaceSub", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
+  _execute.record_gradient(
+      "InplaceSub", _inputs_flat, _attrs, _result, name)
+  _result, = _result
+  return _result
+
+
+def inplace_update(x, i, v, name=None):
+  r"""    Updates specified rows with values in `v`.
+
+    Computes `x[i, :] = v; return x`.
+
+  Args:
+    x: A `Tensor`. A tensor of type `T`.
+    i: A `Tensor` of type `int32`.
+      A vector. Indices into the left-most dimension of `x`.
+    v: A `Tensor`. Must have the same type as `x`.
+      A `Tensor` of type T. Same dimension sizes as x except the first dimension, which must be the same as i's size.
+    name: A name for the operation (optional).
+
+  Returns:
+    A `Tensor`. Has the same type as `x`.
+  """
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    _, _, _op = _op_def_lib._apply_op_helper(
+        "InplaceUpdate", x=x, i=i, v=v, name=name)
+    _result = _op.outputs[:]
+    _inputs_flat = _op.inputs
+    _attrs = ("T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "InplaceUpdate", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
+  else:
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "InplaceUpdate", name, _ctx._post_execution_callbacks, x, i, v)
+      return _result
+    except _core._FallbackException:
+      return inplace_update_eager_fallback(
+          x, i, v, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def inplace_update_eager_fallback(x, i, v, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function inplace_update
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, _inputs_T = _execute.args_to_matching_eager([x, v], _ctx)
+  (x, v) = _inputs_T
+  i = _ops.convert_to_tensor(i, _dtypes.int32)
+  _inputs_flat = [x, i, v]
+  _attrs = ("T", _attr_T)
+  _result = _execute.execute(b"InplaceUpdate", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
+  _execute.record_gradient(
+      "InplaceUpdate", _inputs_flat, _attrs, _result, name)
+  _result, = _result
+  return _result
+
+
+@tf_export('math.invert_permutation', 'invert_permutation')
+@deprecated_endpoints('invert_permutation')
 def invert_permutation(x, name=None):
   r"""Computes the inverse permutation of a tensor.
 
@@ -2194,34 +3749,59 @@ def invert_permutation(x, name=None):
     name: A name for the operation (optional).
 
   Returns:
-    A `Tensor`. Has the same type as `x`. 1-D.
+    A `Tensor`. Has the same type as `x`.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "InvertPermutation", x=x, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "InvertPermutation", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (x,) = _execute.args_to_matching_eager([x], _ctx, _dtypes.int32)
-    _attr_T = _attr_T.as_datatype_enum
-    _inputs_flat = [x]
-    _attrs = ("T", _attr_T)
-    _result = _execute.execute(b"InvertPermutation", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "InvertPermutation", name, _ctx._post_execution_callbacks, x)
+      return _result
+    except _core._FallbackException:
+      return invert_permutation_eager_fallback(
+          x, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def invert_permutation_eager_fallback(x, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function invert_permutation
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, (x,) = _execute.args_to_matching_eager([x], _ctx, _dtypes.int32)
+  _inputs_flat = [x]
+  _attrs = ("T", _attr_T)
+  _result = _execute.execute(b"InvertPermutation", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "InvertPermutation", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
-__list_diff_outputs = ["out", "idx"]
+_list_diff_outputs = ["out", "idx"]
 _ListDiffOutput = _collections.namedtuple(
-    "ListDiff", __list_diff_outputs)
+    "ListDiff", _list_diff_outputs)
 
 
-def _list_diff(x, y, out_idx=_dtypes.int32, name=None):
+def list_diff(x, y, out_idx=_dtypes.int32, name=None):
   r"""Computes the difference between two lists of numbers or strings.
 
   Given a list `x` and a list `y`, this operation returns a list `out` that
@@ -2255,33 +3835,64 @@ def _list_diff(x, y, out_idx=_dtypes.int32, name=None):
   Returns:
     A tuple of `Tensor` objects (out, idx).
 
-    out: A `Tensor`. Has the same type as `x`. 1-D. Values present in `x` but not in `y`.
-    idx: A `Tensor` of type `out_idx`. 1-D. Positions of `x` values preserved in `out`.
+    out: A `Tensor`. Has the same type as `x`.
+    idx: A `Tensor` of type `out_idx`.
   """
-  if out_idx is None:
-    out_idx = _dtypes.int32
-  out_idx = _execute.make_type(out_idx, "out_idx")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if out_idx is None:
+      out_idx = _dtypes.int32
+    out_idx = _execute.make_type(out_idx, "out_idx")
     _, _, _op = _op_def_lib._apply_op_helper(
         "ListDiff", x=x, y=y, out_idx=out_idx, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"), "out_idx", _op.get_attr("out_idx"))
+    _execute.record_gradient(
+      "ListDiff", _inputs_flat, _attrs, _result, name)
+    _result = _ListDiffOutput._make(_result)
+    return _result
+
   else:
-    _attr_T, _inputs_T = _execute.args_to_matching_eager([x, y], _ctx)
-    (x, y) = _inputs_T
-    _attr_T = _attr_T.as_datatype_enum
-    _inputs_flat = [x, y]
-    _attrs = ("T", _attr_T, "out_idx", out_idx)
-    _result = _execute.execute(b"ListDiff", 2, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "ListDiff",
+        name, _ctx._post_execution_callbacks, x, y, "out_idx", out_idx)
+      _result = _ListDiffOutput._make(_result)
+      return _result
+    except _core._FallbackException:
+      return list_diff_eager_fallback(
+          x, y, out_idx=out_idx, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def list_diff_eager_fallback(x, y, out_idx=_dtypes.int32, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function list_diff
+  """
+  _ctx = ctx if ctx else _context.context()
+  if out_idx is None:
+    out_idx = _dtypes.int32
+  out_idx = _execute.make_type(out_idx, "out_idx")
+  _attr_T, _inputs_T = _execute.args_to_matching_eager([x, y], _ctx)
+  (x, y) = _inputs_T
+  _inputs_flat = [x, y]
+  _attrs = ("T", _attr_T, "out_idx", out_idx)
+  _result = _execute.execute(b"ListDiff", 2, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "ListDiff", _inputs_flat, _attrs, _result, name)
   _result = _ListDiffOutput._make(_result)
   return _result
 
 
+@tf_export('linalg.band_part', 'matrix_band_part')
+@deprecated_endpoints('matrix_band_part')
 def matrix_band_part(input, num_lower, num_upper, name=None):
   r"""Copy a tensor setting everything outside a central band in each innermost matrix
 
@@ -2327,41 +3938,68 @@ def matrix_band_part(input, num_lower, num_upper, name=None):
 
   Args:
     input: A `Tensor`. Rank `k` tensor.
-    num_lower: A `Tensor` of type `int64`.
+    num_lower: A `Tensor`. Must be one of the following types: `int32`, `int64`.
       0-D tensor. Number of subdiagonals to keep. If negative, keep entire
       lower triangle.
-    num_upper: A `Tensor` of type `int64`.
+    num_upper: A `Tensor`. Must have the same type as `num_lower`.
       0-D tensor. Number of superdiagonals to keep. If negative, keep
       entire upper triangle.
     name: A name for the operation (optional).
 
   Returns:
     A `Tensor`. Has the same type as `input`.
-    Rank `k` tensor of the same shape as input. The extracted banded tensor.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "MatrixBandPart", input=input, num_lower=num_lower,
         num_upper=num_upper, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
-    _attrs = ("T", _op.get_attr("T"))
+    _attrs = ("T", _op.get_attr("T"), "Tindex", _op.get_attr("Tindex"))
+    _execute.record_gradient(
+      "MatrixBandPart", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    num_lower = _ops.convert_to_tensor(num_lower, _dtypes.int64)
-    num_upper = _ops.convert_to_tensor(num_upper, _dtypes.int64)
-    _inputs_flat = [input, num_lower, num_upper]
-    _attrs = ("T", _attr_T)
-    _result = _execute.execute(b"MatrixBandPart", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "MatrixBandPart", name, _ctx._post_execution_callbacks, input,
+        num_lower, num_upper)
+      return _result
+    except _core._FallbackException:
+      return matrix_band_part_eager_fallback(
+          input, num_lower, num_upper, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def matrix_band_part_eager_fallback(input, num_lower, num_upper, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function matrix_band_part
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
+  _attr_Tindex, _inputs_Tindex = _execute.args_to_matching_eager([num_lower, num_upper], _ctx, _dtypes.int64)
+  (num_lower, num_upper) = _inputs_Tindex
+  _inputs_flat = [input, num_lower, num_upper]
+  _attrs = ("T", _attr_T, "Tindex", _attr_Tindex)
+  _result = _execute.execute(b"MatrixBandPart", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "MatrixBandPart", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
+@tf_export('linalg.diag', 'matrix_diag')
+@deprecated_endpoints('matrix_diag')
 def matrix_diag(diagonal, name=None):
   r"""Returns a batched diagonal tensor with a given batched diagonal values.
 
@@ -2398,28 +4036,54 @@ def matrix_diag(diagonal, name=None):
 
   Returns:
     A `Tensor`. Has the same type as `diagonal`.
-    Rank `k+1`, with `output.shape = diagonal.shape + [diagonal.shape[-1]]`.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "MatrixDiag", diagonal=diagonal, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "MatrixDiag", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (diagonal,) = _execute.args_to_matching_eager([diagonal], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    _inputs_flat = [diagonal]
-    _attrs = ("T", _attr_T)
-    _result = _execute.execute(b"MatrixDiag", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "MatrixDiag",
+        name, _ctx._post_execution_callbacks, diagonal)
+      return _result
+    except _core._FallbackException:
+      return matrix_diag_eager_fallback(
+          diagonal, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def matrix_diag_eager_fallback(diagonal, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function matrix_diag
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, (diagonal,) = _execute.args_to_matching_eager([diagonal], _ctx)
+  _inputs_flat = [diagonal]
+  _attrs = ("T", _attr_T)
+  _result = _execute.execute(b"MatrixDiag", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "MatrixDiag", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
+@tf_export('linalg.diag_part', 'matrix_diag_part')
+@deprecated_endpoints('matrix_diag_part')
 def matrix_diag_part(input, name=None):
   r"""Returns the batched diagonal part of a batched tensor.
 
@@ -2458,29 +4122,54 @@ def matrix_diag_part(input, name=None):
 
   Returns:
     A `Tensor`. Has the same type as `input`.
-    The extracted diagonal(s) having shape
-    `diagonal.shape = input.shape[:-2] + [min(input.shape[-2:])]`.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "MatrixDiagPart", input=input, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "MatrixDiagPart", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    _inputs_flat = [input]
-    _attrs = ("T", _attr_T)
-    _result = _execute.execute(b"MatrixDiagPart", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "MatrixDiagPart", name, _ctx._post_execution_callbacks, input)
+      return _result
+    except _core._FallbackException:
+      return matrix_diag_part_eager_fallback(
+          input, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def matrix_diag_part_eager_fallback(input, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function matrix_diag_part
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
+  _inputs_flat = [input]
+  _attrs = ("T", _attr_T)
+  _result = _execute.execute(b"MatrixDiagPart", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "MatrixDiagPart", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
+@tf_export('linalg.set_diag', 'matrix_set_diag')
+@deprecated_endpoints('matrix_set_diag')
 def matrix_set_diag(input, diagonal, name=None):
   r"""Returns a batched matrix tensor with new batched diagonal values.
 
@@ -2505,30 +4194,55 @@ def matrix_set_diag(input, diagonal, name=None):
 
   Returns:
     A `Tensor`. Has the same type as `input`.
-    Rank `k+1`, with `output.shape = input.shape`.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "MatrixSetDiag", input=input, diagonal=diagonal, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "MatrixSetDiag", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, _inputs_T = _execute.args_to_matching_eager([input, diagonal], _ctx)
-    (input, diagonal) = _inputs_T
-    _attr_T = _attr_T.as_datatype_enum
-    _inputs_flat = [input, diagonal]
-    _attrs = ("T", _attr_T)
-    _result = _execute.execute(b"MatrixSetDiag", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "MatrixSetDiag", name, _ctx._post_execution_callbacks, input,
+        diagonal)
+      return _result
+    except _core._FallbackException:
+      return matrix_set_diag_eager_fallback(
+          input, diagonal, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def matrix_set_diag_eager_fallback(input, diagonal, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function matrix_set_diag
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, _inputs_T = _execute.args_to_matching_eager([input, diagonal], _ctx)
+  (input, diagonal) = _inputs_T
+  _inputs_flat = [input, diagonal]
+  _attrs = ("T", _attr_T)
+  _result = _execute.execute(b"MatrixSetDiag", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "MatrixSetDiag", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
-def _mirror_pad(input, paddings, mode, name=None):
+def mirror_pad(input, paddings, mode, name=None):
   r"""Pads a tensor with mirrored values.
 
   This operation pads a `input` with mirrored values according to the `paddings`
@@ -2571,33 +4285,58 @@ def _mirror_pad(input, paddings, mode, name=None):
     name: A name for the operation (optional).
 
   Returns:
-    A `Tensor`. Has the same type as `input`. The padded tensor.
+    A `Tensor`. Has the same type as `input`.
   """
-  mode = _execute.make_str(mode, "mode")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    mode = _execute.make_str(mode, "mode")
     _, _, _op = _op_def_lib._apply_op_helper(
         "MirrorPad", input=input, paddings=paddings, mode=mode, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"), "Tpaddings", _op.get_attr("Tpaddings"),
               "mode", _op.get_attr("mode"))
+    _execute.record_gradient(
+      "MirrorPad", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    _attr_Tpaddings, (paddings,) = _execute.args_to_matching_eager([paddings], _ctx, _dtypes.int32)
-    _attr_Tpaddings = _attr_Tpaddings.as_datatype_enum
-    _inputs_flat = [input, paddings]
-    _attrs = ("T", _attr_T, "Tpaddings", _attr_Tpaddings, "mode", mode)
-    _result = _execute.execute(b"MirrorPad", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "MirrorPad",
+        name, _ctx._post_execution_callbacks, input, paddings, "mode", mode)
+      return _result
+    except _core._FallbackException:
+      return mirror_pad_eager_fallback(
+          input, paddings, mode=mode, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def mirror_pad_eager_fallback(input, paddings, mode, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function mirror_pad
+  """
+  _ctx = ctx if ctx else _context.context()
+  mode = _execute.make_str(mode, "mode")
+  _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
+  _attr_Tpaddings, (paddings,) = _execute.args_to_matching_eager([paddings], _ctx, _dtypes.int32)
+  _inputs_flat = [input, paddings]
+  _attrs = ("T", _attr_T, "Tpaddings", _attr_Tpaddings, "mode", mode)
+  _result = _execute.execute(b"MirrorPad", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "MirrorPad", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
-def _mirror_pad_grad(input, paddings, mode, name=None):
+def mirror_pad_grad(input, paddings, mode, name=None):
   r"""Gradient op for `MirrorPad` op. This op folds a mirror-padded tensor.
 
   This operation folds the padded areas of `input` by `MirrorPad` according to the
@@ -2629,33 +4368,59 @@ def _mirror_pad_grad(input, paddings, mode, name=None):
     name: A name for the operation (optional).
 
   Returns:
-    A `Tensor`. Has the same type as `input`. The folded tensor.
+    A `Tensor`. Has the same type as `input`.
   """
-  mode = _execute.make_str(mode, "mode")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    mode = _execute.make_str(mode, "mode")
     _, _, _op = _op_def_lib._apply_op_helper(
         "MirrorPadGrad", input=input, paddings=paddings, mode=mode, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"), "Tpaddings", _op.get_attr("Tpaddings"),
               "mode", _op.get_attr("mode"))
+    _execute.record_gradient(
+      "MirrorPadGrad", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    _attr_Tpaddings, (paddings,) = _execute.args_to_matching_eager([paddings], _ctx, _dtypes.int32)
-    _attr_Tpaddings = _attr_Tpaddings.as_datatype_enum
-    _inputs_flat = [input, paddings]
-    _attrs = ("T", _attr_T, "Tpaddings", _attr_Tpaddings, "mode", mode)
-    _result = _execute.execute(b"MirrorPadGrad", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "MirrorPadGrad", name, _ctx._post_execution_callbacks, input,
+        paddings, "mode", mode)
+      return _result
+    except _core._FallbackException:
+      return mirror_pad_grad_eager_fallback(
+          input, paddings, mode=mode, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def mirror_pad_grad_eager_fallback(input, paddings, mode, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function mirror_pad_grad
+  """
+  _ctx = ctx if ctx else _context.context()
+  mode = _execute.make_str(mode, "mode")
+  _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
+  _attr_Tpaddings, (paddings,) = _execute.args_to_matching_eager([paddings], _ctx, _dtypes.int32)
+  _inputs_flat = [input, paddings]
+  _attrs = ("T", _attr_T, "Tpaddings", _attr_Tpaddings, "mode", mode)
+  _result = _execute.execute(b"MirrorPadGrad", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "MirrorPadGrad", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
-def _one_hot(indices, depth, on_value, off_value, axis=-1, name=None):
+def one_hot(indices, depth, on_value, off_value, axis=-1, name=None):
   r"""Returns a one-hot tensor.
 
   The locations represented by indices in `indices` take value `on_value`,
@@ -2761,13 +4526,13 @@ def _one_hot(indices, depth, on_value, off_value, axis=-1, name=None):
     name: A name for the operation (optional).
 
   Returns:
-    A `Tensor`. Has the same type as `on_value`. The one-hot tensor.
+    A `Tensor`. Has the same type as `on_value`.
   """
-  if axis is None:
-    axis = -1
-  axis = _execute.make_int(axis, "axis")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if axis is None:
+      axis = -1
+    axis = _execute.make_int(axis, "axis")
     _, _, _op = _op_def_lib._apply_op_helper(
         "OneHot", indices=indices, depth=depth, on_value=on_value,
         off_value=off_value, axis=axis, name=name)
@@ -2775,17 +4540,45 @@ def _one_hot(indices, depth, on_value, off_value, axis=-1, name=None):
     _inputs_flat = _op.inputs
     _attrs = ("axis", _op.get_attr("axis"), "T", _op.get_attr("T"), "TI",
               _op.get_attr("TI"))
+    _execute.record_gradient(
+      "OneHot", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, _inputs_T = _execute.args_to_matching_eager([on_value, off_value], _ctx)
-    (on_value, off_value) = _inputs_T
-    _attr_T = _attr_T.as_datatype_enum
-    _attr_TI, (indices,) = _execute.args_to_matching_eager([indices], _ctx, _dtypes.int64)
-    _attr_TI = _attr_TI.as_datatype_enum
-    depth = _ops.convert_to_tensor(depth, _dtypes.int32)
-    _inputs_flat = [indices, depth, on_value, off_value]
-    _attrs = ("axis", axis, "T", _attr_T, "TI", _attr_TI)
-    _result = _execute.execute(b"OneHot", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "OneHot", name,
+        _ctx._post_execution_callbacks, indices, depth, on_value, off_value,
+        "axis", axis)
+      return _result
+    except _core._FallbackException:
+      return one_hot_eager_fallback(
+          indices, depth, on_value, off_value, axis=axis, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def one_hot_eager_fallback(indices, depth, on_value, off_value, axis=-1, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function one_hot
+  """
+  _ctx = ctx if ctx else _context.context()
+  if axis is None:
+    axis = -1
+  axis = _execute.make_int(axis, "axis")
+  _attr_T, _inputs_T = _execute.args_to_matching_eager([on_value, off_value], _ctx)
+  (on_value, off_value) = _inputs_T
+  _attr_TI, (indices,) = _execute.args_to_matching_eager([indices], _ctx, _dtypes.int64)
+  depth = _ops.convert_to_tensor(depth, _dtypes.int32)
+  _inputs_flat = [indices, depth, on_value, off_value]
+  _attrs = ("axis", axis, "T", _attr_T, "TI", _attr_TI)
+  _result = _execute.execute(b"OneHot", 1, inputs=_inputs_flat, attrs=_attrs,
+                             ctx=_ctx, name=name)
   _execute.record_gradient(
       "OneHot", _inputs_flat, _attrs, _result, name)
   _result, = _result
@@ -2796,35 +4589,59 @@ def ones_like(x, name=None):
   r"""Returns a tensor of ones with the same shape and type as x.
 
   Args:
-    x: A `Tensor`. Must be one of the following types: `float32`, `float64`, `int32`, `int64`, `complex64`, `complex128`.
+    x: A `Tensor`. Must be one of the following types: `bfloat16`, `half`, `float32`, `float64`, `int8`, `uint8`, `int16`, `uint16`, `int32`, `int64`, `complex64`, `complex128`, `bool`.
       a tensor of type T.
     name: A name for the operation (optional).
 
   Returns:
     A `Tensor`. Has the same type as `x`.
-    a tensor of the same shape and type as x but filled with ones.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "OnesLike", x=x, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "OnesLike", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (x,) = _execute.args_to_matching_eager([x], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    _inputs_flat = [x]
-    _attrs = ("T", _attr_T)
-    _result = _execute.execute(b"OnesLike", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "OnesLike",
+        name, _ctx._post_execution_callbacks, x)
+      return _result
+    except _core._FallbackException:
+      return ones_like_eager_fallback(
+          x, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def ones_like_eager_fallback(x, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function ones_like
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, (x,) = _execute.args_to_matching_eager([x], _ctx)
+  _inputs_flat = [x]
+  _attrs = ("T", _attr_T)
+  _result = _execute.execute(b"OnesLike", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "OnesLike", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
-def _pack(values, axis=0, name=None):
+def pack(values, axis=0, name=None):
   r"""Packs a list of `N` rank-`R` tensors into one rank-`(R+1)` tensor.
 
   Packs the `N` tensors in `values` into a tensor with rank one higher than each
@@ -2856,8 +4673,51 @@ def _pack(values, axis=0, name=None):
     name: A name for the operation (optional).
 
   Returns:
-    A `Tensor`. Has the same type as `values`. The packed tensor.
+    A `Tensor`. Has the same type as `values`.
   """
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if not isinstance(values, (list, tuple)):
+      raise TypeError(
+          "Expected list for 'values' argument to "
+          "'pack' Op, not %r." % values)
+    _attr_N = len(values)
+    if axis is None:
+      axis = 0
+    axis = _execute.make_int(axis, "axis")
+    _, _, _op = _op_def_lib._apply_op_helper(
+        "Pack", values=values, axis=axis, name=name)
+    _result = _op.outputs[:]
+    _inputs_flat = _op.inputs
+    _attrs = ("N", _op.get_attr("N"), "T", _op.get_attr("T"), "axis",
+              _op.get_attr("axis"))
+    _execute.record_gradient(
+      "Pack", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
+  else:
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "Pack", name,
+        _ctx._post_execution_callbacks, values, "axis", axis)
+      return _result
+    except _core._FallbackException:
+      return pack_eager_fallback(
+          values, axis=axis, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def pack_eager_fallback(values, axis=0, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function pack
+  """
+  _ctx = ctx if ctx else _context.context()
   if not isinstance(values, (list, tuple)):
     raise TypeError(
         "Expected list for 'values' argument to "
@@ -2866,28 +4726,18 @@ def _pack(values, axis=0, name=None):
   if axis is None:
     axis = 0
   axis = _execute.make_int(axis, "axis")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
-    _, _, _op = _op_def_lib._apply_op_helper(
-        "Pack", values=values, axis=axis, name=name)
-    _result = _op.outputs[:]
-    _inputs_flat = _op.inputs
-    _attrs = ("N", _op.get_attr("N"), "T", _op.get_attr("T"), "axis",
-              _op.get_attr("axis"))
-  else:
-    _attr_T, values = _execute.args_to_matching_eager(list(values), _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    _inputs_flat = list(values)
-    _attrs = ("N", _attr_N, "T", _attr_T, "axis", axis)
-    _result = _execute.execute(b"Pack", 1, inputs=_inputs_flat, attrs=_attrs,
-                               ctx=_ctx, name=name)
+  _attr_T, values = _execute.args_to_matching_eager(list(values), _ctx)
+  _inputs_flat = list(values)
+  _attrs = ("N", _attr_N, "T", _attr_T, "axis", axis)
+  _result = _execute.execute(b"Pack", 1, inputs=_inputs_flat, attrs=_attrs,
+                             ctx=_ctx, name=name)
   _execute.record_gradient(
       "Pack", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
-def _pad(input, paddings, name=None):
+def pad(input, paddings, name=None):
   r"""Pads a tensor with zeros.
 
   This operation pads a `input` with zeros according to the `paddings` you
@@ -2921,29 +4771,53 @@ def _pad(input, paddings, name=None):
   Returns:
     A `Tensor`. Has the same type as `input`.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "Pad", input=input, paddings=paddings, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"), "Tpaddings", _op.get_attr("Tpaddings"))
+    _execute.record_gradient(
+      "Pad", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    _attr_Tpaddings, (paddings,) = _execute.args_to_matching_eager([paddings], _ctx, _dtypes.int32)
-    _attr_Tpaddings = _attr_Tpaddings.as_datatype_enum
-    _inputs_flat = [input, paddings]
-    _attrs = ("T", _attr_T, "Tpaddings", _attr_Tpaddings)
-    _result = _execute.execute(b"Pad", 1, inputs=_inputs_flat, attrs=_attrs,
-                               ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "Pad", name,
+        _ctx._post_execution_callbacks, input, paddings)
+      return _result
+    except _core._FallbackException:
+      return pad_eager_fallback(
+          input, paddings, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def pad_eager_fallback(input, paddings, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function pad
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
+  _attr_Tpaddings, (paddings,) = _execute.args_to_matching_eager([paddings], _ctx, _dtypes.int32)
+  _inputs_flat = [input, paddings]
+  _attrs = ("T", _attr_T, "Tpaddings", _attr_Tpaddings)
+  _result = _execute.execute(b"Pad", 1, inputs=_inputs_flat, attrs=_attrs,
+                             ctx=_ctx, name=name)
   _execute.record_gradient(
       "Pad", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
-def _pad_v2(input, paddings, constant_values, name=None):
+def pad_v2(input, paddings, constant_values, name=None):
   r"""Pads a tensor.
 
   This operation pads `input` according to the `paddings` and `constant_values`
@@ -2980,31 +4854,55 @@ def _pad_v2(input, paddings, constant_values, name=None):
   Returns:
     A `Tensor`. Has the same type as `input`.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "PadV2", input=input, paddings=paddings,
         constant_values=constant_values, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"), "Tpaddings", _op.get_attr("Tpaddings"))
+    _execute.record_gradient(
+      "PadV2", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, _inputs_T = _execute.args_to_matching_eager([input, constant_values], _ctx)
-    (input, constant_values) = _inputs_T
-    _attr_T = _attr_T.as_datatype_enum
-    _attr_Tpaddings, (paddings,) = _execute.args_to_matching_eager([paddings], _ctx, _dtypes.int32)
-    _attr_Tpaddings = _attr_Tpaddings.as_datatype_enum
-    _inputs_flat = [input, paddings, constant_values]
-    _attrs = ("T", _attr_T, "Tpaddings", _attr_Tpaddings)
-    _result = _execute.execute(b"PadV2", 1, inputs=_inputs_flat, attrs=_attrs,
-                               ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "PadV2", name,
+        _ctx._post_execution_callbacks, input, paddings, constant_values)
+      return _result
+    except _core._FallbackException:
+      return pad_v2_eager_fallback(
+          input, paddings, constant_values, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def pad_v2_eager_fallback(input, paddings, constant_values, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function pad_v2
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, _inputs_T = _execute.args_to_matching_eager([input, constant_values], _ctx)
+  (input, constant_values) = _inputs_T
+  _attr_Tpaddings, (paddings,) = _execute.args_to_matching_eager([paddings], _ctx, _dtypes.int32)
+  _inputs_flat = [input, paddings, constant_values]
+  _attrs = ("T", _attr_T, "Tpaddings", _attr_Tpaddings)
+  _result = _execute.execute(b"PadV2", 1, inputs=_inputs_flat, attrs=_attrs,
+                             ctx=_ctx, name=name)
   _execute.record_gradient(
       "PadV2", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
-def _parallel_concat(values, shape, name=None):
+def parallel_concat(values, shape, name=None):
   r"""Concatenates a list of `N` tensors along the first dimension.
 
   The input tensors are all required to have size 1 in the first dimension.
@@ -3034,36 +4932,68 @@ def _parallel_concat(values, shape, name=None):
     name: A name for the operation (optional).
 
   Returns:
-    A `Tensor`. Has the same type as `values`. The concatenated tensor.
+    A `Tensor`. Has the same type as `values`.
   """
-  if not isinstance(values, (list, tuple)):
-    raise TypeError(
-        "Expected list for 'values' argument to "
-        "'parallel_concat' Op, not %r." % values)
-  _attr_N = len(values)
-  shape = _execute.make_shape(shape, "shape")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if not isinstance(values, (list, tuple)):
+      raise TypeError(
+          "Expected list for 'values' argument to "
+          "'parallel_concat' Op, not %r." % values)
+    _attr_N = len(values)
+    shape = _execute.make_shape(shape, "shape")
     _, _, _op = _op_def_lib._apply_op_helper(
         "ParallelConcat", values=values, shape=shape, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("N", _op.get_attr("N"), "T", _op.get_attr("T"), "shape",
               _op.get_attr("shape"))
+    _execute.record_gradient(
+      "ParallelConcat", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, values = _execute.args_to_matching_eager(list(values), _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    _inputs_flat = list(values)
-    _attrs = ("N", _attr_N, "T", _attr_T, "shape", shape)
-    _result = _execute.execute(b"ParallelConcat", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "ParallelConcat", name, _ctx._post_execution_callbacks, values,
+        "shape", shape)
+      return _result
+    except _core._FallbackException:
+      return parallel_concat_eager_fallback(
+          values, shape=shape, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def parallel_concat_eager_fallback(values, shape, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function parallel_concat
+  """
+  _ctx = ctx if ctx else _context.context()
+  if not isinstance(values, (list, tuple)):
+    raise TypeError(
+        "Expected list for 'values' argument to "
+        "'parallel_concat' Op, not %r." % values)
+  _attr_N = len(values)
+  shape = _execute.make_shape(shape, "shape")
+  _attr_T, values = _execute.args_to_matching_eager(list(values), _ctx)
+  _inputs_flat = list(values)
+  _attrs = ("N", _attr_N, "T", _attr_T, "shape", shape)
+  _result = _execute.execute(b"ParallelConcat", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "ParallelConcat", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
-def _placeholder(dtype, shape=None, name=None):
+def placeholder(dtype, shape=None, name=None):
   r"""A placeholder op for a value that will be fed into the computation.
 
   N.B. This operation will fail with an error if it is executed. It is
@@ -3079,24 +5009,53 @@ def _placeholder(dtype, shape=None, name=None):
 
   Returns:
     A `Tensor` of type `dtype`.
-    A placeholder tensor that must be replaced using the feed mechanism.
   """
-  dtype = _execute.make_type(dtype, "dtype")
-  if shape is None:
-    shape = None
-  shape = _execute.make_shape(shape, "shape")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    dtype = _execute.make_type(dtype, "dtype")
+    if shape is None:
+      shape = None
+    shape = _execute.make_shape(shape, "shape")
     _, _, _op = _op_def_lib._apply_op_helper(
         "Placeholder", dtype=dtype, shape=shape, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("dtype", _op.get_attr("dtype"), "shape", _op.get_attr("shape"))
+    _execute.record_gradient(
+      "Placeholder", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _inputs_flat = []
-    _attrs = ("dtype", dtype, "shape", shape)
-    _result = _execute.execute(b"Placeholder", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "Placeholder",
+        name, _ctx._post_execution_callbacks, "dtype", dtype, "shape", shape)
+      return _result
+    except _core._FallbackException:
+      return placeholder_eager_fallback(
+          dtype=dtype, shape=shape, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def placeholder_eager_fallback(dtype, shape=None, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function placeholder
+  """
+  _ctx = ctx if ctx else _context.context()
+  dtype = _execute.make_type(dtype, "dtype")
+  if shape is None:
+    shape = None
+  shape = _execute.make_shape(shape, "shape")
+  _inputs_flat = []
+  _attrs = ("dtype", dtype, "shape", shape)
+  _result = _execute.execute(b"Placeholder", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "Placeholder", _inputs_flat, _attrs, _result, name)
   _result, = _result
@@ -3119,28 +5078,57 @@ def placeholder_v2(dtype, shape, name=None):
 
   Returns:
     A `Tensor` of type `dtype`.
-    A placeholder tensor that must be replaced using the feed mechanism.
   """
-  dtype = _execute.make_type(dtype, "dtype")
-  shape = _execute.make_shape(shape, "shape")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    dtype = _execute.make_type(dtype, "dtype")
+    shape = _execute.make_shape(shape, "shape")
     _, _, _op = _op_def_lib._apply_op_helper(
         "PlaceholderV2", dtype=dtype, shape=shape, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("dtype", _op.get_attr("dtype"), "shape", _op.get_attr("shape"))
+    _execute.record_gradient(
+      "PlaceholderV2", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _inputs_flat = []
-    _attrs = ("dtype", dtype, "shape", shape)
-    _result = _execute.execute(b"PlaceholderV2", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "PlaceholderV2", name, _ctx._post_execution_callbacks, "dtype", dtype,
+        "shape", shape)
+      return _result
+    except _core._FallbackException:
+      return placeholder_v2_eager_fallback(
+          dtype=dtype, shape=shape, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def placeholder_v2_eager_fallback(dtype, shape, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function placeholder_v2
+  """
+  _ctx = ctx if ctx else _context.context()
+  dtype = _execute.make_type(dtype, "dtype")
+  shape = _execute.make_shape(shape, "shape")
+  _inputs_flat = []
+  _attrs = ("dtype", dtype, "shape", shape)
+  _result = _execute.execute(b"PlaceholderV2", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "PlaceholderV2", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
+@tf_export('placeholder_with_default')
 def placeholder_with_default(input, shape, name=None):
   r"""A placeholder op that passes through `input` when its output is not fed.
 
@@ -3152,24 +5140,50 @@ def placeholder_with_default(input, shape, name=None):
 
   Returns:
     A `Tensor`. Has the same type as `input`.
-    A placeholder tensor that defaults to `input` if it is not fed.
   """
-  shape = _execute.make_shape(shape, "shape")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    shape = _execute.make_shape(shape, "shape")
     _, _, _op = _op_def_lib._apply_op_helper(
         "PlaceholderWithDefault", input=input, shape=shape, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("dtype", _op.get_attr("dtype"), "shape", _op.get_attr("shape"))
+    _execute.record_gradient(
+      "PlaceholderWithDefault", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_dtype, (input,) = _execute.args_to_matching_eager([input], _ctx)
-    _attr_dtype = _attr_dtype.as_datatype_enum
-    _inputs_flat = [input]
-    _attrs = ("dtype", _attr_dtype, "shape", shape)
-    _result = _execute.execute(b"PlaceholderWithDefault", 1,
-                               inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
-                               name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "PlaceholderWithDefault", name, _ctx._post_execution_callbacks, input,
+        "shape", shape)
+      return _result
+    except _core._FallbackException:
+      return placeholder_with_default_eager_fallback(
+          input, shape=shape, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def placeholder_with_default_eager_fallback(input, shape, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function placeholder_with_default
+  """
+  _ctx = ctx if ctx else _context.context()
+  shape = _execute.make_shape(shape, "shape")
+  _attr_dtype, (input,) = _execute.args_to_matching_eager([input], _ctx)
+  _inputs_flat = [input]
+  _attrs = ("dtype", _attr_dtype, "shape", shape)
+  _result = _execute.execute(b"PlaceholderWithDefault", 1,
+                             inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
+                             name=name)
   _execute.record_gradient(
       "PlaceholderWithDefault", _inputs_flat, _attrs, _result, name)
   _result, = _result
@@ -3195,25 +5209,54 @@ def prevent_gradient(input, message="", name=None):
     name: A name for the operation (optional).
 
   Returns:
-    A `Tensor`. Has the same type as `input`. the same input tensor.
+    A `Tensor`. Has the same type as `input`.
   """
-  if message is None:
-    message = ""
-  message = _execute.make_str(message, "message")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if message is None:
+      message = ""
+    message = _execute.make_str(message, "message")
     _, _, _op = _op_def_lib._apply_op_helper(
         "PreventGradient", input=input, message=message, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"), "message", _op.get_attr("message"))
+    _execute.record_gradient(
+      "PreventGradient", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    _inputs_flat = [input]
-    _attrs = ("T", _attr_T, "message", message)
-    _result = _execute.execute(b"PreventGradient", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "PreventGradient", name, _ctx._post_execution_callbacks, input,
+        "message", message)
+      return _result
+    except _core._FallbackException:
+      return prevent_gradient_eager_fallback(
+          input, message=message, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def prevent_gradient_eager_fallback(input, message="", name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function prevent_gradient
+  """
+  _ctx = ctx if ctx else _context.context()
+  if message is None:
+    message = ""
+  message = _execute.make_str(message, "message")
+  _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
+  _inputs_flat = [input]
+  _attrs = ("T", _attr_T, "message", message)
+  _result = _execute.execute(b"PreventGradient", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "PreventGradient", _inputs_flat, _attrs, _result, name)
   _result, = _result
@@ -3224,7 +5267,7 @@ def quantize_and_dequantize(input, signed_input=True, num_bits=8, range_given=Fa
   r"""Use QuantizeAndDequantizeV2 instead.
 
   Args:
-    input: A `Tensor`. Must be one of the following types: `float32`, `float64`.
+    input: A `Tensor`. Must be one of the following types: `bfloat16`, `half`, `float32`, `float64`.
     signed_input: An optional `bool`. Defaults to `True`.
     num_bits: An optional `int`. Defaults to `8`.
     range_given: An optional `bool`. Defaults to `False`.
@@ -3235,6 +5278,65 @@ def quantize_and_dequantize(input, signed_input=True, num_bits=8, range_given=Fa
   Returns:
     A `Tensor`. Has the same type as `input`.
   """
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if signed_input is None:
+      signed_input = True
+    signed_input = _execute.make_bool(signed_input, "signed_input")
+    if num_bits is None:
+      num_bits = 8
+    num_bits = _execute.make_int(num_bits, "num_bits")
+    if range_given is None:
+      range_given = False
+    range_given = _execute.make_bool(range_given, "range_given")
+    if input_min is None:
+      input_min = 0
+    input_min = _execute.make_float(input_min, "input_min")
+    if input_max is None:
+      input_max = 0
+    input_max = _execute.make_float(input_max, "input_max")
+    _, _, _op = _op_def_lib._apply_op_helper(
+        "QuantizeAndDequantize", input=input, signed_input=signed_input,
+        num_bits=num_bits, range_given=range_given, input_min=input_min,
+        input_max=input_max, name=name)
+    _result = _op.outputs[:]
+    _inputs_flat = _op.inputs
+    _attrs = ("signed_input", _op.get_attr("signed_input"), "num_bits",
+              _op.get_attr("num_bits"), "range_given",
+              _op.get_attr("range_given"), "input_min",
+              _op.get_attr("input_min"), "input_max",
+              _op.get_attr("input_max"), "T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "QuantizeAndDequantize", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
+  else:
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "QuantizeAndDequantize", name, _ctx._post_execution_callbacks, input,
+        "signed_input", signed_input, "num_bits", num_bits, "range_given",
+        range_given, "input_min", input_min, "input_max", input_max)
+      return _result
+    except _core._FallbackException:
+      return quantize_and_dequantize_eager_fallback(
+          input, signed_input=signed_input, num_bits=num_bits,
+          range_given=range_given, input_min=input_min, input_max=input_max,
+          name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def quantize_and_dequantize_eager_fallback(input, signed_input=True, num_bits=8, range_given=False, input_min=0, input_max=0, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function quantize_and_dequantize
+  """
+  _ctx = ctx if ctx else _context.context()
   if signed_input is None:
     signed_input = True
   signed_input = _execute.make_bool(signed_input, "signed_input")
@@ -3250,29 +5352,12 @@ def quantize_and_dequantize(input, signed_input=True, num_bits=8, range_given=Fa
   if input_max is None:
     input_max = 0
   input_max = _execute.make_float(input_max, "input_max")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
-    _, _, _op = _op_def_lib._apply_op_helper(
-        "QuantizeAndDequantize", input=input, signed_input=signed_input,
-        num_bits=num_bits, range_given=range_given, input_min=input_min,
-        input_max=input_max, name=name)
-    _result = _op.outputs[:]
-    _inputs_flat = _op.inputs
-    _attrs = ("signed_input", _op.get_attr("signed_input"), "num_bits",
-              _op.get_attr("num_bits"), "range_given",
-              _op.get_attr("range_given"), "input_min",
-              _op.get_attr("input_min"), "input_max",
-              _op.get_attr("input_max"), "T", _op.get_attr("T"))
-  else:
-    _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    _inputs_flat = [input]
-    _attrs = ("signed_input", signed_input, "num_bits", num_bits,
-              "range_given", range_given, "input_min", input_min, "input_max",
-              input_max, "T", _attr_T)
-    _result = _execute.execute(b"QuantizeAndDequantize", 1,
-                               inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
-                               name=name)
+  _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
+  _inputs_flat = [input]
+  _attrs = ("signed_input", signed_input, "num_bits", num_bits, "range_given",
+  range_given, "input_min", input_min, "input_max", input_max, "T", _attr_T)
+  _result = _execute.execute(b"QuantizeAndDequantize", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "QuantizeAndDequantize", _inputs_flat, _attrs, _result, name)
   _result, = _result
@@ -3283,86 +5368,89 @@ def quantize_and_dequantize_v2(input, input_min, input_max, signed_input=True, n
   r"""Quantizes then dequantizes a tensor.
 
   This op simulates the precision loss from the quantized forward pass by:
+
   1. Quantizing the tensor to fixed point numbers, which should match the target
      quantization method when it is used in inference.
   2. Dequantizing it back to floating point numbers for the following ops, most
      likely matmul.
 
-  There are different ways to quantize. This version does not use the full range
-  of the output type, choosing to elide the lowest possible value for symmetry
-  (e.g., output range is -127 to 127, not -128 to 127 for signed 8 bit
-  quantization), so that 0.0 maps to 0.
+  There are different ways to quantize. This version uses only scaling, so 0.0
+  maps to 0.
 
-  To perform this op, we first find the range of values in our tensor. The range
-  we use is always centered on 0, so we find m such that
+  From the specified 'num_bits' in the quantized output type, it determines
+  minimum and maximum representable quantized values.
 
-  1. m = max(abs(input_min), abs(input_max)) if range_given is true,
-  2. m = max(abs(min_elem(input)), abs(max_elem(input))) otherwise.
+  e.g.
 
-  Our input tensor range is then [-m, m].
+  *   [-128, 127] for signed, num_bits = 8, or
+  *   [0, 255] for unsigned, num_bits = 8.
 
-  Next, we choose our fixed-point quantization buckets, [min_fixed, max_fixed].
-  If signed_input is true, this is
+  If range_given == False, the initial input_min, input_max will be determined
+  automatically as the minimum and maximum values in the input tensor, otherwise
+  the specified values of input_min, input_max are used.
 
-    [min_fixed, max_fixed ] =
-        [-(1 << (num_bits - 1) - 1), (1 << (num_bits - 1)) - 1].
+  Note: If the input_min, input_max are specified, they do not need to equal the
+  actual minimum and maximum values in the tensor. e.g. in some cases it may be
+  beneficial to specify these values such that the low probability extremes of the
+  input distribution are clipped.
 
-  Otherwise, if signed_input is false, the fixed-point range is
+  This op determines the maximum scale_factor that would map the initial
+  [input_min, input_max] range to a range that lies within the representable
+  quantized range.
 
-    [min_fixed, max_fixed] = [0, (1 << num_bits) - 1].
+  It determines the scale from one of input_min and input_max, then updates the
+  other one to maximize the respresentable range.
 
-  From this we compute our scaling factor, s:
+  e.g.
 
-    s = (max_fixed - min_fixed) / (2 * m).
+  *   if the output is signed, num_bits = 8, [input_min, input_max] = [-10.0,
+      5.0]: it would use a scale_factor of -128 / -10.0 = 12.8 In this case, it
+      would update input_max to be 127 / 12.8 = 9.921875
+  *   if the output is signed, num_bits = 8, [input_min, input_max] = [-10.0,
+      10.0]: it would use a scale_factor of 127 / 10.0 = 12.7 In this case, it
+      would update input_min to be 128.0 / 12.7 = -10.07874
+  *   if the output is unsigned, input_min is forced to be 0, and only the
+      specified input_max is used.
 
-  Now we can quantize and dequantize the elements of our tensor.  An element e
-  is transformed into e':
+  After determining the scale_factor and updating the input range, it applies the
+  following to each value in the 'input' tensor.
 
-    e' = (e * s).round_to_nearest() / s.
-
-  Note that we have a different number of buckets in the signed vs. unsigned
-  cases.  For example, if num_bits == 8, we get 254 buckets in the signed case
-  vs. 255 in the unsigned case.
-
-  For example, suppose num_bits = 8 and m = 1.  Then
-
-    [min_fixed, max_fixed] = [-127, 127], and
-    s = (127 + 127) / 2 = 127.
-
-  Given the vector {-1, -0.5, 0, 0.3}, this is quantized to
-  {-127, -63, 0, 38}, and dequantized to {-1, -63.0/127, 0, 38.0/127}.
+  output = round(clamp(value, input_min, input_max) * scale_factor) / scale_factor.
 
   Args:
-    input: A `Tensor`. Must be one of the following types: `float32`, `float64`.
+    input: A `Tensor`. Must be one of the following types: `bfloat16`, `half`, `float32`, `float64`.
       Tensor to quantize and then dequantize.
     input_min: A `Tensor`. Must have the same type as `input`.
-      If range_given, this is the min of the range, otherwise this input
-      will be ignored.
+      If `range_given == True`, this specifies the minimum input value that needs to
+      be represented, otherwise it is determined from the min value of the `input`
+      tensor.
     input_max: A `Tensor`. Must have the same type as `input`.
-      If range_given, this is the max of the range, otherwise this input
-      will be ignored.
+      If `range_given == True`, this specifies the maximum input value that needs to
+      be represented, otherwise it is determined from the max value of the `input`
+      tensor.
     signed_input: An optional `bool`. Defaults to `True`.
-      If the quantization is signed or unsigned.
+      Whether the quantization is signed or unsigned. (actually this parameter should
+      have been called <b>`signed_output`</b>)
     num_bits: An optional `int`. Defaults to `8`.
       The bitwidth of the quantization.
     range_given: An optional `bool`. Defaults to `False`.
-      If the range is given or should be computed from the tensor.
+      Whether the range is given or should be determined from the `input` tensor.
     name: A name for the operation (optional).
 
   Returns:
     A `Tensor`. Has the same type as `input`.
   """
-  if signed_input is None:
-    signed_input = True
-  signed_input = _execute.make_bool(signed_input, "signed_input")
-  if num_bits is None:
-    num_bits = 8
-  num_bits = _execute.make_int(num_bits, "num_bits")
-  if range_given is None:
-    range_given = False
-  range_given = _execute.make_bool(range_given, "range_given")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if signed_input is None:
+      signed_input = True
+    signed_input = _execute.make_bool(signed_input, "signed_input")
+    if num_bits is None:
+      num_bits = 8
+    num_bits = _execute.make_int(num_bits, "num_bits")
+    if range_given is None:
+      range_given = False
+    range_given = _execute.make_bool(range_given, "range_given")
     _, _, _op = _op_def_lib._apply_op_helper(
         "QuantizeAndDequantizeV2", input=input, input_min=input_min,
         input_max=input_max, signed_input=signed_input, num_bits=num_bits,
@@ -3372,16 +5460,53 @@ def quantize_and_dequantize_v2(input, input_min, input_max, signed_input=True, n
     _attrs = ("signed_input", _op.get_attr("signed_input"), "num_bits",
               _op.get_attr("num_bits"), "range_given",
               _op.get_attr("range_given"), "T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "QuantizeAndDequantizeV2", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, _inputs_T = _execute.args_to_matching_eager([input, input_min, input_max], _ctx)
-    (input, input_min, input_max) = _inputs_T
-    _attr_T = _attr_T.as_datatype_enum
-    _inputs_flat = [input, input_min, input_max]
-    _attrs = ("signed_input", signed_input, "num_bits", num_bits,
-              "range_given", range_given, "T", _attr_T)
-    _result = _execute.execute(b"QuantizeAndDequantizeV2", 1,
-                               inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
-                               name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "QuantizeAndDequantizeV2", name, _ctx._post_execution_callbacks,
+        input, input_min, input_max, "signed_input", signed_input, "num_bits",
+        num_bits, "range_given", range_given)
+      return _result
+    except _core._FallbackException:
+      return quantize_and_dequantize_v2_eager_fallback(
+          input, input_min, input_max, signed_input=signed_input,
+          num_bits=num_bits, range_given=range_given, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def quantize_and_dequantize_v2_eager_fallback(input, input_min, input_max, signed_input=True, num_bits=8, range_given=False, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function quantize_and_dequantize_v2
+  """
+  _ctx = ctx if ctx else _context.context()
+  if signed_input is None:
+    signed_input = True
+  signed_input = _execute.make_bool(signed_input, "signed_input")
+  if num_bits is None:
+    num_bits = 8
+  num_bits = _execute.make_int(num_bits, "num_bits")
+  if range_given is None:
+    range_given = False
+  range_given = _execute.make_bool(range_given, "range_given")
+  _attr_T, _inputs_T = _execute.args_to_matching_eager([input, input_min, input_max], _ctx)
+  (input, input_min, input_max) = _inputs_T
+  _inputs_flat = [input, input_min, input_max]
+  _attrs = ("signed_input", signed_input, "num_bits", num_bits, "range_given",
+  range_given, "T", _attr_T)
+  _result = _execute.execute(b"QuantizeAndDequantizeV2", 1,
+                             inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
+                             name=name)
   _execute.record_gradient(
       "QuantizeAndDequantizeV2", _inputs_flat, _attrs, _result, name)
   _result, = _result
@@ -3395,7 +5520,7 @@ def quantize_and_dequantize_v3(input, input_min, input_max, num_bits, signed_inp
   tensor, so its value can change during training.
 
   Args:
-    input: A `Tensor`. Must be one of the following types: `float32`, `float64`.
+    input: A `Tensor`. Must be one of the following types: `bfloat16`, `half`, `float32`, `float64`.
     input_min: A `Tensor`. Must have the same type as `input`.
     input_max: A `Tensor`. Must have the same type as `input`.
     num_bits: A `Tensor` of type `int32`.
@@ -3406,14 +5531,14 @@ def quantize_and_dequantize_v3(input, input_min, input_max, num_bits, signed_inp
   Returns:
     A `Tensor`. Has the same type as `input`.
   """
-  if signed_input is None:
-    signed_input = True
-  signed_input = _execute.make_bool(signed_input, "signed_input")
-  if range_given is None:
-    range_given = True
-  range_given = _execute.make_bool(range_given, "range_given")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if signed_input is None:
+      signed_input = True
+    signed_input = _execute.make_bool(signed_input, "signed_input")
+    if range_given is None:
+      range_given = True
+    range_given = _execute.make_bool(range_given, "range_given")
     _, _, _op = _op_def_lib._apply_op_helper(
         "QuantizeAndDequantizeV3", input=input, input_min=input_min,
         input_max=input_max, num_bits=num_bits, signed_input=signed_input,
@@ -3422,17 +5547,51 @@ def quantize_and_dequantize_v3(input, input_min, input_max, num_bits, signed_inp
     _inputs_flat = _op.inputs
     _attrs = ("signed_input", _op.get_attr("signed_input"), "range_given",
               _op.get_attr("range_given"), "T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "QuantizeAndDequantizeV3", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, _inputs_T = _execute.args_to_matching_eager([input, input_min, input_max], _ctx)
-    (input, input_min, input_max) = _inputs_T
-    _attr_T = _attr_T.as_datatype_enum
-    num_bits = _ops.convert_to_tensor(num_bits, _dtypes.int32)
-    _inputs_flat = [input, input_min, input_max, num_bits]
-    _attrs = ("signed_input", signed_input, "range_given", range_given, "T",
-              _attr_T)
-    _result = _execute.execute(b"QuantizeAndDequantizeV3", 1,
-                               inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
-                               name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "QuantizeAndDequantizeV3", name, _ctx._post_execution_callbacks,
+        input, input_min, input_max, num_bits, "signed_input", signed_input,
+        "range_given", range_given)
+      return _result
+    except _core._FallbackException:
+      return quantize_and_dequantize_v3_eager_fallback(
+          input, input_min, input_max, num_bits, signed_input=signed_input,
+          range_given=range_given, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def quantize_and_dequantize_v3_eager_fallback(input, input_min, input_max, num_bits, signed_input=True, range_given=True, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function quantize_and_dequantize_v3
+  """
+  _ctx = ctx if ctx else _context.context()
+  if signed_input is None:
+    signed_input = True
+  signed_input = _execute.make_bool(signed_input, "signed_input")
+  if range_given is None:
+    range_given = True
+  range_given = _execute.make_bool(range_given, "range_given")
+  _attr_T, _inputs_T = _execute.args_to_matching_eager([input, input_min, input_max], _ctx)
+  (input, input_min, input_max) = _inputs_T
+  num_bits = _ops.convert_to_tensor(num_bits, _dtypes.int32)
+  _inputs_flat = [input, input_min, input_max, num_bits]
+  _attrs = ("signed_input", signed_input, "range_given", range_given, "T",
+  _attr_T)
+  _result = _execute.execute(b"QuantizeAndDequantizeV3", 1,
+                             inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
+                             name=name)
   _execute.record_gradient(
       "QuantizeAndDequantizeV3", _inputs_flat, _attrs, _result, name)
   _result, = _result
@@ -3444,12 +5603,14 @@ _QuantizeV2Output = _collections.namedtuple(
     "QuantizeV2", _quantize_v2_outputs)
 
 
-def quantize_v2(input, min_range, max_range, T, mode="MIN_COMBINED", name=None):
+def quantize_v2(input, min_range, max_range, T, mode="MIN_COMBINED", round_mode="HALF_AWAY_FROM_ZERO", name=None):
   r"""Quantize the 'input' tensor of type float to 'output' tensor of type 'T'.
 
   [min_range, max_range] are scalar floats that specify the range for
   the 'input' data. The 'mode' attribute controls exactly which calculations are
-  used to convert the float values to their quantized equivalents.
+  used to convert the float values to their quantized equivalents.  The
+  'round_mode' attribute controls which rounding tie-breaking algorithm is used
+  when rounding float values to their quantized equivalents.
 
   In 'MIN_COMBINED' mode, each value of the tensor will undergo the following:
 
@@ -3457,6 +5618,7 @@ def quantize_v2(input, min_range, max_range, T, mode="MIN_COMBINED", name=None):
   out[i] = (in[i] - min_range) * range(T) / (max_range - min_range)
   if T == qint8, out[i] -= (range(T) + 1) / 2.0
   ```
+
   here `range(T) = numeric_limits<T>::max() - numeric_limits<T>::min()`
 
   *MIN_COMBINED Mode Example*
@@ -3473,10 +5635,10 @@ def quantize_v2(input, min_range, max_range, T, mode="MIN_COMBINED", name=None):
   If the mode is 'MIN_FIRST', then this approach is used:
 
   ```
-  number_of_steps = 1 << (# of bits in T)
-  range_adjust = number_of_steps / (number_of_steps - 1)
+  num_discrete_values = 1 << (# of bits in T)
+  range_adjust = num_discrete_values / (num_discrete_values - 1)
   range = (range_max - range_min) * range_adjust
-  range_scale = number_of_steps / range
+  range_scale = num_discrete_values / range
   quantized = round(input * range_scale) - round(range_min * range_scale) +
     numeric_limits<T>::min()
   quantized = max(quantized, numeric_limits<T>::min())
@@ -3500,6 +5662,7 @@ def quantize_v2(input, min_range, max_range, T, mode="MIN_COMBINED", name=None):
 
   We first find the range of values in our tensor. The
   range we use is always centered on 0, so we find m such that
+
   ```c++
     m = max(abs(input_min), abs(input_max))
   ```
@@ -3508,6 +5671,7 @@ def quantize_v2(input, min_range, max_range, T, mode="MIN_COMBINED", name=None):
 
   Next, we choose our fixed-point quantization buckets, `[min_fixed, max_fixed]`.
   If T is signed, this is
+
   ```
     num_bits = sizeof(T) * 8
     [min_fixed, max_fixed] =
@@ -3515,18 +5679,21 @@ def quantize_v2(input, min_range, max_range, T, mode="MIN_COMBINED", name=None):
   ```
 
   Otherwise, if T is unsigned, the fixed-point range is
+
   ```
     [min_fixed, max_fixed] = [0, (1 << num_bits) - 1]
   ```
 
   From this we compute our scaling factor, s:
+
   ```c++
     s = (max_fixed - min_fixed) / (2 * m)
   ```
 
   Now we can quantize the elements of our tensor:
+
   ```c++
-  result = (input * s).round_to_nearest()
+  result = round(input * s)
   ```
 
   One thing to watch out for is that the operator may choose to adjust the
@@ -3544,37 +5711,78 @@ def quantize_v2(input, min_range, max_range, T, mode="MIN_COMBINED", name=None):
       The minimum scalar value possibly produced for the input.
     max_range: A `Tensor` of type `float32`.
       The maximum scalar value possibly produced for the input.
-    T: A `tf.DType` from: `tf.qint8, tf.quint8, tf.qint16, tf.quint16, tf.qint32`.
+    T: A `tf.DType` from: `tf.qint8, tf.quint8, tf.qint32, tf.qint16, tf.quint16`.
     mode: An optional `string` from: `"MIN_COMBINED", "MIN_FIRST", "SCALED"`. Defaults to `"MIN_COMBINED"`.
+    round_mode: An optional `string` from: `"HALF_AWAY_FROM_ZERO", "HALF_TO_EVEN"`. Defaults to `"HALF_AWAY_FROM_ZERO"`.
     name: A name for the operation (optional).
 
   Returns:
     A tuple of `Tensor` objects (output, output_min, output_max).
 
-    output: A `Tensor` of type `T`. The quantized data produced from the float input.
-    output_min: A `Tensor` of type `float32`. The actual minimum scalar value used for the output.
-    output_max: A `Tensor` of type `float32`. The actual maximum scalar value used for the output.
+    output: A `Tensor` of type `T`.
+    output_min: A `Tensor` of type `float32`.
+    output_max: A `Tensor` of type `float32`.
   """
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    T = _execute.make_type(T, "T")
+    if mode is None:
+      mode = "MIN_COMBINED"
+    mode = _execute.make_str(mode, "mode")
+    if round_mode is None:
+      round_mode = "HALF_AWAY_FROM_ZERO"
+    round_mode = _execute.make_str(round_mode, "round_mode")
+    _, _, _op = _op_def_lib._apply_op_helper(
+        "QuantizeV2", input=input, min_range=min_range, max_range=max_range,
+        T=T, mode=mode, round_mode=round_mode, name=name)
+    _result = _op.outputs[:]
+    _inputs_flat = _op.inputs
+    _attrs = ("T", _op.get_attr("T"), "mode", _op.get_attr("mode"),
+              "round_mode", _op.get_attr("round_mode"))
+    _execute.record_gradient(
+      "QuantizeV2", _inputs_flat, _attrs, _result, name)
+    _result = _QuantizeV2Output._make(_result)
+    return _result
+
+  else:
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "QuantizeV2",
+        name, _ctx._post_execution_callbacks, input, min_range, max_range,
+        "T", T, "mode", mode, "round_mode", round_mode)
+      _result = _QuantizeV2Output._make(_result)
+      return _result
+    except _core._FallbackException:
+      return quantize_v2_eager_fallback(
+          input, min_range, max_range, T=T, mode=mode, round_mode=round_mode,
+          name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def quantize_v2_eager_fallback(input, min_range, max_range, T, mode="MIN_COMBINED", round_mode="HALF_AWAY_FROM_ZERO", name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function quantize_v2
+  """
+  _ctx = ctx if ctx else _context.context()
   T = _execute.make_type(T, "T")
   if mode is None:
     mode = "MIN_COMBINED"
   mode = _execute.make_str(mode, "mode")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
-    _, _, _op = _op_def_lib._apply_op_helper(
-        "QuantizeV2", input=input, min_range=min_range, max_range=max_range,
-        T=T, mode=mode, name=name)
-    _result = _op.outputs[:]
-    _inputs_flat = _op.inputs
-    _attrs = ("T", _op.get_attr("T"), "mode", _op.get_attr("mode"))
-  else:
-    input = _ops.convert_to_tensor(input, _dtypes.float32)
-    min_range = _ops.convert_to_tensor(min_range, _dtypes.float32)
-    max_range = _ops.convert_to_tensor(max_range, _dtypes.float32)
-    _inputs_flat = [input, min_range, max_range]
-    _attrs = ("T", T, "mode", mode)
-    _result = _execute.execute(b"QuantizeV2", 3, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+  if round_mode is None:
+    round_mode = "HALF_AWAY_FROM_ZERO"
+  round_mode = _execute.make_str(round_mode, "round_mode")
+  input = _ops.convert_to_tensor(input, _dtypes.float32)
+  min_range = _ops.convert_to_tensor(min_range, _dtypes.float32)
+  max_range = _ops.convert_to_tensor(max_range, _dtypes.float32)
+  _inputs_flat = [input, min_range, max_range]
+  _attrs = ("T", T, "mode", mode, "round_mode", round_mode)
+  _result = _execute.execute(b"QuantizeV2", 3, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "QuantizeV2", _inputs_flat, _attrs, _result, name)
   _result = _QuantizeV2Output._make(_result)
@@ -3586,6 +5794,8 @@ _QuantizedConcatOutput = _collections.namedtuple(
     "QuantizedConcat", _quantized_concat_outputs)
 
 
+@tf_export('quantization.quantized_concat', 'quantized_concat')
+@deprecated_endpoints('quantized_concat')
 def quantized_concat(concat_dim, values, input_mins, input_maxes, name=None):
   r"""Concatenates quantized tensors along one dimension.
 
@@ -3605,12 +5815,70 @@ def quantized_concat(concat_dim, values, input_mins, input_maxes, name=None):
   Returns:
     A tuple of `Tensor` objects (output, output_min, output_max).
 
-    output: A `Tensor`. Has the same type as `values`. A `Tensor` with the concatenation of values stacked along the
-      `concat_dim` dimension.  This tensor's shape matches that of `values` except
-      in `concat_dim` where it has the sum of the sizes.
-    output_min: A `Tensor` of type `float32`. The float value that the minimum quantized output value represents.
-    output_max: A `Tensor` of type `float32`. The float value that the maximum quantized output value represents.
+    output: A `Tensor`. Has the same type as `values`.
+    output_min: A `Tensor` of type `float32`.
+    output_max: A `Tensor` of type `float32`.
   """
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if not isinstance(values, (list, tuple)):
+      raise TypeError(
+          "Expected list for 'values' argument to "
+          "'quantized_concat' Op, not %r." % values)
+    _attr_N = len(values)
+    if not isinstance(input_mins, (list, tuple)):
+      raise TypeError(
+          "Expected list for 'input_mins' argument to "
+          "'quantized_concat' Op, not %r." % input_mins)
+    if len(input_mins) != _attr_N:
+      raise ValueError(
+          "List argument 'input_mins' to 'quantized_concat' Op with length %d "
+          "must match length %d of argument 'values'." %
+          (len(input_mins), _attr_N))
+    if not isinstance(input_maxes, (list, tuple)):
+      raise TypeError(
+          "Expected list for 'input_maxes' argument to "
+          "'quantized_concat' Op, not %r." % input_maxes)
+    if len(input_maxes) != _attr_N:
+      raise ValueError(
+          "List argument 'input_maxes' to 'quantized_concat' Op with length %d "
+          "must match length %d of argument 'values'." %
+          (len(input_maxes), _attr_N))
+    _, _, _op = _op_def_lib._apply_op_helper(
+        "QuantizedConcat", concat_dim=concat_dim, values=values,
+        input_mins=input_mins, input_maxes=input_maxes, name=name)
+    _result = _op.outputs[:]
+    _inputs_flat = _op.inputs
+    _attrs = ("N", _op.get_attr("N"), "T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "QuantizedConcat", _inputs_flat, _attrs, _result, name)
+    _result = _QuantizedConcatOutput._make(_result)
+    return _result
+
+  else:
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "QuantizedConcat", name, _ctx._post_execution_callbacks, concat_dim,
+        values, input_mins, input_maxes)
+      _result = _QuantizedConcatOutput._make(_result)
+      return _result
+    except _core._FallbackException:
+      return quantized_concat_eager_fallback(
+          concat_dim, values, input_mins, input_maxes, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def quantized_concat_eager_fallback(concat_dim, values, input_mins, input_maxes, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function quantized_concat
+  """
+  _ctx = ctx if ctx else _context.context()
   if not isinstance(values, (list, tuple)):
     raise TypeError(
         "Expected list for 'values' argument to "
@@ -3634,24 +5902,14 @@ def quantized_concat(concat_dim, values, input_mins, input_maxes, name=None):
         "List argument 'input_maxes' to 'quantized_concat' Op with length %d "
         "must match length %d of argument 'values'." %
         (len(input_maxes), _attr_N))
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
-    _, _, _op = _op_def_lib._apply_op_helper(
-        "QuantizedConcat", concat_dim=concat_dim, values=values,
-        input_mins=input_mins, input_maxes=input_maxes, name=name)
-    _result = _op.outputs[:]
-    _inputs_flat = _op.inputs
-    _attrs = ("N", _op.get_attr("N"), "T", _op.get_attr("T"))
-  else:
-    _attr_T, values = _execute.args_to_matching_eager(list(values), _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    concat_dim = _ops.convert_to_tensor(concat_dim, _dtypes.int32)
-    input_mins = _ops.convert_n_to_tensor(input_mins, _dtypes.float32)
-    input_maxes = _ops.convert_n_to_tensor(input_maxes, _dtypes.float32)
-    _inputs_flat = [concat_dim] + list(values) + list(input_mins) + list(input_maxes)
-    _attrs = ("N", _attr_N, "T", _attr_T)
-    _result = _execute.execute(b"QuantizedConcat", 3, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+  _attr_T, values = _execute.args_to_matching_eager(list(values), _ctx)
+  concat_dim = _ops.convert_to_tensor(concat_dim, _dtypes.int32)
+  input_mins = _ops.convert_n_to_tensor(input_mins, _dtypes.float32)
+  input_maxes = _ops.convert_n_to_tensor(input_maxes, _dtypes.float32)
+  _inputs_flat = [concat_dim] + list(values) + list(input_mins) + list(input_maxes)
+  _attrs = ("N", _attr_N, "T", _attr_T)
+  _result = _execute.execute(b"QuantizedConcat", 3, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "QuantizedConcat", _inputs_flat, _attrs, _result, name)
   _result = _QuantizedConcatOutput._make(_result)
@@ -3667,7 +5925,7 @@ def quantized_instance_norm(x, x_min, x_max, output_range_given=False, given_y_m
   r"""Quantized Instance normalization.
 
   Args:
-    x: A `Tensor`. Must be one of the following types: `qint8`, `quint8`, `qint16`, `quint16`, `qint32`.
+    x: A `Tensor`. Must be one of the following types: `qint8`, `quint8`, `qint32`, `qint16`, `quint16`.
       A 4D input Tensor.
     x_min: A `Tensor` of type `float32`.
       The value represented by the lowest quantized input.
@@ -3690,10 +5948,74 @@ def quantized_instance_norm(x, x_min, x_max, output_range_given=False, given_y_m
   Returns:
     A tuple of `Tensor` objects (y, y_min, y_max).
 
-    y: A `Tensor`. Has the same type as `x`. A 4D Tensor.
-    y_min: A `Tensor` of type `float32`. The value represented by the lowest quantized output.
-    y_max: A `Tensor` of type `float32`. The value represented by the highest quantized output.
+    y: A `Tensor`. Has the same type as `x`.
+    y_min: A `Tensor` of type `float32`.
+    y_max: A `Tensor` of type `float32`.
   """
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if output_range_given is None:
+      output_range_given = False
+    output_range_given = _execute.make_bool(output_range_given, "output_range_given")
+    if given_y_min is None:
+      given_y_min = 0
+    given_y_min = _execute.make_float(given_y_min, "given_y_min")
+    if given_y_max is None:
+      given_y_max = 0
+    given_y_max = _execute.make_float(given_y_max, "given_y_max")
+    if variance_epsilon is None:
+      variance_epsilon = 1e-05
+    variance_epsilon = _execute.make_float(variance_epsilon, "variance_epsilon")
+    if min_separation is None:
+      min_separation = 0.001
+    min_separation = _execute.make_float(min_separation, "min_separation")
+    _, _, _op = _op_def_lib._apply_op_helper(
+        "QuantizedInstanceNorm", x=x, x_min=x_min, x_max=x_max,
+        output_range_given=output_range_given, given_y_min=given_y_min,
+        given_y_max=given_y_max, variance_epsilon=variance_epsilon,
+        min_separation=min_separation, name=name)
+    _result = _op.outputs[:]
+    _inputs_flat = _op.inputs
+    _attrs = ("T", _op.get_attr("T"), "output_range_given",
+              _op.get_attr("output_range_given"), "given_y_min",
+              _op.get_attr("given_y_min"), "given_y_max",
+              _op.get_attr("given_y_max"), "variance_epsilon",
+              _op.get_attr("variance_epsilon"), "min_separation",
+              _op.get_attr("min_separation"))
+    _execute.record_gradient(
+      "QuantizedInstanceNorm", _inputs_flat, _attrs, _result, name)
+    _result = _QuantizedInstanceNormOutput._make(_result)
+    return _result
+
+  else:
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "QuantizedInstanceNorm", name, _ctx._post_execution_callbacks, x,
+        x_min, x_max, "output_range_given", output_range_given, "given_y_min",
+        given_y_min, "given_y_max", given_y_max, "variance_epsilon",
+        variance_epsilon, "min_separation", min_separation)
+      _result = _QuantizedInstanceNormOutput._make(_result)
+      return _result
+    except _core._FallbackException:
+      return quantized_instance_norm_eager_fallback(
+          x, x_min, x_max, output_range_given=output_range_given,
+          given_y_min=given_y_min, given_y_max=given_y_max,
+          variance_epsilon=variance_epsilon, min_separation=min_separation,
+          name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def quantized_instance_norm_eager_fallback(x, x_min, x_max, output_range_given=False, given_y_min=0, given_y_max=0, variance_epsilon=1e-05, min_separation=0.001, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function quantized_instance_norm
+  """
+  _ctx = ctx if ctx else _context.context()
   if output_range_given is None:
     output_range_given = False
   output_range_given = _execute.make_bool(output_range_given, "output_range_given")
@@ -3709,34 +6031,15 @@ def quantized_instance_norm(x, x_min, x_max, output_range_given=False, given_y_m
   if min_separation is None:
     min_separation = 0.001
   min_separation = _execute.make_float(min_separation, "min_separation")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
-    _, _, _op = _op_def_lib._apply_op_helper(
-        "QuantizedInstanceNorm", x=x, x_min=x_min, x_max=x_max,
-        output_range_given=output_range_given, given_y_min=given_y_min,
-        given_y_max=given_y_max, variance_epsilon=variance_epsilon,
-        min_separation=min_separation, name=name)
-    _result = _op.outputs[:]
-    _inputs_flat = _op.inputs
-    _attrs = ("T", _op.get_attr("T"), "output_range_given",
-              _op.get_attr("output_range_given"), "given_y_min",
-              _op.get_attr("given_y_min"), "given_y_max",
-              _op.get_attr("given_y_max"), "variance_epsilon",
-              _op.get_attr("variance_epsilon"), "min_separation",
-              _op.get_attr("min_separation"))
-  else:
-    _attr_T, (x,) = _execute.args_to_matching_eager([x], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    x_min = _ops.convert_to_tensor(x_min, _dtypes.float32)
-    x_max = _ops.convert_to_tensor(x_max, _dtypes.float32)
-    _inputs_flat = [x, x_min, x_max]
-    _attrs = ("T", _attr_T, "output_range_given", output_range_given,
-              "given_y_min", given_y_min, "given_y_max", given_y_max,
-              "variance_epsilon", variance_epsilon, "min_separation",
-              min_separation)
-    _result = _execute.execute(b"QuantizedInstanceNorm", 3,
-                               inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
-                               name=name)
+  _attr_T, (x,) = _execute.args_to_matching_eager([x], _ctx)
+  x_min = _ops.convert_to_tensor(x_min, _dtypes.float32)
+  x_max = _ops.convert_to_tensor(x_max, _dtypes.float32)
+  _inputs_flat = [x, x_min, x_max]
+  _attrs = ("T", _attr_T, "output_range_given", output_range_given,
+  "given_y_min", given_y_min, "given_y_max", given_y_max, "variance_epsilon",
+  variance_epsilon, "min_separation", min_separation)
+  _result = _execute.execute(b"QuantizedInstanceNorm", 3, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "QuantizedInstanceNorm", _inputs_flat, _attrs, _result, name)
   _result = _QuantizedInstanceNormOutput._make(_result)
@@ -3765,28 +6068,54 @@ def quantized_reshape(tensor, shape, input_min, input_max, name=None):
     A tuple of `Tensor` objects (output, output_min, output_max).
 
     output: A `Tensor`. Has the same type as `tensor`.
-    output_min: A `Tensor` of type `float32`. This value is copied from input_min.
-    output_max: A `Tensor` of type `float32`. This value is copied from input_max.
+    output_min: A `Tensor` of type `float32`.
+    output_max: A `Tensor` of type `float32`.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "QuantizedReshape", tensor=tensor, shape=shape, input_min=input_min,
         input_max=input_max, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"), "Tshape", _op.get_attr("Tshape"))
+    _execute.record_gradient(
+      "QuantizedReshape", _inputs_flat, _attrs, _result, name)
+    _result = _QuantizedReshapeOutput._make(_result)
+    return _result
+
   else:
-    _attr_T, (tensor,) = _execute.args_to_matching_eager([tensor], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    _attr_Tshape, (shape,) = _execute.args_to_matching_eager([shape], _ctx, _dtypes.int32)
-    _attr_Tshape = _attr_Tshape.as_datatype_enum
-    input_min = _ops.convert_to_tensor(input_min, _dtypes.float32)
-    input_max = _ops.convert_to_tensor(input_max, _dtypes.float32)
-    _inputs_flat = [tensor, shape, input_min, input_max]
-    _attrs = ("T", _attr_T, "Tshape", _attr_Tshape)
-    _result = _execute.execute(b"QuantizedReshape", 3, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "QuantizedReshape", name, _ctx._post_execution_callbacks, tensor,
+        shape, input_min, input_max)
+      _result = _QuantizedReshapeOutput._make(_result)
+      return _result
+    except _core._FallbackException:
+      return quantized_reshape_eager_fallback(
+          tensor, shape, input_min, input_max, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def quantized_reshape_eager_fallback(tensor, shape, input_min, input_max, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function quantized_reshape
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, (tensor,) = _execute.args_to_matching_eager([tensor], _ctx)
+  _attr_Tshape, (shape,) = _execute.args_to_matching_eager([shape], _ctx, _dtypes.int32)
+  input_min = _ops.convert_to_tensor(input_min, _dtypes.float32)
+  input_max = _ops.convert_to_tensor(input_max, _dtypes.float32)
+  _inputs_flat = [tensor, shape, input_min, input_max]
+  _attrs = ("T", _attr_T, "Tshape", _attr_Tshape)
+  _result = _execute.execute(b"QuantizedReshape", 3, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "QuantizedReshape", _inputs_flat, _attrs, _result, name)
   _result = _QuantizedReshapeOutput._make(_result)
@@ -3817,27 +6146,52 @@ def rank(input, name=None):
   Returns:
     A `Tensor` of type `int32`.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "Rank", input=input, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "Rank", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    _inputs_flat = [input]
-    _attrs = ("T", _attr_T)
-    _result = _execute.execute(b"Rank", 1, inputs=_inputs_flat, attrs=_attrs,
-                               ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "Rank", name,
+        _ctx._post_execution_callbacks, input)
+      return _result
+    except _core._FallbackException:
+      return rank_eager_fallback(
+          input, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def rank_eager_fallback(input, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function rank
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
+  _inputs_flat = [input]
+  _attrs = ("T", _attr_T)
+  _result = _execute.execute(b"Rank", 1, inputs=_inputs_flat, attrs=_attrs,
+                             ctx=_ctx, name=name)
   _execute.record_gradient(
       "Rank", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
-def _ref_identity(input, name=None):
+def ref_identity(input, name=None):
   r"""Return the same ref tensor as the input ref tensor.
 
   Args:
@@ -3847,22 +6201,26 @@ def _ref_identity(input, name=None):
   Returns:
     A mutable `Tensor`. Has the same type as `input`.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "RefIdentity", input=input, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"))
-  else:
-    raise RuntimeError(
-        "ref_identity op does not support eager execution. Arg 'output'' is a ref.")
-  _execute.record_gradient(
+    _execute.record_gradient(
       "RefIdentity", _inputs_flat, _attrs, _result, name)
-  _result, = _result
-  return _result
+    _result, = _result
+    return _result
+
+  else:
+    raise RuntimeError("ref_identity op does not support eager execution. Arg 'output' is a ref.")
 
 
+  raise RuntimeError("ref_identity op does not support eager execution. Arg 'output' is a ref.")
+
+@tf_export('manip.reshape', 'reshape')
+@deprecated_endpoints('reshape')
 def reshape(tensor, shape, name=None):
   r"""Reshapes a tensor.
 
@@ -3932,22 +6290,46 @@ def reshape(tensor, shape, name=None):
   Returns:
     A `Tensor`. Has the same type as `tensor`.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "Reshape", tensor=tensor, shape=shape, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"), "Tshape", _op.get_attr("Tshape"))
+    _execute.record_gradient(
+      "Reshape", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (tensor,) = _execute.args_to_matching_eager([tensor], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    _attr_Tshape, (shape,) = _execute.args_to_matching_eager([shape], _ctx, _dtypes.int32)
-    _attr_Tshape = _attr_Tshape.as_datatype_enum
-    _inputs_flat = [tensor, shape]
-    _attrs = ("T", _attr_T, "Tshape", _attr_Tshape)
-    _result = _execute.execute(b"Reshape", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "Reshape",
+        name, _ctx._post_execution_callbacks, tensor, shape)
+      return _result
+    except _core._FallbackException:
+      return reshape_eager_fallback(
+          tensor, shape, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def reshape_eager_fallback(tensor, shape, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function reshape
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, (tensor,) = _execute.args_to_matching_eager([tensor], _ctx)
+  _attr_Tshape, (shape,) = _execute.args_to_matching_eager([shape], _ctx, _dtypes.int32)
+  _inputs_flat = [tensor, shape]
+  _attrs = ("T", _attr_T, "Tshape", _attr_Tshape)
+  _result = _execute.execute(b"Reshape", 1, inputs=_inputs_flat, attrs=_attrs,
+                             ctx=_ctx, name=name)
   _execute.record_gradient(
       "Reshape", _inputs_flat, _attrs, _result, name)
   _result, = _result
@@ -3980,6 +6362,61 @@ def resource_strided_slice_assign(ref, begin, end, strides, value, begin_mask=0,
   Returns:
     The created Operation.
   """
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if begin_mask is None:
+      begin_mask = 0
+    begin_mask = _execute.make_int(begin_mask, "begin_mask")
+    if end_mask is None:
+      end_mask = 0
+    end_mask = _execute.make_int(end_mask, "end_mask")
+    if ellipsis_mask is None:
+      ellipsis_mask = 0
+    ellipsis_mask = _execute.make_int(ellipsis_mask, "ellipsis_mask")
+    if new_axis_mask is None:
+      new_axis_mask = 0
+    new_axis_mask = _execute.make_int(new_axis_mask, "new_axis_mask")
+    if shrink_axis_mask is None:
+      shrink_axis_mask = 0
+    shrink_axis_mask = _execute.make_int(shrink_axis_mask, "shrink_axis_mask")
+    _, _, _op = _op_def_lib._apply_op_helper(
+        "ResourceStridedSliceAssign", ref=ref, begin=begin, end=end,
+        strides=strides, value=value, begin_mask=begin_mask,
+        end_mask=end_mask, ellipsis_mask=ellipsis_mask,
+        new_axis_mask=new_axis_mask, shrink_axis_mask=shrink_axis_mask,
+        name=name)
+    return _op
+    _result = None
+    return _result
+
+  else:
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "ResourceStridedSliceAssign", name, _ctx._post_execution_callbacks,
+        ref, begin, end, strides, value, "begin_mask", begin_mask, "end_mask",
+        end_mask, "ellipsis_mask", ellipsis_mask, "new_axis_mask",
+        new_axis_mask, "shrink_axis_mask", shrink_axis_mask)
+      return _result
+    except _core._FallbackException:
+      return resource_strided_slice_assign_eager_fallback(
+          ref, begin, end, strides, value, begin_mask=begin_mask,
+          end_mask=end_mask, ellipsis_mask=ellipsis_mask,
+          new_axis_mask=new_axis_mask, shrink_axis_mask=shrink_axis_mask,
+          name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def resource_strided_slice_assign_eager_fallback(ref, begin, end, strides, value, begin_mask=0, end_mask=0, ellipsis_mask=0, new_axis_mask=0, shrink_axis_mask=0, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function resource_strided_slice_assign
+  """
+  _ctx = ctx if ctx else _context.context()
   if begin_mask is None:
     begin_mask = 0
   begin_mask = _execute.make_int(begin_mask, "begin_mask")
@@ -3995,34 +6432,22 @@ def resource_strided_slice_assign(ref, begin, end, strides, value, begin_mask=0,
   if shrink_axis_mask is None:
     shrink_axis_mask = 0
   shrink_axis_mask = _execute.make_int(shrink_axis_mask, "shrink_axis_mask")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
-    _, _, _op = _op_def_lib._apply_op_helper(
-        "ResourceStridedSliceAssign", ref=ref, begin=begin, end=end,
-        strides=strides, value=value, begin_mask=begin_mask,
-        end_mask=end_mask, ellipsis_mask=ellipsis_mask,
-        new_axis_mask=new_axis_mask, shrink_axis_mask=shrink_axis_mask,
-        name=name)
-    return _op
-  else:
-    _attr_T, (value,) = _execute.args_to_matching_eager([value], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    _attr_Index, _inputs_Index = _execute.args_to_matching_eager([begin, end, strides], _ctx)
-    (begin, end, strides) = _inputs_Index
-    _attr_Index = _attr_Index.as_datatype_enum
-    ref = _ops.convert_to_tensor(ref, _dtypes.resource)
-    _inputs_flat = [ref, begin, end, strides, value]
-    _attrs = ("T", _attr_T, "Index", _attr_Index, "begin_mask", begin_mask,
-              "end_mask", end_mask, "ellipsis_mask", ellipsis_mask,
-              "new_axis_mask", new_axis_mask, "shrink_axis_mask",
-              shrink_axis_mask)
-    _result = _execute.execute(b"ResourceStridedSliceAssign", 0,
-                               inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
-                               name=name)
+  _attr_T, (value,) = _execute.args_to_matching_eager([value], _ctx)
+  _attr_Index, _inputs_Index = _execute.args_to_matching_eager([begin, end, strides], _ctx)
+  (begin, end, strides) = _inputs_Index
+  ref = _ops.convert_to_tensor(ref, _dtypes.resource)
+  _inputs_flat = [ref, begin, end, strides, value]
+  _attrs = ("T", _attr_T, "Index", _attr_Index, "begin_mask", begin_mask,
+  "end_mask", end_mask, "ellipsis_mask", ellipsis_mask, "new_axis_mask",
+  new_axis_mask, "shrink_axis_mask", shrink_axis_mask)
+  _result = _execute.execute(b"ResourceStridedSliceAssign", 0,
+                             inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
+                             name=name)
+  _result = None
   return _result
 
 
-def _reverse(tensor, dims, name=None):
+def reverse(tensor, dims, name=None):
   r"""Reverses specific dimensions of a tensor.
 
   Given a `tensor`, and a `bool` tensor `dims` representing the dimensions
@@ -4077,23 +6502,48 @@ def _reverse(tensor, dims, name=None):
     name: A name for the operation (optional).
 
   Returns:
-    A `Tensor`. Has the same type as `tensor`. The same shape as `tensor`.
+    A `Tensor`. Has the same type as `tensor`.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "Reverse", tensor=tensor, dims=dims, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "Reverse", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (tensor,) = _execute.args_to_matching_eager([tensor], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    dims = _ops.convert_to_tensor(dims, _dtypes.bool)
-    _inputs_flat = [tensor, dims]
-    _attrs = ("T", _attr_T)
-    _result = _execute.execute(b"Reverse", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "Reverse",
+        name, _ctx._post_execution_callbacks, tensor, dims)
+      return _result
+    except _core._FallbackException:
+      return reverse_eager_fallback(
+          tensor, dims, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def reverse_eager_fallback(tensor, dims, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function reverse
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, (tensor,) = _execute.args_to_matching_eager([tensor], _ctx)
+  dims = _ops.convert_to_tensor(dims, _dtypes.bool)
+  _inputs_flat = [tensor, dims]
+  _attrs = ("T", _attr_T)
+  _result = _execute.execute(b"Reverse", 1, inputs=_inputs_flat, attrs=_attrs,
+                             ctx=_ctx, name=name)
   _execute.record_gradient(
       "Reverse", _inputs_flat, _attrs, _result, name)
   _result, = _result
@@ -4170,14 +6620,13 @@ def reverse_sequence(input, seq_lengths, seq_dim, batch_dim=0, name=None):
 
   Returns:
     A `Tensor`. Has the same type as `input`.
-    The partially reversed input. It has the same shape as `input`.
   """
-  seq_dim = _execute.make_int(seq_dim, "seq_dim")
-  if batch_dim is None:
-    batch_dim = 0
-  batch_dim = _execute.make_int(batch_dim, "batch_dim")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    seq_dim = _execute.make_int(seq_dim, "seq_dim")
+    if batch_dim is None:
+      batch_dim = 0
+    batch_dim = _execute.make_int(batch_dim, "batch_dim")
     _, _, _op = _op_def_lib._apply_op_helper(
         "ReverseSequence", input=input, seq_lengths=seq_lengths,
         seq_dim=seq_dim, batch_dim=batch_dim, name=name)
@@ -4186,22 +6635,54 @@ def reverse_sequence(input, seq_lengths, seq_dim, batch_dim=0, name=None):
     _attrs = ("seq_dim", _op.get_attr("seq_dim"), "batch_dim",
               _op.get_attr("batch_dim"), "T", _op.get_attr("T"), "Tlen",
               _op.get_attr("Tlen"))
+    _execute.record_gradient(
+      "ReverseSequence", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    _attr_Tlen, (seq_lengths,) = _execute.args_to_matching_eager([seq_lengths], _ctx, _dtypes.int64)
-    _attr_Tlen = _attr_Tlen.as_datatype_enum
-    _inputs_flat = [input, seq_lengths]
-    _attrs = ("seq_dim", seq_dim, "batch_dim", batch_dim, "T", _attr_T,
-              "Tlen", _attr_Tlen)
-    _result = _execute.execute(b"ReverseSequence", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "ReverseSequence", name, _ctx._post_execution_callbacks, input,
+        seq_lengths, "seq_dim", seq_dim, "batch_dim", batch_dim)
+      return _result
+    except _core._FallbackException:
+      return reverse_sequence_eager_fallback(
+          input, seq_lengths, seq_dim=seq_dim, batch_dim=batch_dim, name=name,
+          ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def reverse_sequence_eager_fallback(input, seq_lengths, seq_dim, batch_dim=0, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function reverse_sequence
+  """
+  _ctx = ctx if ctx else _context.context()
+  seq_dim = _execute.make_int(seq_dim, "seq_dim")
+  if batch_dim is None:
+    batch_dim = 0
+  batch_dim = _execute.make_int(batch_dim, "batch_dim")
+  _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
+  _attr_Tlen, (seq_lengths,) = _execute.args_to_matching_eager([seq_lengths], _ctx, _dtypes.int64)
+  _inputs_flat = [input, seq_lengths]
+  _attrs = ("seq_dim", seq_dim, "batch_dim", batch_dim, "T", _attr_T, "Tlen",
+  _attr_Tlen)
+  _result = _execute.execute(b"ReverseSequence", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "ReverseSequence", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
+@tf_export('manip.reverse', 'reverse', 'reverse_v2')
+@deprecated_endpoints('reverse', 'reverse_v2')
 def reverse_v2(tensor, axis, name=None):
   r"""Reverses specific dimensions of a tensor.
 
@@ -4227,7 +6708,7 @@ def reverse_v2(tensor, axis, name=None):
   #                  [20, 21, 22, 23]]]]
   # tensor 't' shape is [1, 2, 3, 4]
 
-  # 'dims' is [3] or 'dims' is -1
+  # 'dims' is [3] or 'dims' is [-1]
   reverse(t, dims) ==> [[[[ 3,  2,  1,  0],
                           [ 7,  6,  5,  4],
                           [ 11, 10, 9, 8]],
@@ -4253,7 +6734,7 @@ def reverse_v2(tensor, axis, name=None):
   ```
 
   Args:
-    tensor: A `Tensor`. Must be one of the following types: `uint8`, `int8`, `uint16`, `int16`, `int32`, `int64`, `bool`, `half`, `float32`, `float64`, `complex64`, `complex128`, `string`.
+    tensor: A `Tensor`. Must be one of the following types: `uint8`, `int8`, `uint16`, `int16`, `int32`, `int64`, `bool`, `bfloat16`, `half`, `float32`, `float64`, `complex64`, `complex128`, `string`.
       Up to 8-D.
     axis: A `Tensor`. Must be one of the following types: `int32`, `int64`.
       1-D. The indices of the dimensions to reverse. Must be in the range
@@ -4261,40 +6742,70 @@ def reverse_v2(tensor, axis, name=None):
     name: A name for the operation (optional).
 
   Returns:
-    A `Tensor`. Has the same type as `tensor`. The same shape as `tensor`.
+    A `Tensor`. Has the same type as `tensor`.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "ReverseV2", tensor=tensor, axis=axis, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("Tidx", _op.get_attr("Tidx"), "T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "ReverseV2", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_Tidx, (axis,) = _execute.args_to_matching_eager([axis], _ctx, _dtypes.int32)
-    _attr_Tidx = _attr_Tidx.as_datatype_enum
-    _attr_T, (tensor,) = _execute.args_to_matching_eager([tensor], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    _inputs_flat = [tensor, axis]
-    _attrs = ("Tidx", _attr_Tidx, "T", _attr_T)
-    _result = _execute.execute(b"ReverseV2", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "ReverseV2",
+        name, _ctx._post_execution_callbacks, tensor, axis)
+      return _result
+    except _core._FallbackException:
+      return reverse_v2_eager_fallback(
+          tensor, axis, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def reverse_v2_eager_fallback(tensor, axis, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function reverse_v2
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_Tidx, (axis,) = _execute.args_to_matching_eager([axis], _ctx, _dtypes.int32)
+  _attr_T, (tensor,) = _execute.args_to_matching_eager([tensor], _ctx)
+  _inputs_flat = [tensor, axis]
+  _attrs = ("Tidx", _attr_Tidx, "T", _attr_T)
+  _result = _execute.execute(b"ReverseV2", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "ReverseV2", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
+@tf_export('manip.scatter_nd', 'scatter_nd')
+@deprecated_endpoints('scatter_nd')
 def scatter_nd(indices, updates, shape, name=None):
-  r"""Scatter `updates` into a new (initially zero) tensor according to `indices`.
+  r"""Scatter `updates` into a new tensor according to `indices`.
 
-  Creates a new tensor by applying sparse `updates` to individual
-  values or slices within a zero tensor of the given `shape` according to
-  indices.  This operator is the inverse of the @{tf.gather_nd} operator which
-  extracts values or slices from a given tensor.
+  Creates a new tensor by applying sparse `updates` to individual values or
+  slices within a tensor (initially zero for numeric, empty for string) of
+  the given `shape` according to indices.  This operator is the inverse of the
+  `tf.gather_nd` operator which extracts values or slices from a given tensor.
+
+  If `indices` contains duplicates, then their updates are accumulated (summed).
 
   **WARNING**: The order in which updates are applied is nondeterministic, so the
-  output will be nondeterministic if `indices` contains duplicates.
+  output will be nondeterministic if `indices` contains duplicates -- because
+  of some numerical approximation issues, numbers summed in different order
+  may yield different results.
 
   `indices` is an integer tensor containing indices into a new tensor of shape
   `shape`.  The last dimension of `indices` can be at most the rank of `shape`:
@@ -4360,6 +6871,9 @@ def scatter_nd(indices, updates, shape, name=None):
        [[5, 5, 5, 5], [6, 6, 6, 6], [7, 7, 7, 7], [8, 8, 8, 8]],
        [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]]
 
+  Note that on CPU, if an out of bound index is found, an error is returned.
+  On GPU, if an out of bound index is found, the index is ignored.
+
   Args:
     indices: A `Tensor`. Must be one of the following types: `int32`, `int64`.
       Index tensor.
@@ -4370,26 +6884,48 @@ def scatter_nd(indices, updates, shape, name=None):
 
   Returns:
     A `Tensor`. Has the same type as `updates`.
-    A new tensor with the given shape and updates applied according
-    to the indices.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "ScatterNd", indices=indices, updates=updates, shape=shape, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"), "Tindices", _op.get_attr("Tindices"))
+    _execute.record_gradient(
+      "ScatterNd", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (updates,) = _execute.args_to_matching_eager([updates], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    _attr_Tindices, _inputs_Tindices = _execute.args_to_matching_eager([indices, shape], _ctx)
-    (indices, shape) = _inputs_Tindices
-    _attr_Tindices = _attr_Tindices.as_datatype_enum
-    _inputs_flat = [indices, updates, shape]
-    _attrs = ("T", _attr_T, "Tindices", _attr_Tindices)
-    _result = _execute.execute(b"ScatterNd", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "ScatterNd",
+        name, _ctx._post_execution_callbacks, indices, updates, shape)
+      return _result
+    except _core._FallbackException:
+      return scatter_nd_eager_fallback(
+          indices, updates, shape, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def scatter_nd_eager_fallback(indices, updates, shape, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function scatter_nd
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, (updates,) = _execute.args_to_matching_eager([updates], _ctx)
+  _attr_Tindices, _inputs_Tindices = _execute.args_to_matching_eager([indices, shape], _ctx)
+  (indices, shape) = _inputs_Tindices
+  _inputs_flat = [indices, updates, shape]
+  _attrs = ("T", _attr_T, "Tindices", _attr_Tindices)
+  _result = _execute.execute(b"ScatterNd", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "ScatterNd", _inputs_flat, _attrs, _result, name)
   _result, = _result
@@ -4407,7 +6943,7 @@ def scatter_nd_non_aliasing_add(input, indices, updates, name=None):
   `input` is a `Tensor` with rank `P` and `indices` is a `Tensor` of rank `Q`.
 
   `indices` must be integer tensor, containing indices into `input`.
-  It must be shape `[d_0, ..., d_{Q-2}, K]` where `0 < K <= P`.
+  It must be shape \\([d_0, ..., d_{Q-2}, K]\\) where `0 < K <= P`.
 
   The innermost dimension of `indices` (with length `K`) corresponds to
   indices into elements (if `K = P`) or `(P-K)`-dimensional slices
@@ -4415,9 +6951,7 @@ def scatter_nd_non_aliasing_add(input, indices, updates, name=None):
 
   `updates` is `Tensor` of rank `Q-1+P-K` with shape:
 
-  ```
-  [d_0, ..., d_{Q-2}, input.shape[K], ..., input.shape[P-1]].
-  ```
+  $$[d_0, ..., d_{Q-2}, input.shape[K], ..., input.shape[P-1]].$$
 
   For example, say we want to add 4 scattered elements to a rank-1 tensor to 8
   elements. In Python, that addition would look like this:
@@ -4433,10 +6967,10 @@ def scatter_nd_non_aliasing_add(input, indices, updates, name=None):
 
       [1, 13, 3, 14, 14, 6, 7, 20]
 
-  See @{tf.scatter_nd} for more details about how to make updates to slices.
+  See `tf.scatter_nd` for more details about how to make updates to slices.
 
   Args:
-    input: A `Tensor`. Must be one of the following types: `float32`, `float64`, `int64`, `int32`, `uint8`, `uint16`, `int16`, `int8`, `complex64`, `complex128`, `qint8`, `quint8`, `qint32`, `half`.
+    input: A `Tensor`. Must be one of the following types: `float32`, `float64`, `int32`, `uint8`, `int16`, `int8`, `complex64`, `int64`, `qint8`, `quint8`, `qint32`, `bfloat16`, `uint16`, `complex128`, `half`, `uint32`, `uint64`, `bool`.
       A Tensor.
     indices: A `Tensor`. Must be one of the following types: `int32`, `int64`.
       A Tensor. Must be one of the following types: `int32`, `int64`.
@@ -4448,28 +6982,51 @@ def scatter_nd_non_aliasing_add(input, indices, updates, name=None):
 
   Returns:
     A `Tensor`. Has the same type as `input`.
-    A `Tensor` with the same shape as `input`, containing values of `input`
-    updated with `updates`.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "ScatterNdNonAliasingAdd", input=input, indices=indices,
         updates=updates, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"), "Tindices", _op.get_attr("Tindices"))
+    _execute.record_gradient(
+      "ScatterNdNonAliasingAdd", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, _inputs_T = _execute.args_to_matching_eager([input, updates], _ctx)
-    (input, updates) = _inputs_T
-    _attr_T = _attr_T.as_datatype_enum
-    _attr_Tindices, (indices,) = _execute.args_to_matching_eager([indices], _ctx)
-    _attr_Tindices = _attr_Tindices.as_datatype_enum
-    _inputs_flat = [input, indices, updates]
-    _attrs = ("T", _attr_T, "Tindices", _attr_Tindices)
-    _result = _execute.execute(b"ScatterNdNonAliasingAdd", 1,
-                               inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
-                               name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "ScatterNdNonAliasingAdd", name, _ctx._post_execution_callbacks,
+        input, indices, updates)
+      return _result
+    except _core._FallbackException:
+      return scatter_nd_non_aliasing_add_eager_fallback(
+          input, indices, updates, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def scatter_nd_non_aliasing_add_eager_fallback(input, indices, updates, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function scatter_nd_non_aliasing_add
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, _inputs_T = _execute.args_to_matching_eager([input, updates], _ctx)
+  (input, updates) = _inputs_T
+  _attr_Tindices, (indices,) = _execute.args_to_matching_eager([indices], _ctx)
+  _inputs_flat = [input, indices, updates]
+  _attrs = ("T", _attr_T, "Tindices", _attr_Tindices)
+  _result = _execute.execute(b"ScatterNdNonAliasingAdd", 1,
+                             inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
+                             name=name)
   _execute.record_gradient(
       "ScatterNdNonAliasingAdd", _inputs_flat, _attrs, _result, name)
   _result, = _result
@@ -4496,23 +7053,51 @@ def shape(input, out_type=_dtypes.int32, name=None):
   Returns:
     A `Tensor` of type `out_type`.
   """
-  if out_type is None:
-    out_type = _dtypes.int32
-  out_type = _execute.make_type(out_type, "out_type")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if out_type is None:
+      out_type = _dtypes.int32
+    out_type = _execute.make_type(out_type, "out_type")
     _, _, _op = _op_def_lib._apply_op_helper(
         "Shape", input=input, out_type=out_type, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"), "out_type", _op.get_attr("out_type"))
+    _execute.record_gradient(
+      "Shape", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    _inputs_flat = [input]
-    _attrs = ("T", _attr_T, "out_type", out_type)
-    _result = _execute.execute(b"Shape", 1, inputs=_inputs_flat, attrs=_attrs,
-                               ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "Shape", name,
+        _ctx._post_execution_callbacks, input, "out_type", out_type)
+      return _result
+    except _core._FallbackException:
+      return shape_eager_fallback(
+          input, out_type=out_type, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def shape_eager_fallback(input, out_type=_dtypes.int32, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function shape
+  """
+  _ctx = ctx if ctx else _context.context()
+  if out_type is None:
+    out_type = _dtypes.int32
+  out_type = _execute.make_type(out_type, "out_type")
+  _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
+  _inputs_flat = [input]
+  _attrs = ("T", _attr_T, "out_type", out_type)
+  _result = _execute.execute(b"Shape", 1, inputs=_inputs_flat, attrs=_attrs,
+                             ctx=_ctx, name=name)
   _execute.record_gradient(
       "Shape", _inputs_flat, _attrs, _result, name)
   _result, = _result
@@ -4532,6 +7117,48 @@ def shape_n(input, out_type=_dtypes.int32, name=None):
   Returns:
     A list with the same length as `input` of `Tensor` objects with type `out_type`.
   """
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if not isinstance(input, (list, tuple)):
+      raise TypeError(
+          "Expected list for 'input' argument to "
+          "'shape_n' Op, not %r." % input)
+    _attr_N = len(input)
+    if out_type is None:
+      out_type = _dtypes.int32
+    out_type = _execute.make_type(out_type, "out_type")
+    _, _, _op = _op_def_lib._apply_op_helper(
+        "ShapeN", input=input, out_type=out_type, name=name)
+    _result = _op.outputs[:]
+    _inputs_flat = _op.inputs
+    _attrs = ("N", _op.get_attr("N"), "T", _op.get_attr("T"), "out_type",
+              _op.get_attr("out_type"))
+    _execute.record_gradient(
+      "ShapeN", _inputs_flat, _attrs, _result, name)
+    return _result
+
+  else:
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "ShapeN", name,
+        _ctx._post_execution_callbacks, input, "out_type", out_type)
+      return _result
+    except _core._FallbackException:
+      return shape_n_eager_fallback(
+          input, out_type=out_type, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def shape_n_eager_fallback(input, out_type=_dtypes.int32, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function shape_n
+  """
+  _ctx = ctx if ctx else _context.context()
   if not isinstance(input, (list, tuple)):
     raise TypeError(
         "Expected list for 'input' argument to "
@@ -4540,21 +7167,11 @@ def shape_n(input, out_type=_dtypes.int32, name=None):
   if out_type is None:
     out_type = _dtypes.int32
   out_type = _execute.make_type(out_type, "out_type")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
-    _, _, _op = _op_def_lib._apply_op_helper(
-        "ShapeN", input=input, out_type=out_type, name=name)
-    _result = _op.outputs[:]
-    _inputs_flat = _op.inputs
-    _attrs = ("N", _op.get_attr("N"), "T", _op.get_attr("T"), "out_type",
-              _op.get_attr("out_type"))
-  else:
-    _attr_T, input = _execute.args_to_matching_eager(list(input), _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    _inputs_flat = list(input)
-    _attrs = ("N", _attr_N, "T", _attr_T, "out_type", out_type)
-    _result = _execute.execute(b"ShapeN", _attr_N, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+  _attr_T, input = _execute.args_to_matching_eager(list(input), _ctx)
+  _inputs_flat = list(input)
+  _attrs = ("N", _attr_N, "T", _attr_T, "out_type", out_type)
+  _result = _execute.execute(b"ShapeN", _attr_N, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "ShapeN", _inputs_flat, _attrs, _result, name)
   return _result
@@ -4581,23 +7198,51 @@ def size(input, out_type=_dtypes.int32, name=None):
   Returns:
     A `Tensor` of type `out_type`.
   """
-  if out_type is None:
-    out_type = _dtypes.int32
-  out_type = _execute.make_type(out_type, "out_type")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if out_type is None:
+      out_type = _dtypes.int32
+    out_type = _execute.make_type(out_type, "out_type")
     _, _, _op = _op_def_lib._apply_op_helper(
         "Size", input=input, out_type=out_type, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"), "out_type", _op.get_attr("out_type"))
+    _execute.record_gradient(
+      "Size", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    _inputs_flat = [input]
-    _attrs = ("T", _attr_T, "out_type", out_type)
-    _result = _execute.execute(b"Size", 1, inputs=_inputs_flat, attrs=_attrs,
-                               ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "Size", name,
+        _ctx._post_execution_callbacks, input, "out_type", out_type)
+      return _result
+    except _core._FallbackException:
+      return size_eager_fallback(
+          input, out_type=out_type, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def size_eager_fallback(input, out_type=_dtypes.int32, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function size
+  """
+  _ctx = ctx if ctx else _context.context()
+  if out_type is None:
+    out_type = _dtypes.int32
+  out_type = _execute.make_type(out_type, "out_type")
+  _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
+  _inputs_flat = [input]
+  _attrs = ("T", _attr_T, "out_type", out_type)
+  _result = _execute.execute(b"Size", 1, inputs=_inputs_flat, attrs=_attrs,
+                             ctx=_ctx, name=name)
   _execute.record_gradient(
       "Size", _inputs_flat, _attrs, _result, name)
   _result, = _result
@@ -4629,30 +7274,109 @@ def _slice(input, begin, size, name=None):
   Returns:
     A `Tensor`. Has the same type as `input`.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "Slice", input=input, begin=begin, size=size, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"), "Index", _op.get_attr("Index"))
+    _execute.record_gradient(
+      "Slice", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    _attr_Index, _inputs_Index = _execute.args_to_matching_eager([begin, size], _ctx)
-    (begin, size) = _inputs_Index
-    _attr_Index = _attr_Index.as_datatype_enum
-    _inputs_flat = [input, begin, size]
-    _attrs = ("T", _attr_T, "Index", _attr_Index)
-    _result = _execute.execute(b"Slice", 1, inputs=_inputs_flat, attrs=_attrs,
-                               ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "Slice", name,
+        _ctx._post_execution_callbacks, input, begin, size)
+      return _result
+    except _core._FallbackException:
+      return _slice_eager_fallback(
+          input, begin, size, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def _slice_eager_fallback(input, begin, size, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function _slice
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
+  _attr_Index, _inputs_Index = _execute.args_to_matching_eager([begin, size], _ctx)
+  (begin, size) = _inputs_Index
+  _inputs_flat = [input, begin, size]
+  _attrs = ("T", _attr_T, "Index", _attr_Index)
+  _result = _execute.execute(b"Slice", 1, inputs=_inputs_flat, attrs=_attrs,
+                             ctx=_ctx, name=name)
   _execute.record_gradient(
       "Slice", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
-def _space_to_batch(input, paddings, block_size, name=None):
+def snapshot(input, name=None):
+  r"""Returns a copy of the input tensor.
+
+  Args:
+    input: A `Tensor`.
+    name: A name for the operation (optional).
+
+  Returns:
+    A `Tensor`. Has the same type as `input`.
+  """
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    _, _, _op = _op_def_lib._apply_op_helper(
+        "Snapshot", input=input, name=name)
+    _result = _op.outputs[:]
+    _inputs_flat = _op.inputs
+    _attrs = ("T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "Snapshot", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
+  else:
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "Snapshot",
+        name, _ctx._post_execution_callbacks, input)
+      return _result
+    except _core._FallbackException:
+      return snapshot_eager_fallback(
+          input, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def snapshot_eager_fallback(input, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function snapshot
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
+  _inputs_flat = [input]
+  _attrs = ("T", _attr_T)
+  _result = _execute.execute(b"Snapshot", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
+  _execute.record_gradient(
+      "Snapshot", _inputs_flat, _attrs, _result, name)
+  _result, = _result
+  return _result
+
+
+def space_to_batch(input, paddings, block_size, name=None):
   r"""SpaceToBatch for 4-D tensors of type T.
 
   This is a legacy version of the more general SpaceToBatchND.
@@ -4757,9 +7481,9 @@ def _space_to_batch(input, paddings, block_size, name=None):
   Returns:
     A `Tensor`. Has the same type as `input`.
   """
-  block_size = _execute.make_int(block_size, "block_size")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    block_size = _execute.make_int(block_size, "block_size")
     _, _, _op = _op_def_lib._apply_op_helper(
         "SpaceToBatch", input=input, paddings=paddings, block_size=block_size,
         name=name)
@@ -4767,22 +7491,50 @@ def _space_to_batch(input, paddings, block_size, name=None):
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"), "Tpaddings", _op.get_attr("Tpaddings"),
               "block_size", _op.get_attr("block_size"))
+    _execute.record_gradient(
+      "SpaceToBatch", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    _attr_Tpaddings, (paddings,) = _execute.args_to_matching_eager([paddings], _ctx, _dtypes.int32)
-    _attr_Tpaddings = _attr_Tpaddings.as_datatype_enum
-    _inputs_flat = [input, paddings]
-    _attrs = ("T", _attr_T, "Tpaddings", _attr_Tpaddings, "block_size",
-              block_size)
-    _result = _execute.execute(b"SpaceToBatch", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "SpaceToBatch",
+        name, _ctx._post_execution_callbacks, input, paddings, "block_size",
+        block_size)
+      return _result
+    except _core._FallbackException:
+      return space_to_batch_eager_fallback(
+          input, paddings, block_size=block_size, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def space_to_batch_eager_fallback(input, paddings, block_size, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function space_to_batch
+  """
+  _ctx = ctx if ctx else _context.context()
+  block_size = _execute.make_int(block_size, "block_size")
+  _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
+  _attr_Tpaddings, (paddings,) = _execute.args_to_matching_eager([paddings], _ctx, _dtypes.int32)
+  _inputs_flat = [input, paddings]
+  _attrs = ("T", _attr_T, "Tpaddings", _attr_Tpaddings, "block_size",
+  block_size)
+  _result = _execute.execute(b"SpaceToBatch", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "SpaceToBatch", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
+@tf_export('manip.space_to_batch_nd', 'space_to_batch_nd')
+@deprecated_endpoints('space_to_batch_nd')
 def space_to_batch_nd(input, block_shape, paddings, name=None):
   r"""SpaceToBatch for N-D tensors of type T.
 
@@ -4915,8 +7667,8 @@ def space_to_batch_nd(input, block_shape, paddings, name=None):
   Returns:
     A `Tensor`. Has the same type as `input`.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "SpaceToBatchND", input=input, block_shape=block_shape,
         paddings=paddings, name=name)
@@ -4925,18 +7677,42 @@ def space_to_batch_nd(input, block_shape, paddings, name=None):
     _attrs = ("T", _op.get_attr("T"), "Tblock_shape",
               _op.get_attr("Tblock_shape"), "Tpaddings",
               _op.get_attr("Tpaddings"))
+    _execute.record_gradient(
+      "SpaceToBatchND", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    _attr_Tblock_shape, (block_shape,) = _execute.args_to_matching_eager([block_shape], _ctx, _dtypes.int32)
-    _attr_Tblock_shape = _attr_Tblock_shape.as_datatype_enum
-    _attr_Tpaddings, (paddings,) = _execute.args_to_matching_eager([paddings], _ctx, _dtypes.int32)
-    _attr_Tpaddings = _attr_Tpaddings.as_datatype_enum
-    _inputs_flat = [input, block_shape, paddings]
-    _attrs = ("T", _attr_T, "Tblock_shape", _attr_Tblock_shape, "Tpaddings",
-              _attr_Tpaddings)
-    _result = _execute.execute(b"SpaceToBatchND", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "SpaceToBatchND", name, _ctx._post_execution_callbacks, input,
+        block_shape, paddings)
+      return _result
+    except _core._FallbackException:
+      return space_to_batch_nd_eager_fallback(
+          input, block_shape, paddings, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def space_to_batch_nd_eager_fallback(input, block_shape, paddings, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function space_to_batch_nd
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
+  _attr_Tblock_shape, (block_shape,) = _execute.args_to_matching_eager([block_shape], _ctx, _dtypes.int32)
+  _attr_Tpaddings, (paddings,) = _execute.args_to_matching_eager([paddings], _ctx, _dtypes.int32)
+  _inputs_flat = [input, block_shape, paddings]
+  _attrs = ("T", _attr_T, "Tblock_shape", _attr_Tblock_shape, "Tpaddings",
+  _attr_Tpaddings)
+  _result = _execute.execute(b"SpaceToBatchND", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "SpaceToBatchND", _inputs_flat, _attrs, _result, name)
   _result, = _result
@@ -4963,7 +7739,7 @@ def space_to_depth(input, block_size, data_format="NHWC", name=None):
     "NHWC": `[ batch, height, width, channels ]`
     "NCHW": `[ batch, channels, height, width ]`
     "NCHW_VECT_C":
-        `qint8 [ batch, channels / 4, height, width, channels % 4 ]`
+        `qint8 [ batch, channels / 4, height, width, 4 ]`
 
   It is useful to consider the operation as transforming a 6-D Tensor.
   e.g. for data_format = NHWC,
@@ -5039,12 +7815,12 @@ def space_to_depth(input, block_size, data_format="NHWC", name=None):
   Returns:
     A `Tensor`. Has the same type as `input`.
   """
-  block_size = _execute.make_int(block_size, "block_size")
-  if data_format is None:
-    data_format = "NHWC"
-  data_format = _execute.make_str(data_format, "data_format")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    block_size = _execute.make_int(block_size, "block_size")
+    if data_format is None:
+      data_format = "NHWC"
+    data_format = _execute.make_str(data_format, "data_format")
     _, _, _op = _op_def_lib._apply_op_helper(
         "SpaceToDepth", input=input, block_size=block_size,
         data_format=data_format, name=name)
@@ -5053,25 +7829,56 @@ def space_to_depth(input, block_size, data_format="NHWC", name=None):
     _attrs = ("T", _op.get_attr("T"), "block_size",
               _op.get_attr("block_size"), "data_format",
               _op.get_attr("data_format"))
+    _execute.record_gradient(
+      "SpaceToDepth", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    _inputs_flat = [input]
-    _attrs = ("T", _attr_T, "block_size", block_size, "data_format",
-              data_format)
-    _result = _execute.execute(b"SpaceToDepth", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "SpaceToDepth",
+        name, _ctx._post_execution_callbacks, input, "block_size", block_size,
+        "data_format", data_format)
+      return _result
+    except _core._FallbackException:
+      return space_to_depth_eager_fallback(
+          input, block_size=block_size, data_format=data_format, name=name,
+          ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def space_to_depth_eager_fallback(input, block_size, data_format="NHWC", name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function space_to_depth
+  """
+  _ctx = ctx if ctx else _context.context()
+  block_size = _execute.make_int(block_size, "block_size")
+  if data_format is None:
+    data_format = "NHWC"
+  data_format = _execute.make_str(data_format, "data_format")
+  _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
+  _inputs_flat = [input]
+  _attrs = ("T", _attr_T, "block_size", block_size, "data_format",
+  data_format)
+  _result = _execute.execute(b"SpaceToDepth", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "SpaceToDepth", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
-def _split(split_dim, value, num_split, name=None):
+def split(axis, value, num_split, name=None):
   r"""Splits a tensor into `num_split` tensors along one dimension.
 
   Args:
-    split_dim: A `Tensor` of type `int32`.
+    axis: A `Tensor` of type `int32`.
       0-D.  The dimension along which to split.  Must be in the range
       `[-rank(value), rank(value))`.
     value: A `Tensor`. The tensor to split.
@@ -5082,33 +7889,54 @@ def _split(split_dim, value, num_split, name=None):
 
   Returns:
     A list of `num_split` `Tensor` objects with the same type as `value`.
-    They are identically shaped tensors, whose shape matches that of `value`
-    except along `split_dim`, where their sizes are
-    `values.shape[split_dim] / num_split`.
   """
-  num_split = _execute.make_int(num_split, "num_split")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    num_split = _execute.make_int(num_split, "num_split")
     _, _, _op = _op_def_lib._apply_op_helper(
-        "Split", split_dim=split_dim, value=value, num_split=num_split,
-        name=name)
+        "Split", split_dim=axis, value=value, num_split=num_split, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("num_split", _op.get_attr("num_split"), "T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "Split", _inputs_flat, _attrs, _result, name)
+    return _result
+
   else:
-    _attr_T, (value,) = _execute.args_to_matching_eager([value], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    split_dim = _ops.convert_to_tensor(split_dim, _dtypes.int32)
-    _inputs_flat = [split_dim, value]
-    _attrs = ("num_split", num_split, "T", _attr_T)
-    _result = _execute.execute(b"Split", num_split, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "Split", name,
+        _ctx._post_execution_callbacks, axis, value, "num_split", num_split)
+      return _result
+    except _core._FallbackException:
+      return split_eager_fallback(
+          axis, value, num_split=num_split, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def split_eager_fallback(axis, value, num_split, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function split
+  """
+  _ctx = ctx if ctx else _context.context()
+  num_split = _execute.make_int(num_split, "num_split")
+  _attr_T, (value,) = _execute.args_to_matching_eager([value], _ctx)
+  axis = _ops.convert_to_tensor(axis, _dtypes.int32)
+  _inputs_flat = [axis, value]
+  _attrs = ("num_split", num_split, "T", _attr_T)
+  _result = _execute.execute(b"Split", num_split, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "Split", _inputs_flat, _attrs, _result, name)
   return _result
 
 
-def _split_v(value, size_splits, split_dim, num_split, name=None):
+def split_v(value, size_splits, axis, num_split, name=None):
   r"""Splits a tensor into `num_split` tensors along one dimension.
 
   Args:
@@ -5117,7 +7945,7 @@ def _split_v(value, size_splits, split_dim, num_split, name=None):
       list containing the sizes of each output tensor along the split
       dimension. Must sum to the dimension of value along split_dim.
       Can contain one -1 indicating that dimension is to be inferred.
-    split_dim: A `Tensor` of type `int32`.
+    axis: A `Tensor` of type `int32`.
       0-D.  The dimension along which to split.  Must be in the range
       `[-rank(value), rank(value))`.
     num_split: An `int` that is `>= 1`.
@@ -5125,42 +7953,64 @@ def _split_v(value, size_splits, split_dim, num_split, name=None):
 
   Returns:
     A list of `num_split` `Tensor` objects with the same type as `value`.
-    Tensors whose shape matches that of `value`
-    except along `split_dim`, where their sizes are
-    `size_splits[i]`.
   """
-  num_split = _execute.make_int(num_split, "num_split")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    num_split = _execute.make_int(num_split, "num_split")
     _, _, _op = _op_def_lib._apply_op_helper(
-        "SplitV", value=value, size_splits=size_splits, split_dim=split_dim,
+        "SplitV", value=value, size_splits=size_splits, split_dim=axis,
         num_split=num_split, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("num_split", _op.get_attr("num_split"), "T", _op.get_attr("T"),
               "Tlen", _op.get_attr("Tlen"))
+    _execute.record_gradient(
+      "SplitV", _inputs_flat, _attrs, _result, name)
+    return _result
+
   else:
-    _attr_T, (value,) = _execute.args_to_matching_eager([value], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    _attr_Tlen, (size_splits,) = _execute.args_to_matching_eager([size_splits], _ctx, _dtypes.int64)
-    _attr_Tlen = _attr_Tlen.as_datatype_enum
-    split_dim = _ops.convert_to_tensor(split_dim, _dtypes.int32)
-    _inputs_flat = [value, size_splits, split_dim]
-    _attrs = ("num_split", num_split, "T", _attr_T, "Tlen", _attr_Tlen)
-    _result = _execute.execute(b"SplitV", num_split, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "SplitV", name,
+        _ctx._post_execution_callbacks, value, size_splits, axis, "num_split",
+        num_split)
+      return _result
+    except _core._FallbackException:
+      return split_v_eager_fallback(
+          value, size_splits, axis, num_split=num_split, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def split_v_eager_fallback(value, size_splits, axis, num_split, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function split_v
+  """
+  _ctx = ctx if ctx else _context.context()
+  num_split = _execute.make_int(num_split, "num_split")
+  _attr_T, (value,) = _execute.args_to_matching_eager([value], _ctx)
+  _attr_Tlen, (size_splits,) = _execute.args_to_matching_eager([size_splits], _ctx, _dtypes.int64)
+  axis = _ops.convert_to_tensor(axis, _dtypes.int32)
+  _inputs_flat = [value, size_splits, axis]
+  _attrs = ("num_split", num_split, "T", _attr_T, "Tlen", _attr_Tlen)
+  _result = _execute.execute(b"SplitV", num_split, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "SplitV", _inputs_flat, _attrs, _result, name)
   return _result
 
 
-def _squeeze(input, squeeze_dims=[], name=None):
+def squeeze(input, axis=[], name=None):
   r"""Removes dimensions of size 1 from the shape of a tensor.
 
   Given a tensor `input`, this operation returns a tensor of the same type with
   all dimensions of size 1 removed. If you don't want to remove all size 1
   dimensions, you can remove specific size 1 dimensions by specifying
-  `squeeze_dims`.
+  `axis`.
 
   For example:
 
@@ -5178,7 +8028,7 @@ def _squeeze(input, squeeze_dims=[], name=None):
 
   Args:
     input: A `Tensor`. The `input` to squeeze.
-    squeeze_dims: An optional list of `ints`. Defaults to `[]`.
+    axis: An optional list of `ints`. Defaults to `[]`.
       If specified, only squeezes the dimensions listed. The dimension
       index starts at 0. It is an error to squeeze a dimension that is not 1. Must
       be in the range `[-rank(input), rank(input))`.
@@ -5186,37 +8036,68 @@ def _squeeze(input, squeeze_dims=[], name=None):
 
   Returns:
     A `Tensor`. Has the same type as `input`.
-    Contains the same data as `input`, but has one or more dimensions of
-    size 1 removed.
   """
-  if squeeze_dims is None:
-    squeeze_dims = []
-  if not isinstance(squeeze_dims, (list, tuple)):
-    raise TypeError(
-        "Expected list for 'squeeze_dims' argument to "
-        "'squeeze' Op, not %r." % squeeze_dims)
-  squeeze_dims = [_execute.make_int(_i, "squeeze_dims") for _i in squeeze_dims]
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if axis is None:
+      axis = []
+    if not isinstance(axis, (list, tuple)):
+      raise TypeError(
+          "Expected list for 'axis' argument to "
+          "'squeeze' Op, not %r." % axis)
+    axis = [_execute.make_int(_i, "axis") for _i in axis]
     _, _, _op = _op_def_lib._apply_op_helper(
-        "Squeeze", input=input, squeeze_dims=squeeze_dims, name=name)
+        "Squeeze", input=input, squeeze_dims=axis, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"), "squeeze_dims",
               _op.get_attr("squeeze_dims"))
+    _execute.record_gradient(
+      "Squeeze", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    _inputs_flat = [input]
-    _attrs = ("T", _attr_T, "squeeze_dims", squeeze_dims)
-    _result = _execute.execute(b"Squeeze", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "Squeeze",
+        name, _ctx._post_execution_callbacks, input, "squeeze_dims", axis)
+      return _result
+    except _core._FallbackException:
+      return squeeze_eager_fallback(
+          input, axis=axis, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def squeeze_eager_fallback(input, axis=[], name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function squeeze
+  """
+  _ctx = ctx if ctx else _context.context()
+  if axis is None:
+    axis = []
+  if not isinstance(axis, (list, tuple)):
+    raise TypeError(
+        "Expected list for 'axis' argument to "
+        "'squeeze' Op, not %r." % axis)
+  axis = [_execute.make_int(_i, "axis") for _i in axis]
+  _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
+  _inputs_flat = [input]
+  _attrs = ("T", _attr_T, "squeeze_dims", axis)
+  _result = _execute.execute(b"Squeeze", 1, inputs=_inputs_flat, attrs=_attrs,
+                             ctx=_ctx, name=name)
   _execute.record_gradient(
       "Squeeze", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
+@tf_export('stop_gradient')
 def stop_gradient(input, name=None):
   r"""Stops gradient computation.
 
@@ -5247,20 +8128,45 @@ def stop_gradient(input, name=None):
   Returns:
     A `Tensor`. Has the same type as `input`.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "StopGradient", input=input, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "StopGradient", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    _inputs_flat = [input]
-    _attrs = ("T", _attr_T)
-    _result = _execute.execute(b"StopGradient", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "StopGradient",
+        name, _ctx._post_execution_callbacks, input)
+      return _result
+    except _core._FallbackException:
+      return stop_gradient_eager_fallback(
+          input, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def stop_gradient_eager_fallback(input, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function stop_gradient
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
+  _inputs_flat = [input]
+  _attrs = ("T", _attr_T)
+  _result = _execute.execute(b"StopGradient", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "StopGradient", _inputs_flat, _attrs, _result, name)
   _result, = _result
@@ -5380,7 +8286,7 @@ def strided_slice(input, begin, end, strides, begin_mask=0, end_mask=0, ellipsis
     begin_mask: An optional `int`. Defaults to `0`.
       a bitmask where a bit i being 1 means to ignore the begin
       value and instead use the largest interval possible. At runtime
-      begin[i] will be replaced with `[0, n-1) if `stride[i] > 0` or
+      begin[i] will be replaced with `[0, n-1)` if `stride[i] > 0` or
       `[-1, n-1]` if `stride[i] < 0`
     end_mask: An optional `int`. Defaults to `0`. analogous to `begin_mask`
     ellipsis_mask: An optional `int`. Defaults to `0`.
@@ -5406,6 +8312,69 @@ def strided_slice(input, begin, end, strides, begin_mask=0, end_mask=0, ellipsis
   Returns:
     A `Tensor`. Has the same type as `input`.
   """
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if begin_mask is None:
+      begin_mask = 0
+    begin_mask = _execute.make_int(begin_mask, "begin_mask")
+    if end_mask is None:
+      end_mask = 0
+    end_mask = _execute.make_int(end_mask, "end_mask")
+    if ellipsis_mask is None:
+      ellipsis_mask = 0
+    ellipsis_mask = _execute.make_int(ellipsis_mask, "ellipsis_mask")
+    if new_axis_mask is None:
+      new_axis_mask = 0
+    new_axis_mask = _execute.make_int(new_axis_mask, "new_axis_mask")
+    if shrink_axis_mask is None:
+      shrink_axis_mask = 0
+    shrink_axis_mask = _execute.make_int(shrink_axis_mask, "shrink_axis_mask")
+    _, _, _op = _op_def_lib._apply_op_helper(
+        "StridedSlice", input=input, begin=begin, end=end, strides=strides,
+        begin_mask=begin_mask, end_mask=end_mask, ellipsis_mask=ellipsis_mask,
+        new_axis_mask=new_axis_mask, shrink_axis_mask=shrink_axis_mask,
+        name=name)
+    _result = _op.outputs[:]
+    _inputs_flat = _op.inputs
+    _attrs = ("T", _op.get_attr("T"), "Index", _op.get_attr("Index"),
+              "begin_mask", _op.get_attr("begin_mask"), "end_mask",
+              _op.get_attr("end_mask"), "ellipsis_mask",
+              _op.get_attr("ellipsis_mask"), "new_axis_mask",
+              _op.get_attr("new_axis_mask"), "shrink_axis_mask",
+              _op.get_attr("shrink_axis_mask"))
+    _execute.record_gradient(
+      "StridedSlice", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
+  else:
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "StridedSlice",
+        name, _ctx._post_execution_callbacks, input, begin, end, strides,
+        "begin_mask", begin_mask, "end_mask", end_mask, "ellipsis_mask",
+        ellipsis_mask, "new_axis_mask", new_axis_mask, "shrink_axis_mask",
+        shrink_axis_mask)
+      return _result
+    except _core._FallbackException:
+      return strided_slice_eager_fallback(
+          input, begin, end, strides, begin_mask=begin_mask,
+          end_mask=end_mask, ellipsis_mask=ellipsis_mask,
+          new_axis_mask=new_axis_mask, shrink_axis_mask=shrink_axis_mask,
+          name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def strided_slice_eager_fallback(input, begin, end, strides, begin_mask=0, end_mask=0, ellipsis_mask=0, new_axis_mask=0, shrink_axis_mask=0, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function strided_slice
+  """
+  _ctx = ctx if ctx else _context.context()
   if begin_mask is None:
     begin_mask = 0
   begin_mask = _execute.make_int(begin_mask, "begin_mask")
@@ -5421,34 +8390,15 @@ def strided_slice(input, begin, end, strides, begin_mask=0, end_mask=0, ellipsis
   if shrink_axis_mask is None:
     shrink_axis_mask = 0
   shrink_axis_mask = _execute.make_int(shrink_axis_mask, "shrink_axis_mask")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
-    _, _, _op = _op_def_lib._apply_op_helper(
-        "StridedSlice", input=input, begin=begin, end=end, strides=strides,
-        begin_mask=begin_mask, end_mask=end_mask, ellipsis_mask=ellipsis_mask,
-        new_axis_mask=new_axis_mask, shrink_axis_mask=shrink_axis_mask,
-        name=name)
-    _result = _op.outputs[:]
-    _inputs_flat = _op.inputs
-    _attrs = ("T", _op.get_attr("T"), "Index", _op.get_attr("Index"),
-              "begin_mask", _op.get_attr("begin_mask"), "end_mask",
-              _op.get_attr("end_mask"), "ellipsis_mask",
-              _op.get_attr("ellipsis_mask"), "new_axis_mask",
-              _op.get_attr("new_axis_mask"), "shrink_axis_mask",
-              _op.get_attr("shrink_axis_mask"))
-  else:
-    _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    _attr_Index, _inputs_Index = _execute.args_to_matching_eager([begin, end, strides], _ctx)
-    (begin, end, strides) = _inputs_Index
-    _attr_Index = _attr_Index.as_datatype_enum
-    _inputs_flat = [input, begin, end, strides]
-    _attrs = ("T", _attr_T, "Index", _attr_Index, "begin_mask", begin_mask,
-              "end_mask", end_mask, "ellipsis_mask", ellipsis_mask,
-              "new_axis_mask", new_axis_mask, "shrink_axis_mask",
-              shrink_axis_mask)
-    _result = _execute.execute(b"StridedSlice", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+  _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
+  _attr_Index, _inputs_Index = _execute.args_to_matching_eager([begin, end, strides], _ctx)
+  (begin, end, strides) = _inputs_Index
+  _inputs_flat = [input, begin, end, strides]
+  _attrs = ("T", _attr_T, "Index", _attr_Index, "begin_mask", begin_mask,
+  "end_mask", end_mask, "ellipsis_mask", ellipsis_mask, "new_axis_mask",
+  new_axis_mask, "shrink_axis_mask", shrink_axis_mask)
+  _result = _execute.execute(b"StridedSlice", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "StridedSlice", _inputs_flat, _attrs, _result, name)
   _result, = _result
@@ -5481,23 +8431,23 @@ def strided_slice_assign(ref, begin, end, strides, value, begin_mask=0, end_mask
   Returns:
     A mutable `Tensor`. Has the same type as `ref`.
   """
-  if begin_mask is None:
-    begin_mask = 0
-  begin_mask = _execute.make_int(begin_mask, "begin_mask")
-  if end_mask is None:
-    end_mask = 0
-  end_mask = _execute.make_int(end_mask, "end_mask")
-  if ellipsis_mask is None:
-    ellipsis_mask = 0
-  ellipsis_mask = _execute.make_int(ellipsis_mask, "ellipsis_mask")
-  if new_axis_mask is None:
-    new_axis_mask = 0
-  new_axis_mask = _execute.make_int(new_axis_mask, "new_axis_mask")
-  if shrink_axis_mask is None:
-    shrink_axis_mask = 0
-  shrink_axis_mask = _execute.make_int(shrink_axis_mask, "shrink_axis_mask")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if begin_mask is None:
+      begin_mask = 0
+    begin_mask = _execute.make_int(begin_mask, "begin_mask")
+    if end_mask is None:
+      end_mask = 0
+    end_mask = _execute.make_int(end_mask, "end_mask")
+    if ellipsis_mask is None:
+      ellipsis_mask = 0
+    ellipsis_mask = _execute.make_int(ellipsis_mask, "ellipsis_mask")
+    if new_axis_mask is None:
+      new_axis_mask = 0
+    new_axis_mask = _execute.make_int(new_axis_mask, "new_axis_mask")
+    if shrink_axis_mask is None:
+      shrink_axis_mask = 0
+    shrink_axis_mask = _execute.make_int(shrink_axis_mask, "shrink_axis_mask")
     _, _, _op = _op_def_lib._apply_op_helper(
         "StridedSliceAssign", ref=ref, begin=begin, end=end, strides=strides,
         value=value, begin_mask=begin_mask, end_mask=end_mask,
@@ -5511,14 +8461,16 @@ def strided_slice_assign(ref, begin, end, strides, value, begin_mask=0, end_mask
               _op.get_attr("ellipsis_mask"), "new_axis_mask",
               _op.get_attr("new_axis_mask"), "shrink_axis_mask",
               _op.get_attr("shrink_axis_mask"))
-  else:
-    raise RuntimeError(
-        "strided_slice_assign op does not support eager execution. Arg 'output_ref'' is a ref.")
-  _execute.record_gradient(
+    _execute.record_gradient(
       "StridedSliceAssign", _inputs_flat, _attrs, _result, name)
-  _result, = _result
-  return _result
+    _result, = _result
+    return _result
 
+  else:
+    raise RuntimeError("strided_slice_assign op does not support eager execution. Arg 'output_ref' is a ref.")
+
+
+  raise RuntimeError("strided_slice_assign op does not support eager execution. Arg 'output_ref' is a ref.")
 
 def strided_slice_grad(shape, begin, end, strides, dy, begin_mask=0, end_mask=0, ellipsis_mask=0, new_axis_mask=0, shrink_axis_mask=0, name=None):
   r"""Returns the gradient of `StridedSlice`.
@@ -5548,6 +8500,69 @@ def strided_slice_grad(shape, begin, end, strides, dy, begin_mask=0, end_mask=0,
   Returns:
     A `Tensor`. Has the same type as `dy`.
   """
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if begin_mask is None:
+      begin_mask = 0
+    begin_mask = _execute.make_int(begin_mask, "begin_mask")
+    if end_mask is None:
+      end_mask = 0
+    end_mask = _execute.make_int(end_mask, "end_mask")
+    if ellipsis_mask is None:
+      ellipsis_mask = 0
+    ellipsis_mask = _execute.make_int(ellipsis_mask, "ellipsis_mask")
+    if new_axis_mask is None:
+      new_axis_mask = 0
+    new_axis_mask = _execute.make_int(new_axis_mask, "new_axis_mask")
+    if shrink_axis_mask is None:
+      shrink_axis_mask = 0
+    shrink_axis_mask = _execute.make_int(shrink_axis_mask, "shrink_axis_mask")
+    _, _, _op = _op_def_lib._apply_op_helper(
+        "StridedSliceGrad", shape=shape, begin=begin, end=end,
+        strides=strides, dy=dy, begin_mask=begin_mask, end_mask=end_mask,
+        ellipsis_mask=ellipsis_mask, new_axis_mask=new_axis_mask,
+        shrink_axis_mask=shrink_axis_mask, name=name)
+    _result = _op.outputs[:]
+    _inputs_flat = _op.inputs
+    _attrs = ("T", _op.get_attr("T"), "Index", _op.get_attr("Index"),
+              "begin_mask", _op.get_attr("begin_mask"), "end_mask",
+              _op.get_attr("end_mask"), "ellipsis_mask",
+              _op.get_attr("ellipsis_mask"), "new_axis_mask",
+              _op.get_attr("new_axis_mask"), "shrink_axis_mask",
+              _op.get_attr("shrink_axis_mask"))
+    _execute.record_gradient(
+      "StridedSliceGrad", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
+  else:
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "StridedSliceGrad", name, _ctx._post_execution_callbacks, shape,
+        begin, end, strides, dy, "begin_mask", begin_mask, "end_mask",
+        end_mask, "ellipsis_mask", ellipsis_mask, "new_axis_mask",
+        new_axis_mask, "shrink_axis_mask", shrink_axis_mask)
+      return _result
+    except _core._FallbackException:
+      return strided_slice_grad_eager_fallback(
+          shape, begin, end, strides, dy, begin_mask=begin_mask,
+          end_mask=end_mask, ellipsis_mask=ellipsis_mask,
+          new_axis_mask=new_axis_mask, shrink_axis_mask=shrink_axis_mask,
+          name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def strided_slice_grad_eager_fallback(shape, begin, end, strides, dy, begin_mask=0, end_mask=0, ellipsis_mask=0, new_axis_mask=0, shrink_axis_mask=0, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function strided_slice_grad
+  """
+  _ctx = ctx if ctx else _context.context()
   if begin_mask is None:
     begin_mask = 0
   begin_mask = _execute.make_int(begin_mask, "begin_mask")
@@ -5563,40 +8578,23 @@ def strided_slice_grad(shape, begin, end, strides, dy, begin_mask=0, end_mask=0,
   if shrink_axis_mask is None:
     shrink_axis_mask = 0
   shrink_axis_mask = _execute.make_int(shrink_axis_mask, "shrink_axis_mask")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
-    _, _, _op = _op_def_lib._apply_op_helper(
-        "StridedSliceGrad", shape=shape, begin=begin, end=end,
-        strides=strides, dy=dy, begin_mask=begin_mask, end_mask=end_mask,
-        ellipsis_mask=ellipsis_mask, new_axis_mask=new_axis_mask,
-        shrink_axis_mask=shrink_axis_mask, name=name)
-    _result = _op.outputs[:]
-    _inputs_flat = _op.inputs
-    _attrs = ("T", _op.get_attr("T"), "Index", _op.get_attr("Index"),
-              "begin_mask", _op.get_attr("begin_mask"), "end_mask",
-              _op.get_attr("end_mask"), "ellipsis_mask",
-              _op.get_attr("ellipsis_mask"), "new_axis_mask",
-              _op.get_attr("new_axis_mask"), "shrink_axis_mask",
-              _op.get_attr("shrink_axis_mask"))
-  else:
-    _attr_T, (dy,) = _execute.args_to_matching_eager([dy], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    _attr_Index, _inputs_Index = _execute.args_to_matching_eager([shape, begin, end, strides], _ctx)
-    (shape, begin, end, strides) = _inputs_Index
-    _attr_Index = _attr_Index.as_datatype_enum
-    _inputs_flat = [shape, begin, end, strides, dy]
-    _attrs = ("T", _attr_T, "Index", _attr_Index, "begin_mask", begin_mask,
-              "end_mask", end_mask, "ellipsis_mask", ellipsis_mask,
-              "new_axis_mask", new_axis_mask, "shrink_axis_mask",
-              shrink_axis_mask)
-    _result = _execute.execute(b"StridedSliceGrad", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+  _attr_T, (dy,) = _execute.args_to_matching_eager([dy], _ctx)
+  _attr_Index, _inputs_Index = _execute.args_to_matching_eager([shape, begin, end, strides], _ctx)
+  (shape, begin, end, strides) = _inputs_Index
+  _inputs_flat = [shape, begin, end, strides, dy]
+  _attrs = ("T", _attr_T, "Index", _attr_Index, "begin_mask", begin_mask,
+  "end_mask", end_mask, "ellipsis_mask", ellipsis_mask, "new_axis_mask",
+  new_axis_mask, "shrink_axis_mask", shrink_axis_mask)
+  _result = _execute.execute(b"StridedSliceGrad", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "StridedSliceGrad", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
+@tf_export('manip.tile', 'tile')
+@deprecated_endpoints('tile')
 def tile(input, multiples, name=None):
   r"""Constructs a tensor by tiling a given tensor.
 
@@ -5615,30 +8613,54 @@ def tile(input, multiples, name=None):
   Returns:
     A `Tensor`. Has the same type as `input`.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "Tile", input=input, multiples=multiples, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"), "Tmultiples",
               _op.get_attr("Tmultiples"))
+    _execute.record_gradient(
+      "Tile", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    _attr_Tmultiples, (multiples,) = _execute.args_to_matching_eager([multiples], _ctx, _dtypes.int32)
-    _attr_Tmultiples = _attr_Tmultiples.as_datatype_enum
-    _inputs_flat = [input, multiples]
-    _attrs = ("T", _attr_T, "Tmultiples", _attr_Tmultiples)
-    _result = _execute.execute(b"Tile", 1, inputs=_inputs_flat, attrs=_attrs,
-                               ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "Tile", name,
+        _ctx._post_execution_callbacks, input, multiples)
+      return _result
+    except _core._FallbackException:
+      return tile_eager_fallback(
+          input, multiples, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def tile_eager_fallback(input, multiples, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function tile
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
+  _attr_Tmultiples, (multiples,) = _execute.args_to_matching_eager([multiples], _ctx, _dtypes.int32)
+  _inputs_flat = [input, multiples]
+  _attrs = ("T", _attr_T, "Tmultiples", _attr_Tmultiples)
+  _result = _execute.execute(b"Tile", 1, inputs=_inputs_flat, attrs=_attrs,
+                             ctx=_ctx, name=name)
   _execute.record_gradient(
       "Tile", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
-def _tile_grad(input, multiples, name=None):
+def tile_grad(input, multiples, name=None):
   r"""Returns the gradient of `Tile`.
 
   Since `Tile` takes an input and repeats the input `multiples` times
@@ -5653,21 +8675,46 @@ def _tile_grad(input, multiples, name=None):
   Returns:
     A `Tensor`. Has the same type as `input`.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "TileGrad", input=input, multiples=multiples, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "TileGrad", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    multiples = _ops.convert_to_tensor(multiples, _dtypes.int32)
-    _inputs_flat = [input, multiples]
-    _attrs = ("T", _attr_T)
-    _result = _execute.execute(b"TileGrad", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "TileGrad",
+        name, _ctx._post_execution_callbacks, input, multiples)
+      return _result
+    except _core._FallbackException:
+      return tile_grad_eager_fallback(
+          input, multiples, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def tile_grad_eager_fallback(input, multiples, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function tile_grad
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, (input,) = _execute.args_to_matching_eager([input], _ctx)
+  multiples = _ops.convert_to_tensor(multiples, _dtypes.int32)
+  _inputs_flat = [input, multiples]
+  _attrs = ("T", _attr_T)
+  _result = _execute.execute(b"TileGrad", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "TileGrad", _inputs_flat, _attrs, _result, name)
   _result, = _result
@@ -5688,22 +8735,46 @@ def transpose(x, perm, name=None):
   Returns:
     A `Tensor`. Has the same type as `x`.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "Transpose", x=x, perm=perm, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"), "Tperm", _op.get_attr("Tperm"))
+    _execute.record_gradient(
+      "Transpose", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (x,) = _execute.args_to_matching_eager([x], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    _attr_Tperm, (perm,) = _execute.args_to_matching_eager([perm], _ctx, _dtypes.int32)
-    _attr_Tperm = _attr_Tperm.as_datatype_enum
-    _inputs_flat = [x, perm]
-    _attrs = ("T", _attr_T, "Tperm", _attr_Tperm)
-    _result = _execute.execute(b"Transpose", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "Transpose",
+        name, _ctx._post_execution_callbacks, x, perm)
+      return _result
+    except _core._FallbackException:
+      return transpose_eager_fallback(
+          x, perm, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def transpose_eager_fallback(x, perm, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function transpose
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, (x,) = _execute.args_to_matching_eager([x], _ctx)
+  _attr_Tperm, (perm,) = _execute.args_to_matching_eager([perm], _ctx, _dtypes.int32)
+  _inputs_flat = [x, perm]
+  _attrs = ("T", _attr_T, "Tperm", _attr_Tperm)
+  _result = _execute.execute(b"Transpose", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "Transpose", _inputs_flat, _attrs, _result, name)
   _result, = _result
@@ -5742,29 +8813,178 @@ def unique(x, out_idx=_dtypes.int32, name=None):
   Returns:
     A tuple of `Tensor` objects (y, idx).
 
-    y: A `Tensor`. Has the same type as `x`. 1-D.
-    idx: A `Tensor` of type `out_idx`. 1-D.
+    y: A `Tensor`. Has the same type as `x`.
+    idx: A `Tensor` of type `out_idx`.
   """
-  if out_idx is None:
-    out_idx = _dtypes.int32
-  out_idx = _execute.make_type(out_idx, "out_idx")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if out_idx is None:
+      out_idx = _dtypes.int32
+    out_idx = _execute.make_type(out_idx, "out_idx")
     _, _, _op = _op_def_lib._apply_op_helper(
         "Unique", x=x, out_idx=out_idx, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"), "out_idx", _op.get_attr("out_idx"))
+    _execute.record_gradient(
+      "Unique", _inputs_flat, _attrs, _result, name)
+    _result = _UniqueOutput._make(_result)
+    return _result
+
   else:
-    _attr_T, (x,) = _execute.args_to_matching_eager([x], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    _inputs_flat = [x]
-    _attrs = ("T", _attr_T, "out_idx", out_idx)
-    _result = _execute.execute(b"Unique", 2, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "Unique", name,
+        _ctx._post_execution_callbacks, x, "out_idx", out_idx)
+      _result = _UniqueOutput._make(_result)
+      return _result
+    except _core._FallbackException:
+      return unique_eager_fallback(
+          x, out_idx=out_idx, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def unique_eager_fallback(x, out_idx=_dtypes.int32, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function unique
+  """
+  _ctx = ctx if ctx else _context.context()
+  if out_idx is None:
+    out_idx = _dtypes.int32
+  out_idx = _execute.make_type(out_idx, "out_idx")
+  _attr_T, (x,) = _execute.args_to_matching_eager([x], _ctx)
+  _inputs_flat = [x]
+  _attrs = ("T", _attr_T, "out_idx", out_idx)
+  _result = _execute.execute(b"Unique", 2, inputs=_inputs_flat, attrs=_attrs,
+                             ctx=_ctx, name=name)
   _execute.record_gradient(
       "Unique", _inputs_flat, _attrs, _result, name)
   _result = _UniqueOutput._make(_result)
+  return _result
+
+
+_unique_v2_outputs = ["y", "idx"]
+_UniqueV2Output = _collections.namedtuple(
+    "UniqueV2", _unique_v2_outputs)
+
+
+def unique_v2(x, axis, out_idx=_dtypes.int32, name=None):
+  r"""Finds unique elements along an axis of a tensor.
+
+  This operation either returns a tensor `y` containing unique elements
+  along the `axis` of a tensor. The returned unique elements is sorted
+  in the same order as they occur along `axis` in `x`.
+  This operation also returns a tensor `idx` that is the same size as
+  the number of the elements in `x` along the `axis` dimension. It
+  contains the index in the unique output `y`.
+  In other words, for an `1-D` tensor `x` with `axis = None:
+
+  `y[idx[i]] = x[i] for i in [0, 1,...,rank(x) - 1]`
+
+  For example:
+
+  ```
+  # tensor 'x' is [1, 1, 2, 4, 4, 4, 7, 8, 8]
+  y, idx = unique(x)
+  y ==> [1, 2, 4, 7, 8]
+  idx ==> [0, 0, 1, 2, 2, 2, 3, 4, 4]
+  ```
+
+  For an `2-D` tensor `x` with `axis = 0`:
+
+  ```
+  # tensor 'x' is [[1, 0, 0],
+  #                [1, 0, 0],
+  #                [2, 0, 0]]
+  y, idx = unique(x, axis=0)
+  y ==> [[1, 0, 0],
+         [2, 0, 0]]
+  idx ==> [0, 0, 1]
+  ```
+
+  For an `2-D` tensor `x` with `axis = 1`:
+
+  ```
+  # tensor 'x' is [[1, 0, 0],
+  #                [1, 0, 0],
+  #                [2, 0, 0]]
+  y, idx = unique(x, axis=1)
+  y ==> [[1, 0],
+         [1, 0],
+         [2, 0]]
+  idx ==> [0, 1, 1]
+  ```
+
+  Args:
+    x: A `Tensor`. A `Tensor`.
+    axis: A `Tensor`. Must be one of the following types: `int32`, `int64`.
+      A `Tensor` of type `int32` (default: None). The axis of the Tensor to
+      find the unique elements.
+    out_idx: An optional `tf.DType` from: `tf.int32, tf.int64`. Defaults to `tf.int32`.
+    name: A name for the operation (optional).
+
+  Returns:
+    A tuple of `Tensor` objects (y, idx).
+
+    y: A `Tensor`. Has the same type as `x`.
+    idx: A `Tensor` of type `out_idx`.
+  """
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if out_idx is None:
+      out_idx = _dtypes.int32
+    out_idx = _execute.make_type(out_idx, "out_idx")
+    _, _, _op = _op_def_lib._apply_op_helper(
+        "UniqueV2", x=x, axis=axis, out_idx=out_idx, name=name)
+    _result = _op.outputs[:]
+    _inputs_flat = _op.inputs
+    _attrs = ("T", _op.get_attr("T"), "Taxis", _op.get_attr("Taxis"),
+              "out_idx", _op.get_attr("out_idx"))
+    _execute.record_gradient(
+      "UniqueV2", _inputs_flat, _attrs, _result, name)
+    _result = _UniqueV2Output._make(_result)
+    return _result
+
+  else:
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "UniqueV2",
+        name, _ctx._post_execution_callbacks, x, axis, "out_idx", out_idx)
+      _result = _UniqueV2Output._make(_result)
+      return _result
+    except _core._FallbackException:
+      return unique_v2_eager_fallback(
+          x, axis, out_idx=out_idx, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def unique_v2_eager_fallback(x, axis, out_idx=_dtypes.int32, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function unique_v2
+  """
+  _ctx = ctx if ctx else _context.context()
+  if out_idx is None:
+    out_idx = _dtypes.int32
+  out_idx = _execute.make_type(out_idx, "out_idx")
+  _attr_T, (x,) = _execute.args_to_matching_eager([x], _ctx)
+  _attr_Taxis, (axis,) = _execute.args_to_matching_eager([axis], _ctx, _dtypes.int64)
+  _inputs_flat = [x, axis]
+  _attrs = ("T", _attr_T, "Taxis", _attr_Taxis, "out_idx", out_idx)
+  _result = _execute.execute(b"UniqueV2", 2, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
+  _execute.record_gradient(
+      "UniqueV2", _inputs_flat, _attrs, _result, name)
+  _result = _UniqueV2Output._make(_result)
   return _result
 
 
@@ -5802,34 +9022,190 @@ def unique_with_counts(x, out_idx=_dtypes.int32, name=None):
   Returns:
     A tuple of `Tensor` objects (y, idx, count).
 
-    y: A `Tensor`. Has the same type as `x`. 1-D.
-    idx: A `Tensor` of type `out_idx`. 1-D.
-    count: A `Tensor` of type `out_idx`. 1-D.
+    y: A `Tensor`. Has the same type as `x`.
+    idx: A `Tensor` of type `out_idx`.
+    count: A `Tensor` of type `out_idx`.
   """
-  if out_idx is None:
-    out_idx = _dtypes.int32
-  out_idx = _execute.make_type(out_idx, "out_idx")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if out_idx is None:
+      out_idx = _dtypes.int32
+    out_idx = _execute.make_type(out_idx, "out_idx")
     _, _, _op = _op_def_lib._apply_op_helper(
         "UniqueWithCounts", x=x, out_idx=out_idx, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"), "out_idx", _op.get_attr("out_idx"))
+    _execute.record_gradient(
+      "UniqueWithCounts", _inputs_flat, _attrs, _result, name)
+    _result = _UniqueWithCountsOutput._make(_result)
+    return _result
+
   else:
-    _attr_T, (x,) = _execute.args_to_matching_eager([x], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    _inputs_flat = [x]
-    _attrs = ("T", _attr_T, "out_idx", out_idx)
-    _result = _execute.execute(b"UniqueWithCounts", 3, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "UniqueWithCounts", name, _ctx._post_execution_callbacks, x,
+        "out_idx", out_idx)
+      _result = _UniqueWithCountsOutput._make(_result)
+      return _result
+    except _core._FallbackException:
+      return unique_with_counts_eager_fallback(
+          x, out_idx=out_idx, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def unique_with_counts_eager_fallback(x, out_idx=_dtypes.int32, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function unique_with_counts
+  """
+  _ctx = ctx if ctx else _context.context()
+  if out_idx is None:
+    out_idx = _dtypes.int32
+  out_idx = _execute.make_type(out_idx, "out_idx")
+  _attr_T, (x,) = _execute.args_to_matching_eager([x], _ctx)
+  _inputs_flat = [x]
+  _attrs = ("T", _attr_T, "out_idx", out_idx)
+  _result = _execute.execute(b"UniqueWithCounts", 3, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "UniqueWithCounts", _inputs_flat, _attrs, _result, name)
   _result = _UniqueWithCountsOutput._make(_result)
   return _result
 
 
-def _unpack(value, num, axis=0, name=None):
+_unique_with_counts_v2_outputs = ["y", "idx", "count"]
+_UniqueWithCountsV2Output = _collections.namedtuple(
+    "UniqueWithCountsV2", _unique_with_counts_v2_outputs)
+
+
+def unique_with_counts_v2(x, axis, out_idx=_dtypes.int32, name=None):
+  r"""Finds unique elements along an axis of a tensor.
+
+  This operation either returns a tensor `y` containing unique elements
+  along the `axis` of a tensor. The returned unique elements is sorted
+  in the same order as they occur along `axis` in `x`.
+  This operation also returns a tensor `idx` and a tensor `count`
+  that are the same size as the number of the elements in `x` along the
+  `axis` dimension. The `idx` contains the index in the unique output `y`
+  and the `count` contains the count in the unique output `y`.
+  In other words, for an `1-D` tensor `x` with `axis = None:
+
+  `y[idx[i]] = x[i] for i in [0, 1,...,rank(x) - 1]`
+
+  For example:
+
+  ```
+  # tensor 'x' is [1, 1, 2, 4, 4, 4, 7, 8, 8]
+  y, idx, count = unique_with_counts(x)
+  y ==> [1, 2, 4, 7, 8]
+  idx ==> [0, 0, 1, 2, 2, 2, 3, 4, 4]
+  count ==> [2, 1, 3, 1, 2]
+  ```
+
+  For an `2-D` tensor `x` with `axis = 0`:
+
+  ```
+  # tensor 'x' is [[1, 0, 0],
+  #                [1, 0, 0],
+  #                [2, 0, 0]]
+  y, idx, count = unique_with_counts(x, axis=0)
+  y ==> [[1, 0, 0],
+         [2, 0, 0]]
+  idx ==> [0, 0, 1]
+  count ==> [2, 1]
+  ```
+
+  For an `2-D` tensor `x` with `axis = 1`:
+
+  ```
+  # tensor 'x' is [[1, 0, 0],
+  #                [1, 0, 0],
+  #                [2, 0, 0]]
+  y, idx, count = unique_with_counts(x, axis=1)
+  y ==> [[1, 0],
+         [1, 0],
+         [2, 0]]
+  idx ==> [0, 1, 1]
+  count ==> [1, 2]
+  ```
+
+  Args:
+    x: A `Tensor`. A `Tensor`.
+    axis: A `Tensor`. Must be one of the following types: `int32`, `int64`.
+      A `Tensor` of type `int32` (default: None). The axis of the Tensor to
+      find the unique elements.
+    out_idx: An optional `tf.DType` from: `tf.int32, tf.int64`. Defaults to `tf.int32`.
+    name: A name for the operation (optional).
+
+  Returns:
+    A tuple of `Tensor` objects (y, idx, count).
+
+    y: A `Tensor`. Has the same type as `x`.
+    idx: A `Tensor` of type `out_idx`.
+    count: A `Tensor` of type `out_idx`.
+  """
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if out_idx is None:
+      out_idx = _dtypes.int32
+    out_idx = _execute.make_type(out_idx, "out_idx")
+    _, _, _op = _op_def_lib._apply_op_helper(
+        "UniqueWithCountsV2", x=x, axis=axis, out_idx=out_idx, name=name)
+    _result = _op.outputs[:]
+    _inputs_flat = _op.inputs
+    _attrs = ("T", _op.get_attr("T"), "Taxis", _op.get_attr("Taxis"),
+              "out_idx", _op.get_attr("out_idx"))
+    _execute.record_gradient(
+      "UniqueWithCountsV2", _inputs_flat, _attrs, _result, name)
+    _result = _UniqueWithCountsV2Output._make(_result)
+    return _result
+
+  else:
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "UniqueWithCountsV2", name, _ctx._post_execution_callbacks, x, axis,
+        "out_idx", out_idx)
+      _result = _UniqueWithCountsV2Output._make(_result)
+      return _result
+    except _core._FallbackException:
+      return unique_with_counts_v2_eager_fallback(
+          x, axis, out_idx=out_idx, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def unique_with_counts_v2_eager_fallback(x, axis, out_idx=_dtypes.int32, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function unique_with_counts_v2
+  """
+  _ctx = ctx if ctx else _context.context()
+  if out_idx is None:
+    out_idx = _dtypes.int32
+  out_idx = _execute.make_type(out_idx, "out_idx")
+  _attr_T, (x,) = _execute.args_to_matching_eager([x], _ctx)
+  _attr_Taxis, (axis,) = _execute.args_to_matching_eager([axis], _ctx, _dtypes.int64)
+  _inputs_flat = [x, axis]
+  _attrs = ("T", _attr_T, "Taxis", _attr_Taxis, "out_idx", out_idx)
+  _result = _execute.execute(b"UniqueWithCountsV2", 3, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
+  _execute.record_gradient(
+      "UniqueWithCountsV2", _inputs_flat, _attrs, _result, name)
+  _result = _UniqueWithCountsV2Output._make(_result)
+  return _result
+
+
+def unpack(value, num, axis=0, name=None):
   r"""Unpacks a given dimension of a rank-`R` tensor into `num` rank-`(R-1)` tensors.
 
   Unpacks `num` tensors from `value` by chipping it along the `axis` dimension.
@@ -5856,41 +9232,136 @@ def _unpack(value, num, axis=0, name=None):
 
   Returns:
     A list of `num` `Tensor` objects with the same type as `value`.
-    The list of tensors unpacked from `value`.
   """
-  num = _execute.make_int(num, "num")
-  if axis is None:
-    axis = 0
-  axis = _execute.make_int(axis, "axis")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    num = _execute.make_int(num, "num")
+    if axis is None:
+      axis = 0
+    axis = _execute.make_int(axis, "axis")
     _, _, _op = _op_def_lib._apply_op_helper(
         "Unpack", value=value, num=num, axis=axis, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("num", _op.get_attr("num"), "T", _op.get_attr("T"), "axis",
               _op.get_attr("axis"))
+    _execute.record_gradient(
+      "Unpack", _inputs_flat, _attrs, _result, name)
+    return _result
+
   else:
-    _attr_T, (value,) = _execute.args_to_matching_eager([value], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    _inputs_flat = [value]
-    _attrs = ("num", num, "T", _attr_T, "axis", axis)
-    _result = _execute.execute(b"Unpack", num, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "Unpack", name,
+        _ctx._post_execution_callbacks, value, "num", num, "axis", axis)
+      return _result
+    except _core._FallbackException:
+      return unpack_eager_fallback(
+          value, num=num, axis=axis, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def unpack_eager_fallback(value, num, axis=0, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function unpack
+  """
+  _ctx = ctx if ctx else _context.context()
+  num = _execute.make_int(num, "num")
+  if axis is None:
+    axis = 0
+  axis = _execute.make_int(axis, "axis")
+  _attr_T, (value,) = _execute.args_to_matching_eager([value], _ctx)
+  _inputs_flat = [value]
+  _attrs = ("num", num, "T", _attr_T, "axis", axis)
+  _result = _execute.execute(b"Unpack", num, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "Unpack", _inputs_flat, _attrs, _result, name)
   return _result
 
 
-def where(input, name=None):
-  r"""Returns locations of true values in a boolean tensor.
+@tf_export('unravel_index')
+def unravel_index(indices, dims, name=None):
+  r"""Converts a flat index or array of flat indices into a tuple of
 
-  This operation returns the coordinates of true elements in `input`. The
+  coordinate arrays.
+
+  @compatibility(numpy)
+  Equivalent to np.unravel_index
+  @end_compatibility
+
+  Args:
+    indices: A `Tensor`. Must be one of the following types: `int32`, `int64`.
+      An 0-D or 1-D `int` Tensor whose elements are indices into the
+      flattened version of an array of dimensions dims.
+    dims: A `Tensor`. Must have the same type as `indices`.
+      An 1-D `int` Tensor. The shape of the array to use for unraveling
+      indices.
+    name: A name for the operation (optional).
+
+  Returns:
+    A `Tensor`. Has the same type as `indices`.
+  """
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    _, _, _op = _op_def_lib._apply_op_helper(
+        "UnravelIndex", indices=indices, dims=dims, name=name)
+    _result = _op.outputs[:]
+    _inputs_flat = _op.inputs
+    _attrs = ("Tidx", _op.get_attr("Tidx"))
+    _execute.record_gradient(
+      "UnravelIndex", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
+  else:
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "UnravelIndex",
+        name, _ctx._post_execution_callbacks, indices, dims)
+      return _result
+    except _core._FallbackException:
+      return unravel_index_eager_fallback(
+          indices, dims, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def unravel_index_eager_fallback(indices, dims, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function unravel_index
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_Tidx, _inputs_Tidx = _execute.args_to_matching_eager([indices, dims], _ctx, _dtypes.int32)
+  (indices, dims) = _inputs_Tidx
+  _inputs_flat = [indices, dims]
+  _attrs = ("Tidx", _attr_Tidx)
+  _result = _execute.execute(b"UnravelIndex", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
+  _execute.record_gradient(
+      "UnravelIndex", _inputs_flat, _attrs, _result, name)
+  _result, = _result
+  return _result
+
+
+def where(condition, name=None):
+  r"""Returns locations of nonzero / true values in a tensor.
+
+  This operation returns the coordinates of true elements in `condition`. The
   coordinates are returned in a 2-D tensor where the first dimension (rows)
   represents the number of true elements, and the second dimension (columns)
   represents the coordinates of the true elements. Keep in mind, the shape of
   the output tensor can vary depending on how many true values there are in
-  `input`. Indices are output in row-major order.
+  `condition`. Indices are output in row-major order.
 
   For example:
 
@@ -5902,7 +9373,7 @@ def where(input, name=None):
   where(input) ==> [[0, 0],
                     [1, 0]]
 
-  # `input` tensor is [[[True, False]
+  # `condition` tensor is [[[True, False]
   #                     [True, False]]
   #                    [[False, True]
   #                     [False, True]]
@@ -5915,35 +9386,89 @@ def where(input, name=None):
                     [1, 0, 1],
                     [1, 1, 1],
                     [2, 1, 1]]
+
+  # `condition` tensor is [[[1.5,  0.0]
+  #                     [-0.5, 0.0]]
+  #                    [[0.0,  0.25]
+  #                     [0.0,  0.75]]
+  #                    [[0.0,  0.0]
+  #                     [0.0,  0.01]]]
+  # 'input' has 5 nonzero values, so output has 5 coordinates.
+  # 'input' has rank of 3, so coordinates have three indices.
+  where(input) ==> [[0, 0, 0],
+                    [0, 1, 0],
+                    [1, 0, 1],
+                    [1, 1, 1],
+                    [2, 1, 1]]
+
+  # `condition` tensor is [[[1.5 + 0.0j, 0.0  + 0.0j]
+  #                     [0.0 + 0.5j, 0.0  + 0.0j]]
+  #                    [[0.0 + 0.0j, 0.25 + 1.5j]
+  #                     [0.0 + 0.0j, 0.75 + 0.0j]]
+  #                    [[0.0 + 0.0j, 0.0  + 0.0j]
+  #                     [0.0 + 0.0j, 0.01 + 0.0j]]]
+  # 'input' has 5 nonzero magnitude values, so output has 5 coordinates.
+  # 'input' has rank of 3, so coordinates have three indices.
+  where(input) ==> [[0, 0, 0],
+                    [0, 1, 0],
+                    [1, 0, 1],
+                    [1, 1, 1],
+                    [2, 1, 1]]
   ```
 
   Args:
-    input: A `Tensor` of type `bool`.
+    condition: A `Tensor`. Must be one of the following types: `float32`, `float64`, `int32`, `uint8`, `int16`, `int8`, `complex64`, `int64`, `qint8`, `quint8`, `qint32`, `bfloat16`, `uint16`, `complex128`, `half`, `uint32`, `uint64`, `bool`.
     name: A name for the operation (optional).
 
   Returns:
     A `Tensor` of type `int64`.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
-        "Where", input=input, name=name)
+        "Where", input=condition, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
-    _attrs = None
+    _attrs = ("T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "Where", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    input = _ops.convert_to_tensor(input, _dtypes.bool)
-    _inputs_flat = [input]
-    _attrs = None
-    _result = _execute.execute(b"Where", 1, inputs=_inputs_flat, attrs=_attrs,
-                               ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "Where", name,
+        _ctx._post_execution_callbacks, condition)
+      return _result
+    except _core._FallbackException:
+      return where_eager_fallback(
+          condition, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def where_eager_fallback(condition, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function where
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, (condition,) = _execute.args_to_matching_eager([condition], _ctx, _dtypes.bool)
+  _inputs_flat = [condition]
+  _attrs = ("T", _attr_T)
+  _result = _execute.execute(b"Where", 1, inputs=_inputs_flat, attrs=_attrs,
+                             ctx=_ctx, name=name)
   _execute.record_gradient(
       "Where", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
-def _zeros_like(x, name=None):
+def zeros_like(x, name=None):
   r"""Returns a tensor of zeros with the same shape and type as x.
 
   Args:
@@ -5952,22 +9477,46 @@ def _zeros_like(x, name=None):
 
   Returns:
     A `Tensor`. Has the same type as `x`.
-    a tensor of the same shape and type as x but filled with zeros.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "ZerosLike", x=x, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "ZerosLike", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (x,) = _execute.args_to_matching_eager([x], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    _inputs_flat = [x]
-    _attrs = ("T", _attr_T)
-    _result = _execute.execute(b"ZerosLike", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "ZerosLike",
+        name, _ctx._post_execution_callbacks, x)
+      return _result
+    except _core._FallbackException:
+      return zeros_like_eager_fallback(
+          x, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def zeros_like_eager_fallback(x, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function zeros_like
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, (x,) = _execute.args_to_matching_eager([x], _ctx)
+  _inputs_flat = [x]
+  _attrs = ("T", _attr_T)
+  _result = _execute.execute(b"ZerosLike", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "ZerosLike", _inputs_flat, _attrs, _result, name)
   _result, = _result
@@ -6170,12 +9719,16 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #     type: "type"
 #     allowed_values {
 #       list {
+#         type: DT_BFLOAT16
+#         type: DT_HALF
 #         type: DT_FLOAT
 #         type: DT_DOUBLE
 #         type: DT_INT64
 #         type: DT_INT32
 #         type: DT_UINT8
 #         type: DT_UINT16
+#         type: DT_UINT32
+#         type: DT_UINT64
 #         type: DT_INT8
 #         type: DT_INT16
 #         type: DT_COMPLEX64
@@ -6185,7 +9738,6 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #         type: DT_QINT16
 #         type: DT_QUINT16
 #         type: DT_QINT32
-#         type: DT_HALF
 #       }
 #     }
 #   }
@@ -6194,12 +9746,16 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #     type: "type"
 #     allowed_values {
 #       list {
+#         type: DT_BFLOAT16
+#         type: DT_HALF
 #         type: DT_FLOAT
 #         type: DT_DOUBLE
 #         type: DT_INT64
 #         type: DT_INT32
 #         type: DT_UINT8
 #         type: DT_UINT16
+#         type: DT_UINT32
+#         type: DT_UINT64
 #         type: DT_INT8
 #         type: DT_INT16
 #         type: DT_COMPLEX64
@@ -6209,7 +9765,6 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #         type: DT_QINT16
 #         type: DT_QUINT16
 #         type: DT_QINT32
-#         type: DT_HALF
 #       }
 #     }
 #   }
@@ -6275,6 +9830,38 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #   }
 # }
 # op {
+#   name: "BroadcastTo"
+#   input_arg {
+#     name: "input"
+#     type_attr: "T"
+#   }
+#   input_arg {
+#     name: "shape"
+#     type_attr: "Tidx"
+#   }
+#   output_arg {
+#     name: "output"
+#     type_attr: "T"
+#   }
+#   attr {
+#     name: "T"
+#     type: "type"
+#   }
+#   attr {
+#     name: "Tidx"
+#     type: "type"
+#     default_value {
+#       type: DT_INT32
+#     }
+#     allowed_values {
+#       list {
+#         type: DT_INT32
+#         type: DT_INT64
+#       }
+#     }
+#   }
+# }
+# op {
 #   name: "CheckNumerics"
 #   input_arg {
 #     name: "tensor"
@@ -6289,6 +9876,7 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #     type: "type"
 #     allowed_values {
 #       list {
+#         type: DT_BFLOAT16
 #         type: DT_HALF
 #         type: DT_FLOAT
 #         type: DT_DOUBLE
@@ -6389,6 +9977,38 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #   }
 # }
 # op {
+#   name: "ConjugateTranspose"
+#   input_arg {
+#     name: "x"
+#     type_attr: "T"
+#   }
+#   input_arg {
+#     name: "perm"
+#     type_attr: "Tperm"
+#   }
+#   output_arg {
+#     name: "y"
+#     type_attr: "T"
+#   }
+#   attr {
+#     name: "T"
+#     type: "type"
+#   }
+#   attr {
+#     name: "Tperm"
+#     type: "type"
+#     default_value {
+#       type: DT_INT32
+#     }
+#     allowed_values {
+#       list {
+#         type: DT_INT32
+#         type: DT_INT64
+#       }
+#     }
+#   }
+# }
+# op {
 #   name: "Const"
 #   output_arg {
 #     name: "output"
@@ -6418,6 +10038,40 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #     type: "type"
 #   }
 #   allows_uninitialized_input: true
+# }
+# op {
+#   name: "DebugGradientRefIdentity"
+#   input_arg {
+#     name: "input"
+#     type_attr: "T"
+#     is_ref: true
+#   }
+#   output_arg {
+#     name: "output"
+#     type_attr: "T"
+#     is_ref: true
+#   }
+#   attr {
+#     name: "T"
+#     type: "type"
+#   }
+#   allows_uninitialized_input: true
+# }
+# op {
+#   name: "DeepCopy"
+#   input_arg {
+#     name: "x"
+#     type_attr: "T"
+#   }
+#   output_arg {
+#     name: "y"
+#     type_attr: "T"
+#   }
+#   attr {
+#     name: "T"
+#     type: "type"
+#   }
+#   is_stateful: true
 # }
 # op {
 #   name: "DepthToSpace"
@@ -6479,9 +10133,9 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #       list {
 #         type: DT_QINT8
 #         type: DT_QUINT8
+#         type: DT_QINT32
 #         type: DT_QINT16
 #         type: DT_QUINT16
-#         type: DT_QINT32
 #       }
 #     }
 #   }
@@ -6515,6 +10169,8 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #     type: "type"
 #     allowed_values {
 #       list {
+#         type: DT_BFLOAT16
+#         type: DT_HALF
 #         type: DT_FLOAT
 #         type: DT_DOUBLE
 #         type: DT_INT32
@@ -6540,6 +10196,8 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #     type: "type"
 #     allowed_values {
 #       list {
+#         type: DT_BFLOAT16
+#         type: DT_HALF
 #         type: DT_FLOAT
 #         type: DT_DOUBLE
 #         type: DT_INT32
@@ -6586,6 +10244,48 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #     default_value {
 #       b: true
 #     }
+#   }
+#   attr {
+#     name: "T"
+#     type: "type"
+#   }
+# }
+# op {
+#   name: "Empty"
+#   input_arg {
+#     name: "shape"
+#     type: DT_INT32
+#   }
+#   output_arg {
+#     name: "output"
+#     type_attr: "dtype"
+#   }
+#   attr {
+#     name: "dtype"
+#     type: "type"
+#   }
+#   attr {
+#     name: "init"
+#     type: "bool"
+#     default_value {
+#       b: false
+#     }
+#   }
+#   is_stateful: true
+# }
+# op {
+#   name: "EnsureShape"
+#   input_arg {
+#     name: "input"
+#     type_attr: "T"
+#   }
+#   output_arg {
+#     name: "output"
+#     type_attr: "T"
+#   }
+#   attr {
+#     name: "shape"
+#     type: "shape"
 #   }
 #   attr {
 #     name: "T"
@@ -6660,12 +10360,15 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #         type: DT_FLOAT
 #         type: DT_DOUBLE
 #         type: DT_INT32
-#         type: DT_INT64
 #         type: DT_UINT8
 #         type: DT_INT16
 #         type: DT_INT8
+#         type: DT_INT64
+#         type: DT_BFLOAT16
 #         type: DT_UINT16
 #         type: DT_HALF
+#         type: DT_UINT32
+#         type: DT_UINT64
 #       }
 #     }
 #   }
@@ -6922,7 +10625,7 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #   name: "Fill"
 #   input_arg {
 #     name: "dims"
-#     type: DT_INT32
+#     type_attr: "index_type"
 #   }
 #   input_arg {
 #     name: "value"
@@ -6935,6 +10638,19 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #   attr {
 #     name: "T"
 #     type: "type"
+#   }
+#   attr {
+#     name: "index_type"
+#     type: "type"
+#     default_value {
+#       type: DT_INT32
+#     }
+#     allowed_values {
+#       list {
+#         type: DT_INT32
+#         type: DT_INT64
+#       }
+#     }
 #   }
 # }
 # op {
@@ -7046,6 +10762,22 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #   }
 # }
 # op {
+#   name: "GuaranteeConst"
+#   input_arg {
+#     name: "input"
+#     type_attr: "T"
+#   }
+#   output_arg {
+#     name: "output"
+#     type_attr: "T"
+#   }
+#   attr {
+#     name: "T"
+#     type: "type"
+#   }
+#   is_stateful: true
+# }
+# op {
 #   name: "Identity"
 #   input_arg {
 #     name: "input"
@@ -7094,6 +10826,75 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #   attr {
 #     name: "memory_region_name"
 #     type: "string"
+#   }
+# }
+# op {
+#   name: "InplaceAdd"
+#   input_arg {
+#     name: "x"
+#     type_attr: "T"
+#   }
+#   input_arg {
+#     name: "i"
+#     type: DT_INT32
+#   }
+#   input_arg {
+#     name: "v"
+#     type_attr: "T"
+#   }
+#   output_arg {
+#     name: "y"
+#     type_attr: "T"
+#   }
+#   attr {
+#     name: "T"
+#     type: "type"
+#   }
+# }
+# op {
+#   name: "InplaceSub"
+#   input_arg {
+#     name: "x"
+#     type_attr: "T"
+#   }
+#   input_arg {
+#     name: "i"
+#     type: DT_INT32
+#   }
+#   input_arg {
+#     name: "v"
+#     type_attr: "T"
+#   }
+#   output_arg {
+#     name: "y"
+#     type_attr: "T"
+#   }
+#   attr {
+#     name: "T"
+#     type: "type"
+#   }
+# }
+# op {
+#   name: "InplaceUpdate"
+#   input_arg {
+#     name: "x"
+#     type_attr: "T"
+#   }
+#   input_arg {
+#     name: "i"
+#     type: DT_INT32
+#   }
+#   input_arg {
+#     name: "v"
+#     type_attr: "T"
+#   }
+#   output_arg {
+#     name: "y"
+#     type_attr: "T"
+#   }
+#   attr {
+#     name: "T"
+#     type: "type"
 #   }
 # }
 # op {
@@ -7164,11 +10965,11 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #   }
 #   input_arg {
 #     name: "num_lower"
-#     type: DT_INT64
+#     type_attr: "Tindex"
 #   }
 #   input_arg {
 #     name: "num_upper"
-#     type: DT_INT64
+#     type_attr: "Tindex"
 #   }
 #   output_arg {
 #     name: "band"
@@ -7177,6 +10978,19 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #   attr {
 #     name: "T"
 #     type: "type"
+#   }
+#   attr {
+#     name: "Tindex"
+#     type: "type"
+#     default_value {
+#       type: DT_INT64
+#     }
+#     allowed_values {
+#       list {
+#         type: DT_INT32
+#         type: DT_INT64
+#       }
+#     }
 #   }
 # }
 # op {
@@ -7375,12 +11189,19 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #     type: "type"
 #     allowed_values {
 #       list {
+#         type: DT_BFLOAT16
+#         type: DT_HALF
 #         type: DT_FLOAT
 #         type: DT_DOUBLE
+#         type: DT_INT8
+#         type: DT_UINT8
+#         type: DT_INT16
+#         type: DT_UINT16
 #         type: DT_INT32
 #         type: DT_INT64
 #         type: DT_COMPLEX64
 #         type: DT_COMPLEX128
+#         type: DT_BOOL
 #       }
 #     }
 #   }
@@ -7638,6 +11459,8 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #     type: "type"
 #     allowed_values {
 #       list {
+#         type: DT_BFLOAT16
+#         type: DT_HALF
 #         type: DT_FLOAT
 #         type: DT_DOUBLE
 #       }
@@ -7692,6 +11515,8 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #     type: "type"
 #     allowed_values {
 #       list {
+#         type: DT_BFLOAT16
+#         type: DT_HALF
 #         type: DT_FLOAT
 #         type: DT_DOUBLE
 #       }
@@ -7739,6 +11564,8 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #     type: "type"
 #     allowed_values {
 #       list {
+#         type: DT_BFLOAT16
+#         type: DT_HALF
 #         type: DT_FLOAT
 #         type: DT_DOUBLE
 #       }
@@ -7778,9 +11605,9 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #       list {
 #         type: DT_QINT8
 #         type: DT_QUINT8
+#         type: DT_QINT32
 #         type: DT_QINT16
 #         type: DT_QUINT16
-#         type: DT_QINT32
 #       }
 #     }
 #   }
@@ -7795,6 +11622,19 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #         s: "MIN_COMBINED"
 #         s: "MIN_FIRST"
 #         s: "SCALED"
+#       }
+#     }
+#   }
+#   attr {
+#     name: "round_mode"
+#     type: "string"
+#     default_value {
+#       s: "HALF_AWAY_FROM_ZERO"
+#     }
+#     allowed_values {
+#       list {
+#         s: "HALF_AWAY_FROM_ZERO"
+#         s: "HALF_TO_EVEN"
 #       }
 #     }
 #   }
@@ -7876,9 +11716,9 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #       list {
 #         type: DT_QINT8
 #         type: DT_QUINT8
+#         type: DT_QINT32
 #         type: DT_QINT16
 #         type: DT_QUINT16
-#         type: DT_QINT32
 #       }
 #     }
 #   }
@@ -8222,6 +12062,7 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #         type: DT_INT32
 #         type: DT_INT64
 #         type: DT_BOOL
+#         type: DT_BFLOAT16
 #         type: DT_HALF
 #         type: DT_FLOAT
 #         type: DT_DOUBLE
@@ -8290,18 +12131,22 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #       list {
 #         type: DT_FLOAT
 #         type: DT_DOUBLE
-#         type: DT_INT64
 #         type: DT_INT32
 #         type: DT_UINT8
-#         type: DT_UINT16
 #         type: DT_INT16
 #         type: DT_INT8
 #         type: DT_COMPLEX64
-#         type: DT_COMPLEX128
+#         type: DT_INT64
 #         type: DT_QINT8
 #         type: DT_QUINT8
 #         type: DT_QINT32
+#         type: DT_BFLOAT16
+#         type: DT_UINT16
+#         type: DT_COMPLEX128
 #         type: DT_HALF
+#         type: DT_UINT32
+#         type: DT_UINT64
+#         type: DT_BOOL
 #       }
 #     }
 #   }
@@ -8439,6 +12284,21 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #         type: DT_INT64
 #       }
 #     }
+#   }
+# }
+# op {
+#   name: "Snapshot"
+#   input_arg {
+#     name: "input"
+#     type_attr: "T"
+#   }
+#   output_arg {
+#     name: "output"
+#     type_attr: "T"
+#   }
+#   attr {
+#     name: "T"
+#     type: "type"
 #   }
 # }
 # op {
@@ -9017,6 +12877,55 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #   }
 # }
 # op {
+#   name: "UniqueV2"
+#   input_arg {
+#     name: "x"
+#     type_attr: "T"
+#   }
+#   input_arg {
+#     name: "axis"
+#     type_attr: "Taxis"
+#   }
+#   output_arg {
+#     name: "y"
+#     type_attr: "T"
+#   }
+#   output_arg {
+#     name: "idx"
+#     type_attr: "out_idx"
+#   }
+#   attr {
+#     name: "T"
+#     type: "type"
+#   }
+#   attr {
+#     name: "Taxis"
+#     type: "type"
+#     default_value {
+#       type: DT_INT64
+#     }
+#     allowed_values {
+#       list {
+#         type: DT_INT32
+#         type: DT_INT64
+#       }
+#     }
+#   }
+#   attr {
+#     name: "out_idx"
+#     type: "type"
+#     default_value {
+#       type: DT_INT32
+#     }
+#     allowed_values {
+#       list {
+#         type: DT_INT32
+#         type: DT_INT64
+#       }
+#     }
+#   }
+# }
+# op {
 #   name: "UniqueWithCounts"
 #   input_arg {
 #     name: "x"
@@ -9037,6 +12946,59 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #   attr {
 #     name: "T"
 #     type: "type"
+#   }
+#   attr {
+#     name: "out_idx"
+#     type: "type"
+#     default_value {
+#       type: DT_INT32
+#     }
+#     allowed_values {
+#       list {
+#         type: DT_INT32
+#         type: DT_INT64
+#       }
+#     }
+#   }
+# }
+# op {
+#   name: "UniqueWithCountsV2"
+#   input_arg {
+#     name: "x"
+#     type_attr: "T"
+#   }
+#   input_arg {
+#     name: "axis"
+#     type_attr: "Taxis"
+#   }
+#   output_arg {
+#     name: "y"
+#     type_attr: "T"
+#   }
+#   output_arg {
+#     name: "idx"
+#     type_attr: "out_idx"
+#   }
+#   output_arg {
+#     name: "count"
+#     type_attr: "out_idx"
+#   }
+#   attr {
+#     name: "T"
+#     type: "type"
+#   }
+#   attr {
+#     name: "Taxis"
+#     type: "type"
+#     default_value {
+#       type: DT_INT64
+#     }
+#     allowed_values {
+#       list {
+#         type: DT_INT32
+#         type: DT_INT64
+#       }
+#     }
 #   }
 #   attr {
 #     name: "out_idx"
@@ -9081,14 +13043,71 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #   }
 # }
 # op {
+#   name: "UnravelIndex"
+#   input_arg {
+#     name: "indices"
+#     type_attr: "Tidx"
+#   }
+#   input_arg {
+#     name: "dims"
+#     type_attr: "Tidx"
+#   }
+#   output_arg {
+#     name: "output"
+#     type_attr: "Tidx"
+#   }
+#   attr {
+#     name: "Tidx"
+#     type: "type"
+#     default_value {
+#       type: DT_INT32
+#     }
+#     allowed_values {
+#       list {
+#         type: DT_INT32
+#         type: DT_INT64
+#       }
+#     }
+#   }
+# }
+# op {
 #   name: "Where"
 #   input_arg {
 #     name: "input"
-#     type: DT_BOOL
+#     type_attr: "T"
 #   }
 #   output_arg {
 #     name: "index"
 #     type: DT_INT64
+#   }
+#   attr {
+#     name: "T"
+#     type: "type"
+#     default_value {
+#       type: DT_BOOL
+#     }
+#     allowed_values {
+#       list {
+#         type: DT_FLOAT
+#         type: DT_DOUBLE
+#         type: DT_INT32
+#         type: DT_UINT8
+#         type: DT_INT16
+#         type: DT_INT8
+#         type: DT_COMPLEX64
+#         type: DT_INT64
+#         type: DT_QINT8
+#         type: DT_QUINT8
+#         type: DT_QINT32
+#         type: DT_BFLOAT16
+#         type: DT_UINT16
+#         type: DT_COMPLEX128
+#         type: DT_HALF
+#         type: DT_UINT32
+#         type: DT_UINT64
+#         type: DT_BOOL
+#       }
+#     }
 #   }
 # }
 # op {
@@ -9106,4 +13125,4 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #     type: "type"
 #   }
 # }
-_op_def_lib = _InitOpDefLibrary(b"\nm\n\023BatchMatrixBandPart\022\n\n\005input\"\001T\022\r\n\tnum_lower\030\t\022\r\n\tnum_upper\030\t\032\t\n\004band\"\001T\"\t\n\001T\022\004typeB\026\010\016\022\022Use MatrixBandPart\nL\n\017BatchMatrixDiag\022\r\n\010diagonal\"\001T\032\013\n\006output\"\001T\"\t\n\001T\022\004typeB\022\010\016\022\016Use MatrixDiag\nS\n\023BatchMatrixDiagPart\022\n\n\005input\"\001T\032\r\n\010diagonal\"\001T\"\t\n\001T\022\004typeB\026\010\016\022\022Use MatrixDiagPart\n^\n\022BatchMatrixSetDiag\022\n\n\005input\"\001T\022\r\n\010diagonal\"\001T\032\013\n\006output\"\001T\"\t\n\001T\022\004typeB\025\010\016\022\021Use MatrixSetDiag\nr\n\014BatchToSpace\022\n\n\005input\"\001T\022\r\n\005crops\"\004Tidx\032\013\n\006output\"\001T\"\t\n\001T\022\004type\"\025\n\nblock_size\022\003int(\0010\002\"\030\n\004Tidx\022\004type\032\0020\003:\006\n\0042\002\003\t\n\240\001\n\016BatchToSpaceND\022\n\n\005input\"\001T\022\033\n\013block_shape\"\014Tblock_shape\022\017\n\005crops\"\006Tcrops\032\013\n\006output\"\001T\"\t\n\001T\022\004type\" \n\014Tblock_shape\022\004type\032\0020\003:\006\n\0042\002\003\t\"\032\n\006Tcrops\022\004type\032\0020\003:\006\n\0042\002\003\t\nj\n\007Bitcast\022\n\n\005input\"\001T\032\016\n\006output\"\004type\"\037\n\001T\022\004type:\024\n\0222\020\001\002\t\003\004\021\006\005\010\022\013\014\017\020\r\023\"\"\n\004type\022\004type:\024\n\0222\020\001\002\t\003\004\021\006\005\010\022\013\014\017\020\r\023\nA\n\rBroadcastArgs\022\007\n\002s0\"\001T\022\007\n\002s1\"\001T\032\007\n\002r0\"\001T\"\025\n\001T\022\004type\032\0020\003:\006\n\0042\002\003\t\nR\n\025BroadcastGradientArgs\022\007\n\002s0\"\001T\022\007\n\002s1\"\001T\032\007\n\002r0\"\001T\032\007\n\002r1\"\001T\"\025\n\001T\022\004type\032\0020\003:\006\n\0042\002\003\t\nP\n\rCheckNumerics\022\013\n\006tensor\"\001T\032\013\n\006output\"\001T\"\022\n\001T\022\004type:\007\n\0052\003\023\001\002\"\021\n\007message\022\006string\nN\n\006Concat\022\016\n\nconcat_dim\030\003\022\016\n\006values\"\001T*\001N\032\013\n\006output\"\001T\"\014\n\001N\022\003int(\0010\002\"\t\n\001T\022\004type\nI\n\014ConcatOffset\022\016\n\nconcat_dim\030\003\022\014\n\005shape\030\003*\001N\032\r\n\006offset\030\003*\001N\"\014\n\001N\022\003int(\0010\002\nh\n\010ConcatV2\022\016\n\006values\"\001T*\001N\022\014\n\004axis\"\004Tidx\032\013\n\006output\"\001T\"\014\n\001N\022\003int(\0010\002\"\t\n\001T\022\004type\"\030\n\004Tidx\022\004type\032\0020\003:\006\n\0042\002\003\t\n8\n\005Const\032\017\n\006output\"\005dtype\"\017\n\005value\022\006tensor\"\r\n\005dtype\022\004type\n>\n\025DebugGradientIdentity\022\n\n\005input\"\001T\032\013\n\006output\"\001T\"\t\n\001T\022\004type\230\001\001\n\205\001\n\014DepthToSpace\022\n\n\005input\"\001T\032\013\n\006output\"\001T\"\t\n\001T\022\004type\"\025\n\nblock_size\022\003int(\0010\002\":\n\013data_format\022\006string\032\006\022\004NHWC:\033\n\031\022\004NHWC\022\004NCHW\022\013NCHW_VECT_C\n\235\001\n\nDequantize\022\n\n\005input\"\001T\022\r\n\tmin_range\030\001\022\r\n\tmax_range\030\001\032\n\n\006output\030\001\"\024\n\001T\022\004type:\t\n\0072\005\013\014\017\020\r\"C\n\004mode\022\006string\032\016\022\014MIN_COMBINED:#\n!\022\014MIN_COMBINED\022\tMIN_FIRST\022\006SCALED\n9\n\004Diag\022\r\n\010diagonal\"\001T\032\013\n\006output\"\001T\"\025\n\001T\022\004type:\n\n\0102\006\001\002\003\t\010\022\n<\n\010DiagPart\022\n\n\005input\"\001T\032\r\n\010diagonal\"\001T\"\025\n\001T\022\004type:\n\n\0102\006\001\002\003\t\010\022\n\271\001\n\014EditDistance\022\026\n\022hypothesis_indices\030\t\022\026\n\021hypothesis_values\"\001T\022\024\n\020hypothesis_shape\030\t\022\021\n\rtruth_indices\030\t\022\021\n\014truth_values\"\001T\022\017\n\013truth_shape\030\t\032\n\n\006output\030\001\"\025\n\tnormalize\022\004bool\032\002(\001\"\t\n\001T\022\004type\nW\n\nExpandDims\022\n\n\005input\"\001T\022\013\n\003dim\"\004Tdim\032\013\n\006output\"\001T\"\t\n\001T\022\004type\"\030\n\004Tdim\022\004type\032\0020\003:\006\n\0042\002\003\t\n\271\001\n\023ExtractImagePatches\022\013\n\006images\"\001T\032\014\n\007patches\"\001T\"\027\n\006ksizes\022\tlist(int)(\0010\004\"\030\n\007strides\022\tlist(int)(\0010\004\"\026\n\005rates\022\tlist(int)(\0010\004\"\030\n\001T\022\004type:\r\n\0132\t\001\002\003\t\004\005\006\021\023\"\"\n\007padding\022\006string:\017\n\r\022\004SAME\022\005VALID\n\213\001\n\027FakeQuantWithMinMaxArgs\022\n\n\006inputs\030\001\032\013\n\007outputs\030\001\"\023\n\003min\022\005float\032\005%\000\000\300\300\"\023\n\003max\022\005float\032\005%\000\000\300@\"\023\n\010num_bits\022\003int\032\002\030\010\"\030\n\014narrow_range\022\004bool\032\002(\000\n\244\001\n\037FakeQuantWithMinMaxArgsGradient\022\r\n\tgradients\030\001\022\n\n\006inputs\030\001\032\r\n\tbackprops\030\001\"\023\n\003min\022\005float\032\005%\000\000\300\300\"\023\n\003max\022\005float\032\005%\000\000\300@\"\023\n\010num_bits\022\003int\032\002\030\010\"\030\n\014narrow_range\022\004bool\032\002(\000\ns\n\027FakeQuantWithMinMaxVars\022\n\n\006inputs\030\001\022\007\n\003min\030\001\022\007\n\003max\030\001\032\013\n\007outputs\030\001\"\023\n\010num_bits\022\003int\032\002\030\010\"\030\n\014narrow_range\022\004bool\032\002(\000\n\302\001\n\037FakeQuantWithMinMaxVarsGradient\022\r\n\tgradients\030\001\022\n\n\006inputs\030\001\022\007\n\003min\030\001\022\007\n\003max\030\001\032\027\n\023backprops_wrt_input\030\001\032\024\n\020backprop_wrt_min\030\001\032\024\n\020backprop_wrt_max\030\001\"\023\n\010num_bits\022\003int\032\002\030\010\"\030\n\014narrow_range\022\004bool\032\002(\000\n}\n!FakeQuantWithMinMaxVarsPerChannel\022\n\n\006inputs\030\001\022\007\n\003min\030\001\022\007\n\003max\030\001\032\013\n\007outputs\030\001\"\023\n\010num_bits\022\003int\032\002\030\010\"\030\n\014narrow_range\022\004bool\032\002(\000\n\314\001\n)FakeQuantWithMinMaxVarsPerChannelGradient\022\r\n\tgradients\030\001\022\n\n\006inputs\030\001\022\007\n\003min\030\001\022\007\n\003max\030\001\032\027\n\023backprops_wrt_input\030\001\032\024\n\020backprop_wrt_min\030\001\032\024\n\020backprop_wrt_max\030\001\"\023\n\010num_bits\022\003int\032\002\030\010\"\030\n\014narrow_range\022\004bool\032\002(\000\n4\n\004Fill\022\010\n\004dims\030\003\022\n\n\005value\"\001T\032\013\n\006output\"\001T\"\t\n\001T\022\004type\n\214\001\n\006Gather\022\021\n\006params\"\007Tparams\022\023\n\007indices\"\010Tindices\032\021\n\006output\"\007Tparams\"\034\n\020validate_indices\022\004bool\032\002(\001\"\017\n\007Tparams\022\004type\"\030\n\010Tindices\022\004type:\006\n\0042\002\003\t\np\n\010GatherNd\022\021\n\006params\"\007Tparams\022\023\n\007indices\"\010Tindices\032\021\n\006output\"\007Tparams\"\017\n\007Tparams\022\004type\"\030\n\010Tindices\022\004type:\006\n\0042\002\003\t\n\226\001\n\010GatherV2\022\021\n\006params\"\007Tparams\022\023\n\007indices\"\010Tindices\022\r\n\004axis\"\005Taxis\032\021\n\006output\"\007Tparams\"\017\n\007Tparams\022\004type\"\030\n\010Tindices\022\004type:\006\n\0042\002\003\t\"\025\n\005Taxis\022\004type:\006\n\0042\002\003\t\n.\n\010Identity\022\n\n\005input\"\001T\032\013\n\006output\"\001T\"\t\n\001T\022\004type\n9\n\tIdentityN\022\n\n\005input2\001T\032\013\n\006output2\001T\"\023\n\001T\022\nlist(type)(\0010\001\n^\n\016ImmutableConst\032\017\n\006tensor\"\005dtype\"\r\n\005dtype\022\004type\"\016\n\005shape\022\005shape\"\034\n\022memory_region_name\022\006string\n:\n\021InvertPermutation\022\006\n\001x\"\001T\032\006\n\001y\"\001T\"\025\n\001T\022\004type\032\0020\003:\006\n\0042\002\003\t\n\\\n\010ListDiff\022\006\n\001x\"\001T\022\006\n\001y\"\001T\032\010\n\003out\"\001T\032\016\n\003idx\"\007out_idx\"\t\n\001T\022\004type\"\033\n\007out_idx\022\004type\032\0020\003:\006\n\0042\002\003\t\nP\n\016MatrixBandPart\022\n\n\005input\"\001T\022\r\n\tnum_lower\030\t\022\r\n\tnum_upper\030\t\032\t\n\004band\"\001T\"\t\n\001T\022\004type\n3\n\nMatrixDiag\022\r\n\010diagonal\"\001T\032\013\n\006output\"\001T\"\t\n\001T\022\004type\n6\n\016MatrixDiagPart\022\n\n\005input\"\001T\032\r\n\010diagonal\"\001T\"\t\n\001T\022\004type\nB\n\rMatrixSetDiag\022\n\n\005input\"\001T\022\r\n\010diagonal\"\001T\032\013\n\006output\"\001T\"\t\n\001T\022\004type\n\215\001\n\tMirrorPad\022\n\n\005input\"\001T\022\025\n\010paddings\"\tTpaddings\032\013\n\006output\"\001T\"\t\n\001T\022\004type\"\035\n\tTpaddings\022\004type\032\0020\003:\006\n\0042\002\003\t\"&\n\004mode\022\006string:\026\n\024\022\007REFLECT\022\tSYMMETRIC\n\221\001\n\rMirrorPadGrad\022\n\n\005input\"\001T\022\025\n\010paddings\"\tTpaddings\032\013\n\006output\"\001T\"\t\n\001T\022\004type\"\035\n\tTpaddings\022\004type\032\0020\003:\006\n\0042\002\003\t\"&\n\004mode\022\006string:\026\n\024\022\007REFLECT\022\tSYMMETRIC\n\214\001\n\006OneHot\022\r\n\007indices\"\002TI\022\t\n\005depth\030\003\022\r\n\010on_value\"\001T\022\016\n\toff_value\"\001T\032\013\n\006output\"\001T\"\030\n\004axis\022\003int\032\013\030\377\377\377\377\377\377\377\377\377\001\"\t\n\001T\022\004type\"\027\n\002TI\022\004type\032\0020\t:\007\n\0052\003\004\003\t\n1\n\010OnesLike\022\006\n\001x\"\001T\032\006\n\001y\"\001T\"\025\n\001T\022\004type:\n\n\0102\006\001\002\003\t\010\022\nM\n\004Pack\022\016\n\006values\"\001T*\001N\032\013\n\006output\"\001T\"\014\n\001N\022\003int(\0010\001\"\t\n\001T\022\004type\"\017\n\004axis\022\003int\032\002\030\000\n_\n\003Pad\022\n\n\005input\"\001T\022\025\n\010paddings\"\tTpaddings\032\013\n\006output\"\001T\"\t\n\001T\022\004type\"\035\n\tTpaddings\022\004type\032\0020\003:\006\n\0042\002\003\t\nw\n\005PadV2\022\n\n\005input\"\001T\022\025\n\010paddings\"\tTpaddings\022\024\n\017constant_values\"\001T\032\013\n\006output\"\001T\"\t\n\001T\022\004type\"\035\n\tTpaddings\022\004type\032\0020\003:\006\n\0042\002\003\t\nV\n\016ParallelConcat\022\016\n\006values\"\001T*\001N\032\013\n\006output\"\001T\"\014\n\001N\022\003int(\0010\001\"\t\n\001T\022\004type\"\016\n\005shape\022\005shape\nC\n\013Placeholder\032\017\n\006output\"\005dtype\"\r\n\005dtype\022\004type\"\024\n\005shape\022\005shape\032\004:\002\030\001\nw\n\rPlaceholderV2\032\017\n\006output\"\005dtype\"\r\n\005dtype\022\004type\"\016\n\005shape\022\005shapeB6\010\027\0222Placeholder now behaves the same as PlaceholderV2.\nX\n\026PlaceholderWithDefault\022\016\n\005input\"\005dtype\032\017\n\006output\"\005dtype\"\r\n\005dtype\022\004type\"\016\n\005shape\022\005shape\nL\n\017PreventGradient\022\n\n\005input\"\001T\032\013\n\006output\"\001T\"\t\n\001T\022\004type\"\025\n\007message\022\006string\032\002\022\000\n\352\001\n\025QuantizeAndDequantize\022\n\n\005input\"\001T\032\013\n\006output\"\001T\"\030\n\014signed_input\022\004bool\032\002(\001\"\023\n\010num_bits\022\003int\032\002\030\010\"\027\n\013range_given\022\004bool\032\002(\000\"\031\n\tinput_min\022\005float\032\005%\000\000\000\000\"\031\n\tinput_max\022\005float\032\005%\000\000\000\000\"\021\n\001T\022\004type:\006\n\0042\002\001\002B\'\010\026\022#Replaced by QuantizeAndDequantizeV2\n\255\001\n\027QuantizeAndDequantizeV2\022\n\n\005input\"\001T\022\016\n\tinput_min\"\001T\022\016\n\tinput_max\"\001T\032\013\n\006output\"\001T\"\030\n\014signed_input\022\004bool\032\002(\001\"\023\n\010num_bits\022\003int\032\002\030\010\"\027\n\013range_given\022\004bool\032\002(\000\"\021\n\001T\022\004type:\006\n\0042\002\001\002\n\246\001\n\027QuantizeAndDequantizeV3\022\n\n\005input\"\001T\022\016\n\tinput_min\"\001T\022\016\n\tinput_max\"\001T\022\014\n\010num_bits\030\003\032\013\n\006output\"\001T\"\030\n\014signed_input\022\004bool\032\002(\001\"\027\n\013range_given\022\004bool\032\002(\001\"\021\n\001T\022\004type:\006\n\0042\002\001\002\n\275\001\n\nQuantizeV2\022\t\n\005input\030\001\022\r\n\tmin_range\030\001\022\r\n\tmax_range\030\001\032\013\n\006output\"\001T\032\016\n\noutput_min\030\001\032\016\n\noutput_max\030\001\"\024\n\001T\022\004type:\t\n\0072\005\013\014\017\020\r\"C\n\004mode\022\006string\032\016\022\014MIN_COMBINED:#\n!\022\014MIN_COMBINED\022\tMIN_FIRST\022\006SCALED\n\236\001\n\017QuantizedConcat\022\016\n\nconcat_dim\030\003\022\016\n\006values\"\001T*\001N\022\021\n\ninput_mins\030\001*\001N\022\022\n\013input_maxes\030\001*\001N\032\013\n\006output\"\001T\032\016\n\noutput_min\030\001\032\016\n\noutput_max\030\001\"\014\n\001N\022\003int(\0010\002\"\t\n\001T\022\004type\n\205\002\n\025QuantizedInstanceNorm\022\006\n\001x\"\001T\022\t\n\005x_min\030\001\022\t\n\005x_max\030\001\032\006\n\001y\"\001T\032\t\n\005y_min\030\001\032\t\n\005y_max\030\001\"\024\n\001T\022\004type:\t\n\0072\005\013\014\017\020\r\"\036\n\022output_range_given\022\004bool\032\002(\000\"\033\n\013given_y_min\022\005float\032\005%\000\000\000\000\"\033\n\013given_y_max\022\005float\032\005%\000\000\000\000\" \n\020variance_epsilon\022\005float\032\005%\254\305\'7\"\036\n\016min_separation\022\005float\032\005%o\022\203:\n\242\001\n\020QuantizedReshape\022\013\n\006tensor\"\001T\022\017\n\005shape\"\006Tshape\022\r\n\tinput_min\030\001\022\r\n\tinput_max\030\001\032\013\n\006output\"\001T\032\016\n\noutput_min\030\001\032\016\n\noutput_max\030\001\"\t\n\001T\022\004type\"\032\n\006Tshape\022\004type\032\0020\003:\006\n\0042\002\003\t\n)\n\004Rank\022\n\n\005input\"\001T\032\n\n\006output\030\003\"\t\n\001T\022\004type\n:\n\013RefIdentity\022\r\n\005input\"\001T\200\001\001\032\016\n\006output\"\001T\200\001\001\"\t\n\001T\022\004type\230\001\001\n[\n\007Reshape\022\013\n\006tensor\"\001T\022\017\n\005shape\"\006Tshape\032\013\n\006output\"\001T\"\t\n\001T\022\004type\"\032\n\006Tshape\022\004type\032\0020\003:\006\n\0042\002\003\t\n\203\002\n\032ResourceStridedSliceAssign\022\007\n\003ref\030\024\022\016\n\005begin\"\005Index\022\014\n\003end\"\005Index\022\020\n\007strides\"\005Index\022\n\n\005value\"\001T\"\t\n\001T\022\004type\"\025\n\005Index\022\004type:\006\n\0042\002\003\t\"\025\n\nbegin_mask\022\003int\032\002\030\000\"\023\n\010end_mask\022\003int\032\002\030\000\"\030\n\rellipsis_mask\022\003int\032\002\030\000\"\030\n\rnew_axis_mask\022\003int\032\002\030\000\"\033\n\020shrink_axis_mask\022\003int\032\002\030\000\210\001\001\nK\n\007Reverse\022\013\n\006tensor\"\001T\022\010\n\004dims\030\n\032\013\n\006output\"\001T\"\034\n\001T\022\004type:\021\n\0172\r\004\006\021\005\003\t\n\023\001\002\010\022\007\n\212\001\n\017ReverseSequence\022\n\n\005input\"\001T\022\023\n\013seq_lengths\"\004Tlen\032\013\n\006output\"\001T\"\016\n\007seq_dim\022\003int\"\024\n\tbatch_dim\022\003int\032\002\030\000\"\t\n\001T\022\004type\"\030\n\004Tlen\022\004type\032\0020\t:\006\n\0042\002\003\t\nk\n\tReverseV2\022\013\n\006tensor\"\001T\022\014\n\004axis\"\004Tidx\032\013\n\006output\"\001T\"\030\n\004Tidx\022\004type\032\0020\003:\006\n\0042\002\003\t\"\034\n\001T\022\004type:\021\n\0172\r\004\006\021\005\003\t\n\023\001\002\010\022\007\ns\n\tScatterNd\022\023\n\007indices\"\010Tindices\022\014\n\007updates\"\001T\022\021\n\005shape\"\010Tindices\032\013\n\006output\"\001T\"\t\n\001T\022\004type\"\030\n\010Tindices\022\004type:\006\n\0042\002\003\t\n\216\001\n\027ScatterNdNonAliasingAdd\022\n\n\005input\"\001T\022\023\n\007indices\"\010Tindices\022\014\n\007updates\"\001T\032\013\n\006output\"\001T\"\035\n\001T\022\004type:\022\n\0202\016\001\002\t\003\004\021\005\006\010\022\013\014\r\023\"\030\n\010Tindices\022\004type:\006\n\0042\002\003\t\nP\n\005Shape\022\n\n\005input\"\001T\032\022\n\006output\"\010out_type\"\t\n\001T\022\004type\"\034\n\010out_type\022\004type\032\0020\003:\006\n\0042\002\003\t\ne\n\006ShapeN\022\r\n\005input\"\001T*\001N\032\025\n\006output\"\010out_type*\001N\"\014\n\001N\022\003int(\0010\001\"\t\n\001T\022\004type\"\034\n\010out_type\022\004type\032\0020\003:\006\n\0042\002\003\t\nO\n\004Size\022\n\n\005input\"\001T\032\022\n\006output\"\010out_type\"\t\n\001T\022\004type\"\034\n\010out_type\022\004type\032\0020\003:\006\n\0042\002\003\t\na\n\005Slice\022\n\n\005input\"\001T\022\016\n\005begin\"\005Index\022\r\n\004size\"\005Index\032\013\n\006output\"\001T\"\t\n\001T\022\004type\"\025\n\005Index\022\004type:\006\n\0042\002\003\t\n\177\n\014SpaceToBatch\022\n\n\005input\"\001T\022\025\n\010paddings\"\tTpaddings\032\013\n\006output\"\001T\"\t\n\001T\022\004type\"\035\n\tTpaddings\022\004type\032\0020\003:\006\n\0042\002\003\t\"\025\n\nblock_size\022\003int(\0010\002\n\251\001\n\016SpaceToBatchND\022\n\n\005input\"\001T\022\033\n\013block_shape\"\014Tblock_shape\022\025\n\010paddings\"\tTpaddings\032\013\n\006output\"\001T\"\t\n\001T\022\004type\" \n\014Tblock_shape\022\004type\032\0020\003:\006\n\0042\002\003\t\"\035\n\tTpaddings\022\004type\032\0020\003:\006\n\0042\002\003\t\n\205\001\n\014SpaceToDepth\022\n\n\005input\"\001T\032\013\n\006output\"\001T\"\t\n\001T\022\004type\"\025\n\nblock_size\022\003int(\0010\002\":\n\013data_format\022\006string\032\006\022\004NHWC:\033\n\031\022\004NHWC\022\004NCHW\022\013NCHW_VECT_C\n[\n\005Split\022\r\n\tsplit_dim\030\003\022\n\n\005value\"\001T\032\026\n\006output\"\001T*\tnum_split\"\024\n\tnum_split\022\003int(\0010\001\"\t\n\001T\022\004type\n\213\001\n\006SplitV\022\n\n\005value\"\001T\022\023\n\013size_splits\"\004Tlen\022\r\n\tsplit_dim\030\003\032\026\n\006output\"\001T*\tnum_split\"\024\n\tnum_split\022\003int(\0010\001\"\t\n\001T\022\004type\"\030\n\004Tlen\022\004type\032\0020\t:\006\n\0042\002\003\t\nN\n\007Squeeze\022\n\n\005input\"\001T\032\013\n\006output\"\001T\"\t\n\001T\022\004type\"\037\n\014squeeze_dims\022\tlist(int)\032\002\n\000(\001\n2\n\014StopGradient\022\n\n\005input\"\001T\032\013\n\006output\"\001T\"\t\n\001T\022\004type\n\366\001\n\014StridedSlice\022\n\n\005input\"\001T\022\016\n\005begin\"\005Index\022\014\n\003end\"\005Index\022\020\n\007strides\"\005Index\032\013\n\006output\"\001T\"\t\n\001T\022\004type\"\025\n\005Index\022\004type:\006\n\0042\002\003\t\"\025\n\nbegin_mask\022\003int\032\002\030\000\"\023\n\010end_mask\022\003int\032\002\030\000\"\030\n\rellipsis_mask\022\003int\032\002\030\000\"\030\n\rnew_axis_mask\022\003int\032\002\030\000\"\033\n\020shrink_axis_mask\022\003int\032\002\030\000\n\220\002\n\022StridedSliceAssign\022\013\n\003ref\"\001T\200\001\001\022\016\n\005begin\"\005Index\022\014\n\003end\"\005Index\022\020\n\007strides\"\005Index\022\n\n\005value\"\001T\032\022\n\noutput_ref\"\001T\200\001\001\"\t\n\001T\022\004type\"\025\n\005Index\022\004type:\006\n\0042\002\003\t\"\025\n\nbegin_mask\022\003int\032\002\030\000\"\023\n\010end_mask\022\003int\032\002\030\000\"\030\n\rellipsis_mask\022\003int\032\002\030\000\"\030\n\rnew_axis_mask\022\003int\032\002\030\000\"\033\n\020shrink_axis_mask\022\003int\032\002\030\000\n\207\002\n\020StridedSliceGrad\022\016\n\005shape\"\005Index\022\016\n\005begin\"\005Index\022\014\n\003end\"\005Index\022\020\n\007strides\"\005Index\022\007\n\002dy\"\001T\032\013\n\006output\"\001T\"\t\n\001T\022\004type\"\025\n\005Index\022\004type:\006\n\0042\002\003\t\"\025\n\nbegin_mask\022\003int\032\002\030\000\"\023\n\010end_mask\022\003int\032\002\030\000\"\030\n\rellipsis_mask\022\003int\032\002\030\000\"\030\n\rnew_axis_mask\022\003int\032\002\030\000\"\033\n\020shrink_axis_mask\022\003int\032\002\030\000\nc\n\004Tile\022\n\n\005input\"\001T\022\027\n\tmultiples\"\nTmultiples\032\013\n\006output\"\001T\"\t\n\001T\022\004type\"\036\n\nTmultiples\022\004type\032\0020\003:\006\n\0042\002\003\t\nm\n\010TileGrad\022\n\n\005input\"\001T\022\r\n\tmultiples\030\003\032\013\n\006output\"\001T\"\t\n\001T\022\004typeB.\010\003\022*TileGrad has been replaced with reduce_sum\nP\n\tTranspose\022\006\n\001x\"\001T\022\r\n\004perm\"\005Tperm\032\006\n\001y\"\001T\"\t\n\001T\022\004type\"\031\n\005Tperm\022\004type\032\0020\003:\006\n\0042\002\003\t\nP\n\006Unique\022\006\n\001x\"\001T\032\006\n\001y\"\001T\032\016\n\003idx\"\007out_idx\"\t\n\001T\022\004type\"\033\n\007out_idx\022\004type\032\0020\003:\006\n\0042\002\003\t\nl\n\020UniqueWithCounts\022\006\n\001x\"\001T\032\006\n\001y\"\001T\032\016\n\003idx\"\007out_idx\032\020\n\005count\"\007out_idx\"\t\n\001T\022\004type\"\033\n\007out_idx\022\004type\032\0020\003:\006\n\0042\002\003\t\nP\n\006Unpack\022\n\n\005value\"\001T\032\020\n\006output\"\001T*\003num\"\014\n\003num\022\003int(\001\"\t\n\001T\022\004type\"\017\n\004axis\022\003int\032\002\030\000\n\035\n\005Where\022\t\n\005input\030\n\032\t\n\005index\030\t\n&\n\tZerosLike\022\006\n\001x\"\001T\032\006\n\001y\"\001T\"\t\n\001T\022\004type")
+_op_def_lib = _InitOpDefLibrary(b"\nm\n\023BatchMatrixBandPart\022\n\n\005input\"\001T\022\r\n\tnum_lower\030\t\022\r\n\tnum_upper\030\t\032\t\n\004band\"\001T\"\t\n\001T\022\004typeB\026\010\016\022\022Use MatrixBandPart\nL\n\017BatchMatrixDiag\022\r\n\010diagonal\"\001T\032\013\n\006output\"\001T\"\t\n\001T\022\004typeB\022\010\016\022\016Use MatrixDiag\nS\n\023BatchMatrixDiagPart\022\n\n\005input\"\001T\032\r\n\010diagonal\"\001T\"\t\n\001T\022\004typeB\026\010\016\022\022Use MatrixDiagPart\n^\n\022BatchMatrixSetDiag\022\n\n\005input\"\001T\022\r\n\010diagonal\"\001T\032\013\n\006output\"\001T\"\t\n\001T\022\004typeB\025\010\016\022\021Use MatrixSetDiag\nr\n\014BatchToSpace\022\n\n\005input\"\001T\022\r\n\005crops\"\004Tidx\032\013\n\006output\"\001T\"\t\n\001T\022\004type\"\025\n\nblock_size\022\003int(\0010\002\"\030\n\004Tidx\022\004type\032\0020\003:\006\n\0042\002\003\t\n\240\001\n\016BatchToSpaceND\022\n\n\005input\"\001T\022\033\n\013block_shape\"\014Tblock_shape\022\017\n\005crops\"\006Tcrops\032\013\n\006output\"\001T\"\t\n\001T\022\004type\" \n\014Tblock_shape\022\004type\032\0020\003:\006\n\0042\002\003\t\"\032\n\006Tcrops\022\004type\032\0020\003:\006\n\0042\002\003\t\np\n\007Bitcast\022\n\n\005input\"\001T\032\016\n\006output\"\004type\"\"\n\001T\022\004type:\027\n\0252\023\016\023\001\002\t\003\004\021\026\027\006\005\010\022\013\014\017\020\r\"%\n\004type\022\004type:\027\n\0252\023\016\023\001\002\t\003\004\021\026\027\006\005\010\022\013\014\017\020\r\nA\n\rBroadcastArgs\022\007\n\002s0\"\001T\022\007\n\002s1\"\001T\032\007\n\002r0\"\001T\"\025\n\001T\022\004type\032\0020\003:\006\n\0042\002\003\t\nR\n\025BroadcastGradientArgs\022\007\n\002s0\"\001T\022\007\n\002s1\"\001T\032\007\n\002r0\"\001T\032\007\n\002r1\"\001T\"\025\n\001T\022\004type\032\0020\003:\006\n\0042\002\003\t\nZ\n\013BroadcastTo\022\n\n\005input\"\001T\022\r\n\005shape\"\004Tidx\032\013\n\006output\"\001T\"\t\n\001T\022\004type\"\030\n\004Tidx\022\004type\032\0020\003:\006\n\0042\002\003\t\nQ\n\rCheckNumerics\022\013\n\006tensor\"\001T\032\013\n\006output\"\001T\"\023\n\001T\022\004type:\010\n\0062\004\016\023\001\002\"\021\n\007message\022\006string\nN\n\006Concat\022\016\n\nconcat_dim\030\003\022\016\n\006values\"\001T*\001N\032\013\n\006output\"\001T\"\014\n\001N\022\003int(\0010\002\"\t\n\001T\022\004type\nI\n\014ConcatOffset\022\016\n\nconcat_dim\030\003\022\014\n\005shape\030\003*\001N\032\r\n\006offset\030\003*\001N\"\014\n\001N\022\003int(\0010\002\nh\n\010ConcatV2\022\016\n\006values\"\001T*\001N\022\014\n\004axis\"\004Tidx\032\013\n\006output\"\001T\"\014\n\001N\022\003int(\0010\002\"\t\n\001T\022\004type\"\030\n\004Tidx\022\004type\032\0020\003:\006\n\0042\002\003\t\nY\n\022ConjugateTranspose\022\006\n\001x\"\001T\022\r\n\004perm\"\005Tperm\032\006\n\001y\"\001T\"\t\n\001T\022\004type\"\031\n\005Tperm\022\004type\032\0020\003:\006\n\0042\002\003\t\n8\n\005Const\032\017\n\006output\"\005dtype\"\017\n\005value\022\006tensor\"\r\n\005dtype\022\004type\n>\n\025DebugGradientIdentity\022\n\n\005input\"\001T\032\013\n\006output\"\001T\"\t\n\001T\022\004type\230\001\001\nG\n\030DebugGradientRefIdentity\022\r\n\005input\"\001T\200\001\001\032\016\n\006output\"\001T\200\001\001\"\t\n\001T\022\004type\230\001\001\n(\n\010DeepCopy\022\006\n\001x\"\001T\032\006\n\001y\"\001T\"\t\n\001T\022\004type\210\001\001\n\205\001\n\014DepthToSpace\022\n\n\005input\"\001T\032\013\n\006output\"\001T\"\t\n\001T\022\004type\"\025\n\nblock_size\022\003int(\0010\002\":\n\013data_format\022\006string\032\006\022\004NHWC:\033\n\031\022\004NHWC\022\004NCHW\022\013NCHW_VECT_C\n\235\001\n\nDequantize\022\n\n\005input\"\001T\022\r\n\tmin_range\030\001\022\r\n\tmax_range\030\001\032\n\n\006output\030\001\"\024\n\001T\022\004type:\t\n\0072\005\013\014\r\017\020\"C\n\004mode\022\006string\032\016\022\014MIN_COMBINED:#\n!\022\014MIN_COMBINED\022\tMIN_FIRST\022\006SCALED\n;\n\004Diag\022\r\n\010diagonal\"\001T\032\013\n\006output\"\001T\"\027\n\001T\022\004type:\014\n\n2\010\016\023\001\002\003\t\010\022\n>\n\010DiagPart\022\n\n\005input\"\001T\032\r\n\010diagonal\"\001T\"\027\n\001T\022\004type:\014\n\n2\010\016\023\001\002\003\t\010\022\n\271\001\n\014EditDistance\022\026\n\022hypothesis_indices\030\t\022\026\n\021hypothesis_values\"\001T\022\024\n\020hypothesis_shape\030\t\022\021\n\rtruth_indices\030\t\022\021\n\014truth_values\"\001T\022\017\n\013truth_shape\030\t\032\n\n\006output\030\001\"\025\n\tnormalize\022\004bool\032\002(\001\"\t\n\001T\022\004type\nG\n\005Empty\022\t\n\005shape\030\003\032\017\n\006output\"\005dtype\"\r\n\005dtype\022\004type\"\020\n\004init\022\004bool\032\002(\000\210\001\001\nA\n\013EnsureShape\022\n\n\005input\"\001T\032\013\n\006output\"\001T\"\016\n\005shape\022\005shape\"\t\n\001T\022\004type\nW\n\nExpandDims\022\n\n\005input\"\001T\022\013\n\003dim\"\004Tdim\032\013\n\006output\"\001T\"\t\n\001T\022\004type\"\030\n\004Tdim\022\004type\032\0020\003:\006\n\0042\002\003\t\n\274\001\n\023ExtractImagePatches\022\013\n\006images\"\001T\032\014\n\007patches\"\001T\"\027\n\006ksizes\022\tlist(int)(\0010\004\"\030\n\007strides\022\tlist(int)(\0010\004\"\026\n\005rates\022\tlist(int)(\0010\004\"\033\n\001T\022\004type:\020\n\0162\014\001\002\003\004\005\006\t\016\021\023\026\027\"\"\n\007padding\022\006string:\017\n\r\022\004SAME\022\005VALID\n\213\001\n\027FakeQuantWithMinMaxArgs\022\n\n\006inputs\030\001\032\013\n\007outputs\030\001\"\023\n\003min\022\005float\032\005%\000\000\300\300\"\023\n\003max\022\005float\032\005%\000\000\300@\"\023\n\010num_bits\022\003int\032\002\030\010\"\030\n\014narrow_range\022\004bool\032\002(\000\n\244\001\n\037FakeQuantWithMinMaxArgsGradient\022\r\n\tgradients\030\001\022\n\n\006inputs\030\001\032\r\n\tbackprops\030\001\"\023\n\003min\022\005float\032\005%\000\000\300\300\"\023\n\003max\022\005float\032\005%\000\000\300@\"\023\n\010num_bits\022\003int\032\002\030\010\"\030\n\014narrow_range\022\004bool\032\002(\000\ns\n\027FakeQuantWithMinMaxVars\022\n\n\006inputs\030\001\022\007\n\003min\030\001\022\007\n\003max\030\001\032\013\n\007outputs\030\001\"\023\n\010num_bits\022\003int\032\002\030\010\"\030\n\014narrow_range\022\004bool\032\002(\000\n\302\001\n\037FakeQuantWithMinMaxVarsGradient\022\r\n\tgradients\030\001\022\n\n\006inputs\030\001\022\007\n\003min\030\001\022\007\n\003max\030\001\032\027\n\023backprops_wrt_input\030\001\032\024\n\020backprop_wrt_min\030\001\032\024\n\020backprop_wrt_max\030\001\"\023\n\010num_bits\022\003int\032\002\030\010\"\030\n\014narrow_range\022\004bool\032\002(\000\n}\n!FakeQuantWithMinMaxVarsPerChannel\022\n\n\006inputs\030\001\022\007\n\003min\030\001\022\007\n\003max\030\001\032\013\n\007outputs\030\001\"\023\n\010num_bits\022\003int\032\002\030\010\"\030\n\014narrow_range\022\004bool\032\002(\000\n\314\001\n)FakeQuantWithMinMaxVarsPerChannelGradient\022\r\n\tgradients\030\001\022\n\n\006inputs\030\001\022\007\n\003min\030\001\022\007\n\003max\030\001\032\027\n\023backprops_wrt_input\030\001\032\024\n\020backprop_wrt_min\030\001\032\024\n\020backprop_wrt_max\030\001\"\023\n\010num_bits\022\003int\032\002\030\010\"\030\n\014narrow_range\022\004bool\032\002(\000\n^\n\004Fill\022\022\n\004dims\"\nindex_type\022\n\n\005value\"\001T\032\013\n\006output\"\001T\"\t\n\001T\022\004type\"\036\n\nindex_type\022\004type\032\0020\003:\006\n\0042\002\003\t\n\214\001\n\006Gather\022\021\n\006params\"\007Tparams\022\023\n\007indices\"\010Tindices\032\021\n\006output\"\007Tparams\"\034\n\020validate_indices\022\004bool\032\002(\001\"\017\n\007Tparams\022\004type\"\030\n\010Tindices\022\004type:\006\n\0042\002\003\t\np\n\010GatherNd\022\021\n\006params\"\007Tparams\022\023\n\007indices\"\010Tindices\032\021\n\006output\"\007Tparams\"\017\n\007Tparams\022\004type\"\030\n\010Tindices\022\004type:\006\n\0042\002\003\t\n\226\001\n\010GatherV2\022\021\n\006params\"\007Tparams\022\023\n\007indices\"\010Tindices\022\r\n\004axis\"\005Taxis\032\021\n\006output\"\007Tparams\"\017\n\007Tparams\022\004type\"\030\n\010Tindices\022\004type:\006\n\0042\002\003\t\"\025\n\005Taxis\022\004type:\006\n\0042\002\003\t\n7\n\016GuaranteeConst\022\n\n\005input\"\001T\032\013\n\006output\"\001T\"\t\n\001T\022\004type\210\001\001\n.\n\010Identity\022\n\n\005input\"\001T\032\013\n\006output\"\001T\"\t\n\001T\022\004type\n9\n\tIdentityN\022\n\n\005input2\001T\032\013\n\006output2\001T\"\023\n\001T\022\nlist(type)(\0010\001\n^\n\016ImmutableConst\032\017\n\006tensor\"\005dtype\"\r\n\005dtype\022\004type\"\016\n\005shape\022\005shape\"\034\n\022memory_region_name\022\006string\n6\n\nInplaceAdd\022\006\n\001x\"\001T\022\005\n\001i\030\003\022\006\n\001v\"\001T\032\006\n\001y\"\001T\"\t\n\001T\022\004type\n6\n\nInplaceSub\022\006\n\001x\"\001T\022\005\n\001i\030\003\022\006\n\001v\"\001T\032\006\n\001y\"\001T\"\t\n\001T\022\004type\n9\n\rInplaceUpdate\022\006\n\001x\"\001T\022\005\n\001i\030\003\022\006\n\001v\"\001T\032\006\n\001y\"\001T\"\t\n\001T\022\004type\n:\n\021InvertPermutation\022\006\n\001x\"\001T\032\006\n\001y\"\001T\"\025\n\001T\022\004type\032\0020\003:\006\n\0042\002\003\t\n\\\n\010ListDiff\022\006\n\001x\"\001T\022\006\n\001y\"\001T\032\010\n\003out\"\001T\032\016\n\003idx\"\007out_idx\"\t\n\001T\022\004type\"\033\n\007out_idx\022\004type\032\0020\003:\006\n\0042\002\003\t\nx\n\016MatrixBandPart\022\n\n\005input\"\001T\022\023\n\tnum_lower\"\006Tindex\022\023\n\tnum_upper\"\006Tindex\032\t\n\004band\"\001T\"\t\n\001T\022\004type\"\032\n\006Tindex\022\004type\032\0020\t:\006\n\0042\002\003\t\n3\n\nMatrixDiag\022\r\n\010diagonal\"\001T\032\013\n\006output\"\001T\"\t\n\001T\022\004type\n6\n\016MatrixDiagPart\022\n\n\005input\"\001T\032\r\n\010diagonal\"\001T\"\t\n\001T\022\004type\nB\n\rMatrixSetDiag\022\n\n\005input\"\001T\022\r\n\010diagonal\"\001T\032\013\n\006output\"\001T\"\t\n\001T\022\004type\n\215\001\n\tMirrorPad\022\n\n\005input\"\001T\022\025\n\010paddings\"\tTpaddings\032\013\n\006output\"\001T\"\t\n\001T\022\004type\"\035\n\tTpaddings\022\004type\032\0020\003:\006\n\0042\002\003\t\"&\n\004mode\022\006string:\026\n\024\022\007REFLECT\022\tSYMMETRIC\n\221\001\n\rMirrorPadGrad\022\n\n\005input\"\001T\022\025\n\010paddings\"\tTpaddings\032\013\n\006output\"\001T\"\t\n\001T\022\004type\"\035\n\tTpaddings\022\004type\032\0020\003:\006\n\0042\002\003\t\"&\n\004mode\022\006string:\026\n\024\022\007REFLECT\022\tSYMMETRIC\n\214\001\n\006OneHot\022\r\n\007indices\"\002TI\022\t\n\005depth\030\003\022\r\n\010on_value\"\001T\022\016\n\toff_value\"\001T\032\013\n\006output\"\001T\"\030\n\004axis\022\003int\032\013\030\377\377\377\377\377\377\377\377\377\001\"\t\n\001T\022\004type\"\027\n\002TI\022\004type\032\0020\t:\007\n\0052\003\004\003\t\n8\n\010OnesLike\022\006\n\001x\"\001T\032\006\n\001y\"\001T\"\034\n\001T\022\004type:\021\n\0172\r\016\023\001\002\006\004\005\021\003\t\010\022\n\nM\n\004Pack\022\016\n\006values\"\001T*\001N\032\013\n\006output\"\001T\"\014\n\001N\022\003int(\0010\001\"\t\n\001T\022\004type\"\017\n\004axis\022\003int\032\002\030\000\n_\n\003Pad\022\n\n\005input\"\001T\022\025\n\010paddings\"\tTpaddings\032\013\n\006output\"\001T\"\t\n\001T\022\004type\"\035\n\tTpaddings\022\004type\032\0020\003:\006\n\0042\002\003\t\nw\n\005PadV2\022\n\n\005input\"\001T\022\025\n\010paddings\"\tTpaddings\022\024\n\017constant_values\"\001T\032\013\n\006output\"\001T\"\t\n\001T\022\004type\"\035\n\tTpaddings\022\004type\032\0020\003:\006\n\0042\002\003\t\nV\n\016ParallelConcat\022\016\n\006values\"\001T*\001N\032\013\n\006output\"\001T\"\014\n\001N\022\003int(\0010\001\"\t\n\001T\022\004type\"\016\n\005shape\022\005shape\nC\n\013Placeholder\032\017\n\006output\"\005dtype\"\r\n\005dtype\022\004type\"\024\n\005shape\022\005shape\032\004:\002\030\001\nw\n\rPlaceholderV2\032\017\n\006output\"\005dtype\"\r\n\005dtype\022\004type\"\016\n\005shape\022\005shapeB6\010\027\0222Placeholder now behaves the same as PlaceholderV2.\nX\n\026PlaceholderWithDefault\022\016\n\005input\"\005dtype\032\017\n\006output\"\005dtype\"\r\n\005dtype\022\004type\"\016\n\005shape\022\005shape\nL\n\017PreventGradient\022\n\n\005input\"\001T\032\013\n\006output\"\001T\"\t\n\001T\022\004type\"\025\n\007message\022\006string\032\002\022\000\n\354\001\n\025QuantizeAndDequantize\022\n\n\005input\"\001T\032\013\n\006output\"\001T\"\030\n\014signed_input\022\004bool\032\002(\001\"\023\n\010num_bits\022\003int\032\002\030\010\"\027\n\013range_given\022\004bool\032\002(\000\"\031\n\tinput_min\022\005float\032\005%\000\000\000\000\"\031\n\tinput_max\022\005float\032\005%\000\000\000\000\"\023\n\001T\022\004type:\010\n\0062\004\016\023\001\002B\'\010\026\022#Replaced by QuantizeAndDequantizeV2\n\257\001\n\027QuantizeAndDequantizeV2\022\n\n\005input\"\001T\022\016\n\tinput_min\"\001T\022\016\n\tinput_max\"\001T\032\013\n\006output\"\001T\"\030\n\014signed_input\022\004bool\032\002(\001\"\023\n\010num_bits\022\003int\032\002\030\010\"\027\n\013range_given\022\004bool\032\002(\000\"\023\n\001T\022\004type:\010\n\0062\004\016\023\001\002\n\250\001\n\027QuantizeAndDequantizeV3\022\n\n\005input\"\001T\022\016\n\tinput_min\"\001T\022\016\n\tinput_max\"\001T\022\014\n\010num_bits\030\003\032\013\n\006output\"\001T\"\030\n\014signed_input\022\004bool\032\002(\001\"\027\n\013range_given\022\004bool\032\002(\001\"\023\n\001T\022\004type:\010\n\0062\004\016\023\001\002\n\221\002\n\nQuantizeV2\022\t\n\005input\030\001\022\r\n\tmin_range\030\001\022\r\n\tmax_range\030\001\032\013\n\006output\"\001T\032\016\n\noutput_min\030\001\032\016\n\noutput_max\030\001\"\024\n\001T\022\004type:\t\n\0072\005\013\014\r\017\020\"C\n\004mode\022\006string\032\016\022\014MIN_COMBINED:#\n!\022\014MIN_COMBINED\022\tMIN_FIRST\022\006SCALED\"R\n\nround_mode\022\006string\032\025\022\023HALF_AWAY_FROM_ZERO:%\n#\022\023HALF_AWAY_FROM_ZERO\022\014HALF_TO_EVEN\n\236\001\n\017QuantizedConcat\022\016\n\nconcat_dim\030\003\022\016\n\006values\"\001T*\001N\022\021\n\ninput_mins\030\001*\001N\022\022\n\013input_maxes\030\001*\001N\032\013\n\006output\"\001T\032\016\n\noutput_min\030\001\032\016\n\noutput_max\030\001\"\014\n\001N\022\003int(\0010\002\"\t\n\001T\022\004type\n\205\002\n\025QuantizedInstanceNorm\022\006\n\001x\"\001T\022\t\n\005x_min\030\001\022\t\n\005x_max\030\001\032\006\n\001y\"\001T\032\t\n\005y_min\030\001\032\t\n\005y_max\030\001\"\024\n\001T\022\004type:\t\n\0072\005\013\014\r\017\020\"\036\n\022output_range_given\022\004bool\032\002(\000\"\033\n\013given_y_min\022\005float\032\005%\000\000\000\000\"\033\n\013given_y_max\022\005float\032\005%\000\000\000\000\" \n\020variance_epsilon\022\005float\032\005%\254\305\'7\"\036\n\016min_separation\022\005float\032\005%o\022\203:\n\242\001\n\020QuantizedReshape\022\013\n\006tensor\"\001T\022\017\n\005shape\"\006Tshape\022\r\n\tinput_min\030\001\022\r\n\tinput_max\030\001\032\013\n\006output\"\001T\032\016\n\noutput_min\030\001\032\016\n\noutput_max\030\001\"\t\n\001T\022\004type\"\032\n\006Tshape\022\004type\032\0020\003:\006\n\0042\002\003\t\n)\n\004Rank\022\n\n\005input\"\001T\032\n\n\006output\030\003\"\t\n\001T\022\004type\n:\n\013RefIdentity\022\r\n\005input\"\001T\200\001\001\032\016\n\006output\"\001T\200\001\001\"\t\n\001T\022\004type\230\001\001\n[\n\007Reshape\022\013\n\006tensor\"\001T\022\017\n\005shape\"\006Tshape\032\013\n\006output\"\001T\"\t\n\001T\022\004type\"\032\n\006Tshape\022\004type\032\0020\003:\006\n\0042\002\003\t\n\203\002\n\032ResourceStridedSliceAssign\022\007\n\003ref\030\024\022\016\n\005begin\"\005Index\022\014\n\003end\"\005Index\022\020\n\007strides\"\005Index\022\n\n\005value\"\001T\"\t\n\001T\022\004type\"\025\n\005Index\022\004type:\006\n\0042\002\003\t\"\025\n\nbegin_mask\022\003int\032\002\030\000\"\023\n\010end_mask\022\003int\032\002\030\000\"\030\n\rellipsis_mask\022\003int\032\002\030\000\"\030\n\rnew_axis_mask\022\003int\032\002\030\000\"\033\n\020shrink_axis_mask\022\003int\032\002\030\000\210\001\001\nK\n\007Reverse\022\013\n\006tensor\"\001T\022\010\n\004dims\030\n\032\013\n\006output\"\001T\"\034\n\001T\022\004type:\021\n\0172\r\004\006\021\005\003\t\n\023\001\002\010\022\007\n\212\001\n\017ReverseSequence\022\n\n\005input\"\001T\022\023\n\013seq_lengths\"\004Tlen\032\013\n\006output\"\001T\"\016\n\007seq_dim\022\003int\"\024\n\tbatch_dim\022\003int\032\002\030\000\"\t\n\001T\022\004type\"\030\n\004Tlen\022\004type\032\0020\t:\006\n\0042\002\003\t\nl\n\tReverseV2\022\013\n\006tensor\"\001T\022\014\n\004axis\"\004Tidx\032\013\n\006output\"\001T\"\030\n\004Tidx\022\004type\032\0020\003:\006\n\0042\002\003\t\"\035\n\001T\022\004type:\022\n\0202\016\004\006\021\005\003\t\n\016\023\001\002\010\022\007\ns\n\tScatterNd\022\023\n\007indices\"\010Tindices\022\014\n\007updates\"\001T\022\021\n\005shape\"\010Tindices\032\013\n\006output\"\001T\"\t\n\001T\022\004type\"\030\n\010Tindices\022\004type:\006\n\0042\002\003\t\n\222\001\n\027ScatterNdNonAliasingAdd\022\n\n\005input\"\001T\022\023\n\007indices\"\010Tindices\022\014\n\007updates\"\001T\032\013\n\006output\"\001T\"!\n\001T\022\004type:\026\n\0242\022\001\002\003\004\005\006\010\t\013\014\r\016\021\022\023\026\027\n\"\030\n\010Tindices\022\004type:\006\n\0042\002\003\t\nP\n\005Shape\022\n\n\005input\"\001T\032\022\n\006output\"\010out_type\"\t\n\001T\022\004type\"\034\n\010out_type\022\004type\032\0020\003:\006\n\0042\002\003\t\ne\n\006ShapeN\022\r\n\005input\"\001T*\001N\032\025\n\006output\"\010out_type*\001N\"\014\n\001N\022\003int(\0010\001\"\t\n\001T\022\004type\"\034\n\010out_type\022\004type\032\0020\003:\006\n\0042\002\003\t\nO\n\004Size\022\n\n\005input\"\001T\032\022\n\006output\"\010out_type\"\t\n\001T\022\004type\"\034\n\010out_type\022\004type\032\0020\003:\006\n\0042\002\003\t\na\n\005Slice\022\n\n\005input\"\001T\022\016\n\005begin\"\005Index\022\r\n\004size\"\005Index\032\013\n\006output\"\001T\"\t\n\001T\022\004type\"\025\n\005Index\022\004type:\006\n\0042\002\003\t\n.\n\010Snapshot\022\n\n\005input\"\001T\032\013\n\006output\"\001T\"\t\n\001T\022\004type\n\177\n\014SpaceToBatch\022\n\n\005input\"\001T\022\025\n\010paddings\"\tTpaddings\032\013\n\006output\"\001T\"\t\n\001T\022\004type\"\035\n\tTpaddings\022\004type\032\0020\003:\006\n\0042\002\003\t\"\025\n\nblock_size\022\003int(\0010\002\n\251\001\n\016SpaceToBatchND\022\n\n\005input\"\001T\022\033\n\013block_shape\"\014Tblock_shape\022\025\n\010paddings\"\tTpaddings\032\013\n\006output\"\001T\"\t\n\001T\022\004type\" \n\014Tblock_shape\022\004type\032\0020\003:\006\n\0042\002\003\t\"\035\n\tTpaddings\022\004type\032\0020\003:\006\n\0042\002\003\t\n\205\001\n\014SpaceToDepth\022\n\n\005input\"\001T\032\013\n\006output\"\001T\"\t\n\001T\022\004type\"\025\n\nblock_size\022\003int(\0010\002\":\n\013data_format\022\006string\032\006\022\004NHWC:\033\n\031\022\004NHWC\022\004NCHW\022\013NCHW_VECT_C\n[\n\005Split\022\r\n\tsplit_dim\030\003\022\n\n\005value\"\001T\032\026\n\006output\"\001T*\tnum_split\"\024\n\tnum_split\022\003int(\0010\001\"\t\n\001T\022\004type\n\213\001\n\006SplitV\022\n\n\005value\"\001T\022\023\n\013size_splits\"\004Tlen\022\r\n\tsplit_dim\030\003\032\026\n\006output\"\001T*\tnum_split\"\024\n\tnum_split\022\003int(\0010\001\"\t\n\001T\022\004type\"\030\n\004Tlen\022\004type\032\0020\t:\006\n\0042\002\003\t\nN\n\007Squeeze\022\n\n\005input\"\001T\032\013\n\006output\"\001T\"\t\n\001T\022\004type\"\037\n\014squeeze_dims\022\tlist(int)\032\002\n\000(\001\n2\n\014StopGradient\022\n\n\005input\"\001T\032\013\n\006output\"\001T\"\t\n\001T\022\004type\n\366\001\n\014StridedSlice\022\n\n\005input\"\001T\022\016\n\005begin\"\005Index\022\014\n\003end\"\005Index\022\020\n\007strides\"\005Index\032\013\n\006output\"\001T\"\t\n\001T\022\004type\"\025\n\005Index\022\004type:\006\n\0042\002\003\t\"\025\n\nbegin_mask\022\003int\032\002\030\000\"\023\n\010end_mask\022\003int\032\002\030\000\"\030\n\rellipsis_mask\022\003int\032\002\030\000\"\030\n\rnew_axis_mask\022\003int\032\002\030\000\"\033\n\020shrink_axis_mask\022\003int\032\002\030\000\n\220\002\n\022StridedSliceAssign\022\013\n\003ref\"\001T\200\001\001\022\016\n\005begin\"\005Index\022\014\n\003end\"\005Index\022\020\n\007strides\"\005Index\022\n\n\005value\"\001T\032\022\n\noutput_ref\"\001T\200\001\001\"\t\n\001T\022\004type\"\025\n\005Index\022\004type:\006\n\0042\002\003\t\"\025\n\nbegin_mask\022\003int\032\002\030\000\"\023\n\010end_mask\022\003int\032\002\030\000\"\030\n\rellipsis_mask\022\003int\032\002\030\000\"\030\n\rnew_axis_mask\022\003int\032\002\030\000\"\033\n\020shrink_axis_mask\022\003int\032\002\030\000\n\207\002\n\020StridedSliceGrad\022\016\n\005shape\"\005Index\022\016\n\005begin\"\005Index\022\014\n\003end\"\005Index\022\020\n\007strides\"\005Index\022\007\n\002dy\"\001T\032\013\n\006output\"\001T\"\t\n\001T\022\004type\"\025\n\005Index\022\004type:\006\n\0042\002\003\t\"\025\n\nbegin_mask\022\003int\032\002\030\000\"\023\n\010end_mask\022\003int\032\002\030\000\"\030\n\rellipsis_mask\022\003int\032\002\030\000\"\030\n\rnew_axis_mask\022\003int\032\002\030\000\"\033\n\020shrink_axis_mask\022\003int\032\002\030\000\nc\n\004Tile\022\n\n\005input\"\001T\022\027\n\tmultiples\"\nTmultiples\032\013\n\006output\"\001T\"\t\n\001T\022\004type\"\036\n\nTmultiples\022\004type\032\0020\003:\006\n\0042\002\003\t\nm\n\010TileGrad\022\n\n\005input\"\001T\022\r\n\tmultiples\030\003\032\013\n\006output\"\001T\"\t\n\001T\022\004typeB.\010\003\022*TileGrad has been replaced with reduce_sum\nP\n\tTranspose\022\006\n\001x\"\001T\022\r\n\004perm\"\005Tperm\032\006\n\001y\"\001T\"\t\n\001T\022\004type\"\031\n\005Tperm\022\004type\032\0020\003:\006\n\0042\002\003\t\nP\n\006Unique\022\006\n\001x\"\001T\032\006\n\001y\"\001T\032\016\n\003idx\"\007out_idx\"\t\n\001T\022\004type\"\033\n\007out_idx\022\004type\032\0020\003:\006\n\0042\002\003\t\n|\n\010UniqueV2\022\006\n\001x\"\001T\022\r\n\004axis\"\005Taxis\032\006\n\001y\"\001T\032\016\n\003idx\"\007out_idx\"\t\n\001T\022\004type\"\031\n\005Taxis\022\004type\032\0020\t:\006\n\0042\002\003\t\"\033\n\007out_idx\022\004type\032\0020\003:\006\n\0042\002\003\t\nl\n\020UniqueWithCounts\022\006\n\001x\"\001T\032\006\n\001y\"\001T\032\016\n\003idx\"\007out_idx\032\020\n\005count\"\007out_idx\"\t\n\001T\022\004type\"\033\n\007out_idx\022\004type\032\0020\003:\006\n\0042\002\003\t\n\230\001\n\022UniqueWithCountsV2\022\006\n\001x\"\001T\022\r\n\004axis\"\005Taxis\032\006\n\001y\"\001T\032\016\n\003idx\"\007out_idx\032\020\n\005count\"\007out_idx\"\t\n\001T\022\004type\"\031\n\005Taxis\022\004type\032\0020\t:\006\n\0042\002\003\t\"\033\n\007out_idx\022\004type\032\0020\003:\006\n\0042\002\003\t\nP\n\006Unpack\022\n\n\005value\"\001T\032\020\n\006output\"\001T*\003num\"\014\n\003num\022\003int(\001\"\t\n\001T\022\004type\"\017\n\004axis\022\003int\032\002\030\000\nW\n\014UnravelIndex\022\017\n\007indices\"\004Tidx\022\014\n\004dims\"\004Tidx\032\016\n\006output\"\004Tidx\"\030\n\004Tidx\022\004type\032\0020\003:\006\n\0042\002\003\t\nE\n\005Where\022\n\n\005input\"\001T\032\t\n\005index\030\t\"%\n\001T\022\004type\032\0020\n:\026\n\0242\022\001\002\003\004\005\006\010\t\013\014\r\016\021\022\023\026\027\n\n&\n\tZerosLike\022\006\n\001x\"\001T\032\006\n\001y\"\001T\"\t\n\001T\022\004type")

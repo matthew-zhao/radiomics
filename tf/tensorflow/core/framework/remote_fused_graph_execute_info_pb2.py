@@ -7,7 +7,6 @@ from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
 from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
-from google.protobuf import descriptor_pb2
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -22,49 +21,12 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='tensorflow/core/framework/remote_fused_graph_execute_info.proto',
   package='tensorflow',
   syntax='proto3',
-  serialized_pb=_b('\n?tensorflow/core/framework/remote_fused_graph_execute_info.proto\x12\ntensorflow\x1a%tensorflow/core/framework/graph.proto\x1a,tensorflow/core/framework/tensor_shape.proto\x1a%tensorflow/core/framework/types.proto\"\xf2\x04\n\x1bRemoteFusedGraphExecuteInfo\x12*\n\x0cremote_graph\x18\x01 \x01(\x0b\x32\x14.tensorflow.GraphDef\x12\x1d\n\x15graph_input_node_name\x18\x02 \x03(\t\x12\x1e\n\x16graph_output_node_name\x18\x03 \x03(\t\x12\x15\n\rexecutor_name\x18\x04 \x01(\t\x12&\n\x1eserialized_executor_parameters\x18\x05 \x01(\x0c\x12\x66\n default_graph_input_tensor_shape\x18\x06 \x03(\x0b\x32<.tensorflow.RemoteFusedGraphExecuteInfo.TensorShapeTypeProto\x12g\n!default_graph_output_tensor_shape\x18\x07 \x03(\x0b\x32<.tensorflow.RemoteFusedGraphExecuteInfo.TensorShapeTypeProto\x1ah\n\x14TensorShapeTypeProto\x12#\n\x05\x64type\x18\x01 \x01(\x0e\x32\x14.tensorflow.DataType\x12+\n\x05shape\x18\x02 \x01(\x0b\x32\x1c.tensorflow.TensorShapeProto\"n\n\x08NodeType\x12\n\n\x06UNUSED\x10\x00\x12\x0f\n\x0bGRAPH_INPUT\x10\x01\x12\x10\n\x0cGRAPH_OUTPUT\x10\x02\x12\x0e\n\nFUSED_NODE\x10\x03\x12\x10\n\x0c\x42ORDER_INPUT\x10\x04\x12\x11\n\rBORDER_OUTPUT\x10\x05\x42\x41\n\x18org.tensorflow.frameworkB RemoteFusedGraphExecuteInfoProtoP\x01\xf8\x01\x01\x62\x06proto3')
+  serialized_options=_b('\n\030org.tensorflow.frameworkB RemoteFusedGraphExecuteInfoProtoP\001Z=github.com/tensorflow/tensorflow/tensorflow/go/core/framework\370\001\001'),
+  serialized_pb=_b('\n?tensorflow/core/framework/remote_fused_graph_execute_info.proto\x12\ntensorflow\x1a%tensorflow/core/framework/graph.proto\x1a,tensorflow/core/framework/tensor_shape.proto\x1a%tensorflow/core/framework/types.proto\"\x82\x04\n\x1bRemoteFusedGraphExecuteInfo\x12*\n\x0cremote_graph\x18\x01 \x01(\x0b\x32\x14.tensorflow.GraphDef\x12\x1d\n\x15graph_input_node_name\x18\x02 \x03(\t\x12\x1e\n\x16graph_output_node_name\x18\x03 \x03(\t\x12\x15\n\rexecutor_name\x18\x04 \x01(\t\x12&\n\x1eserialized_executor_parameters\x18\x05 \x01(\x0c\x12\x66\n default_graph_input_tensor_shape\x18\x06 \x03(\x0b\x32<.tensorflow.RemoteFusedGraphExecuteInfo.TensorShapeTypeProto\x12g\n!default_graph_output_tensor_shape\x18\x07 \x03(\x0b\x32<.tensorflow.RemoteFusedGraphExecuteInfo.TensorShapeTypeProto\x1ah\n\x14TensorShapeTypeProto\x12#\n\x05\x64type\x18\x01 \x01(\x0e\x32\x14.tensorflow.DataType\x12+\n\x05shape\x18\x02 \x01(\x0b\x32\x1c.tensorflow.TensorShapeProtoB\x80\x01\n\x18org.tensorflow.frameworkB RemoteFusedGraphExecuteInfoProtoP\x01Z=github.com/tensorflow/tensorflow/tensorflow/go/core/framework\xf8\x01\x01\x62\x06proto3')
   ,
   dependencies=[tensorflow_dot_core_dot_framework_dot_graph__pb2.DESCRIPTOR,tensorflow_dot_core_dot_framework_dot_tensor__shape__pb2.DESCRIPTOR,tensorflow_dot_core_dot_framework_dot_types__pb2.DESCRIPTOR,])
 
 
-
-_REMOTEFUSEDGRAPHEXECUTEINFO_NODETYPE = _descriptor.EnumDescriptor(
-  name='NodeType',
-  full_name='tensorflow.RemoteFusedGraphExecuteInfo.NodeType',
-  filename=None,
-  file=DESCRIPTOR,
-  values=[
-    _descriptor.EnumValueDescriptor(
-      name='UNUSED', index=0, number=0,
-      options=None,
-      type=None),
-    _descriptor.EnumValueDescriptor(
-      name='GRAPH_INPUT', index=1, number=1,
-      options=None,
-      type=None),
-    _descriptor.EnumValueDescriptor(
-      name='GRAPH_OUTPUT', index=2, number=2,
-      options=None,
-      type=None),
-    _descriptor.EnumValueDescriptor(
-      name='FUSED_NODE', index=3, number=3,
-      options=None,
-      type=None),
-    _descriptor.EnumValueDescriptor(
-      name='BORDER_INPUT', index=4, number=4,
-      options=None,
-      type=None),
-    _descriptor.EnumValueDescriptor(
-      name='BORDER_OUTPUT', index=5, number=5,
-      options=None,
-      type=None),
-  ],
-  containing_type=None,
-  options=None,
-  serialized_start=720,
-  serialized_end=830,
-)
-_sym_db.RegisterEnumDescriptor(_REMOTEFUSEDGRAPHEXECUTEINFO_NODETYPE)
 
 
 _REMOTEFUSEDGRAPHEXECUTEINFO_TENSORSHAPETYPEPROTO = _descriptor.Descriptor(
@@ -80,21 +42,21 @@ _REMOTEFUSEDGRAPHEXECUTEINFO_TENSORSHAPETYPEPROTO = _descriptor.Descriptor(
       has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None),
+      serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
       name='shape', full_name='tensorflow.RemoteFusedGraphExecuteInfo.TensorShapeTypeProto.shape', index=1,
       number=2, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None),
+      serialized_options=None, file=DESCRIPTOR),
   ],
   extensions=[
   ],
   nested_types=[],
   enum_types=[
   ],
-  options=None,
+  serialized_options=None,
   is_extendable=False,
   syntax='proto3',
   extension_ranges=[],
@@ -117,64 +79,63 @@ _REMOTEFUSEDGRAPHEXECUTEINFO = _descriptor.Descriptor(
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None),
+      serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
       name='graph_input_node_name', full_name='tensorflow.RemoteFusedGraphExecuteInfo.graph_input_node_name', index=1,
       number=2, type=9, cpp_type=9, label=3,
       has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None),
+      serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
       name='graph_output_node_name', full_name='tensorflow.RemoteFusedGraphExecuteInfo.graph_output_node_name', index=2,
       number=3, type=9, cpp_type=9, label=3,
       has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None),
+      serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
       name='executor_name', full_name='tensorflow.RemoteFusedGraphExecuteInfo.executor_name', index=3,
       number=4, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=_b("").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None),
+      serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
       name='serialized_executor_parameters', full_name='tensorflow.RemoteFusedGraphExecuteInfo.serialized_executor_parameters', index=4,
       number=5, type=12, cpp_type=9, label=1,
       has_default_value=False, default_value=_b(""),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None),
+      serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
       name='default_graph_input_tensor_shape', full_name='tensorflow.RemoteFusedGraphExecuteInfo.default_graph_input_tensor_shape', index=5,
       number=6, type=11, cpp_type=10, label=3,
       has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None),
+      serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
       name='default_graph_output_tensor_shape', full_name='tensorflow.RemoteFusedGraphExecuteInfo.default_graph_output_tensor_shape', index=6,
       number=7, type=11, cpp_type=10, label=3,
       has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None),
+      serialized_options=None, file=DESCRIPTOR),
   ],
   extensions=[
   ],
   nested_types=[_REMOTEFUSEDGRAPHEXECUTEINFO_TENSORSHAPETYPEPROTO, ],
   enum_types=[
-    _REMOTEFUSEDGRAPHEXECUTEINFO_NODETYPE,
   ],
-  options=None,
+  serialized_options=None,
   is_extendable=False,
   syntax='proto3',
   extension_ranges=[],
   oneofs=[
   ],
   serialized_start=204,
-  serialized_end=830,
+  serialized_end=718,
 )
 
 _REMOTEFUSEDGRAPHEXECUTEINFO_TENSORSHAPETYPEPROTO.fields_by_name['dtype'].enum_type = tensorflow_dot_core_dot_framework_dot_types__pb2._DATATYPE
@@ -183,7 +144,6 @@ _REMOTEFUSEDGRAPHEXECUTEINFO_TENSORSHAPETYPEPROTO.containing_type = _REMOTEFUSED
 _REMOTEFUSEDGRAPHEXECUTEINFO.fields_by_name['remote_graph'].message_type = tensorflow_dot_core_dot_framework_dot_graph__pb2._GRAPHDEF
 _REMOTEFUSEDGRAPHEXECUTEINFO.fields_by_name['default_graph_input_tensor_shape'].message_type = _REMOTEFUSEDGRAPHEXECUTEINFO_TENSORSHAPETYPEPROTO
 _REMOTEFUSEDGRAPHEXECUTEINFO.fields_by_name['default_graph_output_tensor_shape'].message_type = _REMOTEFUSEDGRAPHEXECUTEINFO_TENSORSHAPETYPEPROTO
-_REMOTEFUSEDGRAPHEXECUTEINFO_NODETYPE.containing_type = _REMOTEFUSEDGRAPHEXECUTEINFO
 DESCRIPTOR.message_types_by_name['RemoteFusedGraphExecuteInfo'] = _REMOTEFUSEDGRAPHEXECUTEINFO
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
@@ -203,6 +163,5 @@ _sym_db.RegisterMessage(RemoteFusedGraphExecuteInfo)
 _sym_db.RegisterMessage(RemoteFusedGraphExecuteInfo.TensorShapeTypeProto)
 
 
-DESCRIPTOR.has_options = True
-DESCRIPTOR._options = _descriptor._ParseOptions(descriptor_pb2.FileOptions(), _b('\n\030org.tensorflow.frameworkB RemoteFusedGraphExecuteInfoProtoP\001\370\001\001'))
+DESCRIPTOR._options = None
 # @@protoc_insertion_point(module_scope)

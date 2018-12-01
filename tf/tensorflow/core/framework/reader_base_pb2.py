@@ -7,7 +7,6 @@ from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
 from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
-from google.protobuf import descriptor_pb2
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -19,7 +18,8 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='tensorflow/core/framework/reader_base.proto',
   package='tensorflow',
   syntax='proto3',
-  serialized_pb=_b('\n+tensorflow/core/framework/reader_base.proto\x12\ntensorflow\"r\n\x0fReaderBaseState\x12\x14\n\x0cwork_started\x18\x01 \x01(\x03\x12\x15\n\rwork_finished\x18\x02 \x01(\x03\x12\x1c\n\x14num_records_produced\x18\x03 \x01(\x03\x12\x14\n\x0c\x63urrent_work\x18\x04 \x01(\x0c\x42\x31\n\x18org.tensorflow.frameworkB\x10ReaderBaseProtosP\x01\xf8\x01\x01\x62\x06proto3')
+  serialized_options=_b('\n\030org.tensorflow.frameworkB\020ReaderBaseProtosP\001Z=github.com/tensorflow/tensorflow/tensorflow/go/core/framework\370\001\001'),
+  serialized_pb=_b('\n+tensorflow/core/framework/reader_base.proto\x12\ntensorflow\"r\n\x0fReaderBaseState\x12\x14\n\x0cwork_started\x18\x01 \x01(\x03\x12\x15\n\rwork_finished\x18\x02 \x01(\x03\x12\x1c\n\x14num_records_produced\x18\x03 \x01(\x03\x12\x14\n\x0c\x63urrent_work\x18\x04 \x01(\x0c\x42p\n\x18org.tensorflow.frameworkB\x10ReaderBaseProtosP\x01Z=github.com/tensorflow/tensorflow/tensorflow/go/core/framework\xf8\x01\x01\x62\x06proto3')
 )
 
 
@@ -38,35 +38,35 @@ _READERBASESTATE = _descriptor.Descriptor(
       has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None),
+      serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
       name='work_finished', full_name='tensorflow.ReaderBaseState.work_finished', index=1,
       number=2, type=3, cpp_type=2, label=1,
       has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None),
+      serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
       name='num_records_produced', full_name='tensorflow.ReaderBaseState.num_records_produced', index=2,
       number=3, type=3, cpp_type=2, label=1,
       has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None),
+      serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
       name='current_work', full_name='tensorflow.ReaderBaseState.current_work', index=3,
       number=4, type=12, cpp_type=9, label=1,
       has_default_value=False, default_value=_b(""),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None),
+      serialized_options=None, file=DESCRIPTOR),
   ],
   extensions=[
   ],
   nested_types=[],
   enum_types=[
   ],
-  options=None,
+  serialized_options=None,
   is_extendable=False,
   syntax='proto3',
   extension_ranges=[],
@@ -87,6 +87,5 @@ ReaderBaseState = _reflection.GeneratedProtocolMessageType('ReaderBaseState', (_
 _sym_db.RegisterMessage(ReaderBaseState)
 
 
-DESCRIPTOR.has_options = True
-DESCRIPTOR._options = _descriptor._ParseOptions(descriptor_pb2.FileOptions(), _b('\n\030org.tensorflow.frameworkB\020ReaderBaseProtosP\001\370\001\001'))
+DESCRIPTOR._options = None
 # @@protoc_insertion_point(module_scope)

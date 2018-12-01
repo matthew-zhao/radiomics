@@ -7,7 +7,6 @@ from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
 from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
-from google.protobuf import descriptor_pb2
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -19,7 +18,8 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='tensorflow/core/example/feature.proto',
   package='tensorflow',
   syntax='proto3',
-  serialized_pb=_b('\n%tensorflow/core/example/feature.proto\x12\ntensorflow\"\x1a\n\tBytesList\x12\r\n\x05value\x18\x01 \x03(\x0c\"\x1e\n\tFloatList\x12\x11\n\x05value\x18\x01 \x03(\x02\x42\x02\x10\x01\"\x1e\n\tInt64List\x12\x11\n\x05value\x18\x01 \x03(\x03\x42\x02\x10\x01\"\x98\x01\n\x07\x46\x65\x61ture\x12+\n\nbytes_list\x18\x01 \x01(\x0b\x32\x15.tensorflow.BytesListH\x00\x12+\n\nfloat_list\x18\x02 \x01(\x0b\x32\x15.tensorflow.FloatListH\x00\x12+\n\nint64_list\x18\x03 \x01(\x0b\x32\x15.tensorflow.Int64ListH\x00\x42\x06\n\x04kind\"\x83\x01\n\x08\x46\x65\x61tures\x12\x32\n\x07\x66\x65\x61ture\x18\x01 \x03(\x0b\x32!.tensorflow.Features.FeatureEntry\x1a\x43\n\x0c\x46\x65\x61tureEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\"\n\x05value\x18\x02 \x01(\x0b\x32\x13.tensorflow.Feature:\x02\x38\x01\"3\n\x0b\x46\x65\x61tureList\x12$\n\x07\x66\x65\x61ture\x18\x01 \x03(\x0b\x32\x13.tensorflow.Feature\"\x9c\x01\n\x0c\x46\x65\x61tureLists\x12?\n\x0c\x66\x65\x61ture_list\x18\x01 \x03(\x0b\x32).tensorflow.FeatureLists.FeatureListEntry\x1aK\n\x10\x46\x65\x61tureListEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12&\n\x05value\x18\x02 \x01(\x0b\x32\x17.tensorflow.FeatureList:\x02\x38\x01\x42,\n\x16org.tensorflow.exampleB\rFeatureProtosP\x01\xf8\x01\x01\x62\x06proto3')
+  serialized_options=_b('\n\026org.tensorflow.exampleB\rFeatureProtosP\001Z;github.com/tensorflow/tensorflow/tensorflow/go/core/example\370\001\001'),
+  serialized_pb=_b('\n%tensorflow/core/example/feature.proto\x12\ntensorflow\"\x1a\n\tBytesList\x12\r\n\x05value\x18\x01 \x03(\x0c\"\x1e\n\tFloatList\x12\x11\n\x05value\x18\x01 \x03(\x02\x42\x02\x10\x01\"\x1e\n\tInt64List\x12\x11\n\x05value\x18\x01 \x03(\x03\x42\x02\x10\x01\"\x98\x01\n\x07\x46\x65\x61ture\x12+\n\nbytes_list\x18\x01 \x01(\x0b\x32\x15.tensorflow.BytesListH\x00\x12+\n\nfloat_list\x18\x02 \x01(\x0b\x32\x15.tensorflow.FloatListH\x00\x12+\n\nint64_list\x18\x03 \x01(\x0b\x32\x15.tensorflow.Int64ListH\x00\x42\x06\n\x04kind\"\x83\x01\n\x08\x46\x65\x61tures\x12\x32\n\x07\x66\x65\x61ture\x18\x01 \x03(\x0b\x32!.tensorflow.Features.FeatureEntry\x1a\x43\n\x0c\x46\x65\x61tureEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\"\n\x05value\x18\x02 \x01(\x0b\x32\x13.tensorflow.Feature:\x02\x38\x01\"3\n\x0b\x46\x65\x61tureList\x12$\n\x07\x66\x65\x61ture\x18\x01 \x03(\x0b\x32\x13.tensorflow.Feature\"\x9c\x01\n\x0c\x46\x65\x61tureLists\x12?\n\x0c\x66\x65\x61ture_list\x18\x01 \x03(\x0b\x32).tensorflow.FeatureLists.FeatureListEntry\x1aK\n\x10\x46\x65\x61tureListEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12&\n\x05value\x18\x02 \x01(\x0b\x32\x17.tensorflow.FeatureList:\x02\x38\x01\x42i\n\x16org.tensorflow.exampleB\rFeatureProtosP\x01Z;github.com/tensorflow/tensorflow/tensorflow/go/core/example\xf8\x01\x01\x62\x06proto3')
 )
 
 
@@ -38,14 +38,14 @@ _BYTESLIST = _descriptor.Descriptor(
       has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None),
+      serialized_options=None, file=DESCRIPTOR),
   ],
   extensions=[
   ],
   nested_types=[],
   enum_types=[
   ],
-  options=None,
+  serialized_options=None,
   is_extendable=False,
   syntax='proto3',
   extension_ranges=[],
@@ -69,14 +69,14 @@ _FLOATLIST = _descriptor.Descriptor(
       has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=_descriptor._ParseOptions(descriptor_pb2.FieldOptions(), _b('\020\001'))),
+      serialized_options=_b('\020\001'), file=DESCRIPTOR),
   ],
   extensions=[
   ],
   nested_types=[],
   enum_types=[
   ],
-  options=None,
+  serialized_options=None,
   is_extendable=False,
   syntax='proto3',
   extension_ranges=[],
@@ -100,14 +100,14 @@ _INT64LIST = _descriptor.Descriptor(
       has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=_descriptor._ParseOptions(descriptor_pb2.FieldOptions(), _b('\020\001'))),
+      serialized_options=_b('\020\001'), file=DESCRIPTOR),
   ],
   extensions=[
   ],
   nested_types=[],
   enum_types=[
   ],
-  options=None,
+  serialized_options=None,
   is_extendable=False,
   syntax='proto3',
   extension_ranges=[],
@@ -131,28 +131,28 @@ _FEATURE = _descriptor.Descriptor(
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None),
+      serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
       name='float_list', full_name='tensorflow.Feature.float_list', index=1,
       number=2, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None),
+      serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
       name='int64_list', full_name='tensorflow.Feature.int64_list', index=2,
       number=3, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None),
+      serialized_options=None, file=DESCRIPTOR),
   ],
   extensions=[
   ],
   nested_types=[],
   enum_types=[
   ],
-  options=None,
+  serialized_options=None,
   is_extendable=False,
   syntax='proto3',
   extension_ranges=[],
@@ -179,21 +179,21 @@ _FEATURES_FEATUREENTRY = _descriptor.Descriptor(
       has_default_value=False, default_value=_b("").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None),
+      serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
       name='value', full_name='tensorflow.Features.FeatureEntry.value', index=1,
       number=2, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None),
+      serialized_options=None, file=DESCRIPTOR),
   ],
   extensions=[
   ],
   nested_types=[],
   enum_types=[
   ],
-  options=_descriptor._ParseOptions(descriptor_pb2.MessageOptions(), _b('8\001')),
+  serialized_options=_b('8\001'),
   is_extendable=False,
   syntax='proto3',
   extension_ranges=[],
@@ -216,14 +216,14 @@ _FEATURES = _descriptor.Descriptor(
       has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None),
+      serialized_options=None, file=DESCRIPTOR),
   ],
   extensions=[
   ],
   nested_types=[_FEATURES_FEATUREENTRY, ],
   enum_types=[
   ],
-  options=None,
+  serialized_options=None,
   is_extendable=False,
   syntax='proto3',
   extension_ranges=[],
@@ -247,14 +247,14 @@ _FEATURELIST = _descriptor.Descriptor(
       has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None),
+      serialized_options=None, file=DESCRIPTOR),
   ],
   extensions=[
   ],
   nested_types=[],
   enum_types=[
   ],
-  options=None,
+  serialized_options=None,
   is_extendable=False,
   syntax='proto3',
   extension_ranges=[],
@@ -278,21 +278,21 @@ _FEATURELISTS_FEATURELISTENTRY = _descriptor.Descriptor(
       has_default_value=False, default_value=_b("").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None),
+      serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
       name='value', full_name='tensorflow.FeatureLists.FeatureListEntry.value', index=1,
       number=2, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None),
+      serialized_options=None, file=DESCRIPTOR),
   ],
   extensions=[
   ],
   nested_types=[],
   enum_types=[
   ],
-  options=_descriptor._ParseOptions(descriptor_pb2.MessageOptions(), _b('8\001')),
+  serialized_options=_b('8\001'),
   is_extendable=False,
   syntax='proto3',
   extension_ranges=[],
@@ -315,14 +315,14 @@ _FEATURELISTS = _descriptor.Descriptor(
       has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None),
+      serialized_options=None, file=DESCRIPTOR),
   ],
   extensions=[
   ],
   nested_types=[_FEATURELISTS_FEATURELISTENTRY, ],
   enum_types=[
   ],
-  options=None,
+  serialized_options=None,
   is_extendable=False,
   syntax='proto3',
   extension_ranges=[],
@@ -426,14 +426,9 @@ _sym_db.RegisterMessage(FeatureLists)
 _sym_db.RegisterMessage(FeatureLists.FeatureListEntry)
 
 
-DESCRIPTOR.has_options = True
-DESCRIPTOR._options = _descriptor._ParseOptions(descriptor_pb2.FileOptions(), _b('\n\026org.tensorflow.exampleB\rFeatureProtosP\001\370\001\001'))
-_FLOATLIST.fields_by_name['value'].has_options = True
-_FLOATLIST.fields_by_name['value']._options = _descriptor._ParseOptions(descriptor_pb2.FieldOptions(), _b('\020\001'))
-_INT64LIST.fields_by_name['value'].has_options = True
-_INT64LIST.fields_by_name['value']._options = _descriptor._ParseOptions(descriptor_pb2.FieldOptions(), _b('\020\001'))
-_FEATURES_FEATUREENTRY.has_options = True
-_FEATURES_FEATUREENTRY._options = _descriptor._ParseOptions(descriptor_pb2.MessageOptions(), _b('8\001'))
-_FEATURELISTS_FEATURELISTENTRY.has_options = True
-_FEATURELISTS_FEATURELISTENTRY._options = _descriptor._ParseOptions(descriptor_pb2.MessageOptions(), _b('8\001'))
+DESCRIPTOR._options = None
+_FLOATLIST.fields_by_name['value']._options = None
+_INT64LIST.fields_by_name['value']._options = None
+_FEATURES_FEATUREENTRY._options = None
+_FEATURELISTS_FEATURELISTENTRY._options = None
 # @@protoc_insertion_point(module_scope)

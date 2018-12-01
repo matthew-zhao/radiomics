@@ -5,11 +5,14 @@ Original C++ source file: image_ops.cc
 """
 
 import collections as _collections
+import six as _six
 
-from tensorflow.python.eager import execute as _execute
+from tensorflow.python import pywrap_tensorflow as _pywrap_tensorflow
 from tensorflow.python.eager import context as _context
 from tensorflow.python.eager import core as _core
+from tensorflow.python.eager import execute as _execute
 from tensorflow.python.framework import dtypes as _dtypes
+from tensorflow.python.framework import errors as _errors
 from tensorflow.python.framework import tensor_shape as _tensor_shape
 
 from tensorflow.core.framework import op_def_pb2 as _op_def_pb2
@@ -18,6 +21,8 @@ from tensorflow.python.framework import common_shapes as _common_shapes
 from tensorflow.python.framework import op_def_registry as _op_def_registry
 from tensorflow.python.framework import ops as _ops
 from tensorflow.python.framework import op_def_library as _op_def_library
+from tensorflow.python.util.deprecation import deprecated_endpoints
+from tensorflow.python.util.tf_export import tf_export
 
 
 def adjust_contrast(images, contrast_factor, min_value, max_value, name=None):
@@ -33,31 +38,57 @@ def adjust_contrast(images, contrast_factor, min_value, max_value, name=None):
   Returns:
     A `Tensor` of type `float32`.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "AdjustContrast", images=images, contrast_factor=contrast_factor,
         min_value=min_value, max_value=max_value, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "AdjustContrast", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (images,) = _execute.args_to_matching_eager([images], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    contrast_factor = _ops.convert_to_tensor(contrast_factor, _dtypes.float32)
-    min_value = _ops.convert_to_tensor(min_value, _dtypes.float32)
-    max_value = _ops.convert_to_tensor(max_value, _dtypes.float32)
-    _inputs_flat = [images, contrast_factor, min_value, max_value]
-    _attrs = ("T", _attr_T)
-    _result = _execute.execute(b"AdjustContrast", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "AdjustContrast", name, _ctx._post_execution_callbacks, images,
+        contrast_factor, min_value, max_value)
+      return _result
+    except _core._FallbackException:
+      return adjust_contrast_eager_fallback(
+          images, contrast_factor, min_value, max_value, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def adjust_contrast_eager_fallback(images, contrast_factor, min_value, max_value, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function adjust_contrast
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, (images,) = _execute.args_to_matching_eager([images], _ctx)
+  contrast_factor = _ops.convert_to_tensor(contrast_factor, _dtypes.float32)
+  min_value = _ops.convert_to_tensor(min_value, _dtypes.float32)
+  max_value = _ops.convert_to_tensor(max_value, _dtypes.float32)
+  _inputs_flat = [images, contrast_factor, min_value, max_value]
+  _attrs = ("T", _attr_T)
+  _result = _execute.execute(b"AdjustContrast", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "AdjustContrast", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
-def _adjust_contrastv2(images, contrast_factor, name=None):
+def adjust_contrastv2(images, contrast_factor, name=None):
   r"""Adjust the contrast of one or more images.
 
   `images` is a tensor of at least 3 dimensions.  The last 3 dimensions are
@@ -77,23 +108,50 @@ def _adjust_contrastv2(images, contrast_factor, name=None):
     name: A name for the operation (optional).
 
   Returns:
-    A `Tensor` of type `float32`. The contrast-adjusted image or images.
+    A `Tensor` of type `float32`.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "AdjustContrastv2", images=images, contrast_factor=contrast_factor,
         name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = None
+    _execute.record_gradient(
+      "AdjustContrastv2", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    images = _ops.convert_to_tensor(images, _dtypes.float32)
-    contrast_factor = _ops.convert_to_tensor(contrast_factor, _dtypes.float32)
-    _inputs_flat = [images, contrast_factor]
-    _attrs = None
-    _result = _execute.execute(b"AdjustContrastv2", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "AdjustContrastv2", name, _ctx._post_execution_callbacks, images,
+        contrast_factor)
+      return _result
+    except _core._FallbackException:
+      return adjust_contrastv2_eager_fallback(
+          images, contrast_factor, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def adjust_contrastv2_eager_fallback(images, contrast_factor, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function adjust_contrastv2
+  """
+  _ctx = ctx if ctx else _context.context()
+  images = _ops.convert_to_tensor(images, _dtypes.float32)
+  contrast_factor = _ops.convert_to_tensor(contrast_factor, _dtypes.float32)
+  _inputs_flat = [images, contrast_factor]
+  _attrs = None
+  _result = _execute.execute(b"AdjustContrastv2", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "AdjustContrastv2", _inputs_flat, _attrs, _result, name)
   _result, = _result
@@ -116,22 +174,48 @@ def adjust_hue(images, delta, name=None):
     name: A name for the operation (optional).
 
   Returns:
-    A `Tensor` of type `float32`. The hue-adjusted image or images.
+    A `Tensor` of type `float32`.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "AdjustHue", images=images, delta=delta, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = None
+    _execute.record_gradient(
+      "AdjustHue", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    images = _ops.convert_to_tensor(images, _dtypes.float32)
-    delta = _ops.convert_to_tensor(delta, _dtypes.float32)
-    _inputs_flat = [images, delta]
-    _attrs = None
-    _result = _execute.execute(b"AdjustHue", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "AdjustHue",
+        name, _ctx._post_execution_callbacks, images, delta)
+      return _result
+    except _core._FallbackException:
+      return adjust_hue_eager_fallback(
+          images, delta, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def adjust_hue_eager_fallback(images, delta, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function adjust_hue
+  """
+  _ctx = ctx if ctx else _context.context()
+  images = _ops.convert_to_tensor(images, _dtypes.float32)
+  delta = _ops.convert_to_tensor(delta, _dtypes.float32)
+  _inputs_flat = [images, delta]
+  _attrs = None
+  _result = _execute.execute(b"AdjustHue", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "AdjustHue", _inputs_flat, _attrs, _result, name)
   _result, = _result
@@ -155,42 +239,77 @@ def adjust_saturation(images, scale, name=None):
     name: A name for the operation (optional).
 
   Returns:
-    A `Tensor` of type `float32`. The hue-adjusted image or images.
+    A `Tensor` of type `float32`.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "AdjustSaturation", images=images, scale=scale, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = None
+    _execute.record_gradient(
+      "AdjustSaturation", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    images = _ops.convert_to_tensor(images, _dtypes.float32)
-    scale = _ops.convert_to_tensor(scale, _dtypes.float32)
-    _inputs_flat = [images, scale]
-    _attrs = None
-    _result = _execute.execute(b"AdjustSaturation", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "AdjustSaturation", name, _ctx._post_execution_callbacks, images,
+        scale)
+      return _result
+    except _core._FallbackException:
+      return adjust_saturation_eager_fallback(
+          images, scale, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def adjust_saturation_eager_fallback(images, scale, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function adjust_saturation
+  """
+  _ctx = ctx if ctx else _context.context()
+  images = _ops.convert_to_tensor(images, _dtypes.float32)
+  scale = _ops.convert_to_tensor(scale, _dtypes.float32)
+  _inputs_flat = [images, scale]
+  _attrs = None
+  _result = _execute.execute(b"AdjustSaturation", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "AdjustSaturation", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
+@tf_export('image.crop_and_resize')
 def crop_and_resize(image, boxes, box_ind, crop_size, method="bilinear", extrapolation_value=0, name=None):
-  r"""Extracts crops from the input image tensor and bilinearly resizes them (possibly
+  r"""Extracts crops from the input image tensor and resizes them.
 
-  with aspect ratio change) to a common output size specified by `crop_size`. This
-  is more general than the `crop_to_bounding_box` op which extracts a fixed size
-  slice from the input image and does not allow resizing or aspect ratio change.
+  Extracts crops from the input image tensor and resizes them using bilinear
+  sampling or nearest neighbor sampling (possibly with aspect ratio change) to a
+  common output size specified by `crop_size`. This is more general than the
+  `crop_to_bounding_box` op which extracts a fixed size slice from the input image
+  and does not allow resizing or aspect ratio change.
 
   Returns a tensor with `crops` from the input `image` at positions defined at the
   bounding box locations in `boxes`. The cropped boxes are all resized (with
-  bilinear interpolation) to a fixed `size = [crop_height, crop_width]`. The
-  result is a 4-D tensor `[num_boxes, crop_height, crop_width, depth]`.
+  bilinear or nearest neighbor interpolation) to a fixed
+  `size = [crop_height, crop_width]`. The result is a 4-D tensor
+  `[num_boxes, crop_height, crop_width, depth]`. The resizing is corner aligned.
+  In particular, if `boxes = [[0, 0, 1, 1]]`, the method will give identical
+  results to using `tf.image.resize_bilinear()` or
+  `tf.image.resize_nearest_neighbor()`(depends on the `method` argument) with
+  `align_corners=True`.
 
   Args:
-    image: A `Tensor`. Must be one of the following types: `uint8`, `int8`, `int16`, `int32`, `int64`, `half`, `float32`, `float64`.
+    image: A `Tensor`. Must be one of the following types: `uint8`, `uint16`, `int8`, `int16`, `int32`, `int64`, `half`, `float32`, `float64`.
       A 4-D tensor of shape `[batch, image_height, image_width, depth]`.
       Both `image_height` and `image_width` need to be positive.
     boxes: A `Tensor` of type `float32`.
@@ -212,25 +331,25 @@ def crop_and_resize(image, boxes, box_ind, crop_size, method="bilinear", extrapo
       cropped image patches are resized to this size. The aspect ratio of the image
       content is not preserved. Both `crop_height` and `crop_width` need to be
       positive.
-    method: An optional `string` from: `"bilinear"`. Defaults to `"bilinear"`.
-      A string specifying the interpolation method. Only 'bilinear' is
-      supported for now.
+    method: An optional `string` from: `"bilinear", "nearest"`. Defaults to `"bilinear"`.
+      A string specifying the sampling method for resizing. It can be either
+      `"bilinear"` or `"nearest"` and default to `"bilinear"`. Currently two sampling
+      methods are supported: Bilinear and Nearest Neighbor.
     extrapolation_value: An optional `float`. Defaults to `0`.
       Value used for extrapolation, when applicable.
     name: A name for the operation (optional).
 
   Returns:
     A `Tensor` of type `float32`.
-    A 4-D tensor of shape `[num_boxes, crop_height, crop_width, depth]`.
   """
-  if method is None:
-    method = "bilinear"
-  method = _execute.make_str(method, "method")
-  if extrapolation_value is None:
-    extrapolation_value = 0
-  extrapolation_value = _execute.make_float(extrapolation_value, "extrapolation_value")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if method is None:
+      method = "bilinear"
+    method = _execute.make_str(method, "method")
+    if extrapolation_value is None:
+      extrapolation_value = 0
+    extrapolation_value = _execute.make_float(extrapolation_value, "extrapolation_value")
     _, _, _op = _op_def_lib._apply_op_helper(
         "CropAndResize", image=image, boxes=boxes, box_ind=box_ind,
         crop_size=crop_size, method=method,
@@ -239,17 +358,51 @@ def crop_and_resize(image, boxes, box_ind, crop_size, method="bilinear", extrapo
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"), "method", _op.get_attr("method"),
               "extrapolation_value", _op.get_attr("extrapolation_value"))
+    _execute.record_gradient(
+      "CropAndResize", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (image,) = _execute.args_to_matching_eager([image], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    boxes = _ops.convert_to_tensor(boxes, _dtypes.float32)
-    box_ind = _ops.convert_to_tensor(box_ind, _dtypes.int32)
-    crop_size = _ops.convert_to_tensor(crop_size, _dtypes.int32)
-    _inputs_flat = [image, boxes, box_ind, crop_size]
-    _attrs = ("T", _attr_T, "method", method, "extrapolation_value",
-              extrapolation_value)
-    _result = _execute.execute(b"CropAndResize", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "CropAndResize", name, _ctx._post_execution_callbacks, image, boxes,
+        box_ind, crop_size, "method", method, "extrapolation_value",
+        extrapolation_value)
+      return _result
+    except _core._FallbackException:
+      return crop_and_resize_eager_fallback(
+          image, boxes, box_ind, crop_size, method=method,
+          extrapolation_value=extrapolation_value, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def crop_and_resize_eager_fallback(image, boxes, box_ind, crop_size, method="bilinear", extrapolation_value=0, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function crop_and_resize
+  """
+  _ctx = ctx if ctx else _context.context()
+  if method is None:
+    method = "bilinear"
+  method = _execute.make_str(method, "method")
+  if extrapolation_value is None:
+    extrapolation_value = 0
+  extrapolation_value = _execute.make_float(extrapolation_value, "extrapolation_value")
+  _attr_T, (image,) = _execute.args_to_matching_eager([image], _ctx)
+  boxes = _ops.convert_to_tensor(boxes, _dtypes.float32)
+  box_ind = _ops.convert_to_tensor(box_ind, _dtypes.int32)
+  crop_size = _ops.convert_to_tensor(crop_size, _dtypes.int32)
+  _inputs_flat = [image, boxes, box_ind, crop_size]
+  _attrs = ("T", _attr_T, "method", method, "extrapolation_value",
+  extrapolation_value)
+  _result = _execute.execute(b"CropAndResize", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "CropAndResize", _inputs_flat, _attrs, _result, name)
   _result, = _result
@@ -262,7 +415,7 @@ def crop_and_resize_grad_boxes(grads, image, boxes, box_ind, method="bilinear", 
   Args:
     grads: A `Tensor` of type `float32`.
       A 4-D tensor of shape `[num_boxes, crop_height, crop_width, depth]`.
-    image: A `Tensor`. Must be one of the following types: `uint8`, `int8`, `int16`, `int32`, `int64`, `half`, `float32`, `float64`.
+    image: A `Tensor`. Must be one of the following types: `uint8`, `uint16`, `int8`, `int16`, `int32`, `int64`, `half`, `float32`, `float64`.
       A 4-D tensor of shape `[batch, image_height, image_width, depth]`.
       Both `image_height` and `image_width` need to be positive.
     boxes: A `Tensor` of type `float32`.
@@ -285,30 +438,59 @@ def crop_and_resize_grad_boxes(grads, image, boxes, box_ind, method="bilinear", 
     name: A name for the operation (optional).
 
   Returns:
-    A `Tensor` of type `float32`. A 2-D tensor of shape `[num_boxes, 4]`.
+    A `Tensor` of type `float32`.
   """
-  if method is None:
-    method = "bilinear"
-  method = _execute.make_str(method, "method")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if method is None:
+      method = "bilinear"
+    method = _execute.make_str(method, "method")
     _, _, _op = _op_def_lib._apply_op_helper(
         "CropAndResizeGradBoxes", grads=grads, image=image, boxes=boxes,
         box_ind=box_ind, method=method, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"), "method", _op.get_attr("method"))
+    _execute.record_gradient(
+      "CropAndResizeGradBoxes", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (image,) = _execute.args_to_matching_eager([image], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    grads = _ops.convert_to_tensor(grads, _dtypes.float32)
-    boxes = _ops.convert_to_tensor(boxes, _dtypes.float32)
-    box_ind = _ops.convert_to_tensor(box_ind, _dtypes.int32)
-    _inputs_flat = [grads, image, boxes, box_ind]
-    _attrs = ("T", _attr_T, "method", method)
-    _result = _execute.execute(b"CropAndResizeGradBoxes", 1,
-                               inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
-                               name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "CropAndResizeGradBoxes", name, _ctx._post_execution_callbacks, grads,
+        image, boxes, box_ind, "method", method)
+      return _result
+    except _core._FallbackException:
+      return crop_and_resize_grad_boxes_eager_fallback(
+          grads, image, boxes, box_ind, method=method, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def crop_and_resize_grad_boxes_eager_fallback(grads, image, boxes, box_ind, method="bilinear", name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function crop_and_resize_grad_boxes
+  """
+  _ctx = ctx if ctx else _context.context()
+  if method is None:
+    method = "bilinear"
+  method = _execute.make_str(method, "method")
+  _attr_T, (image,) = _execute.args_to_matching_eager([image], _ctx)
+  grads = _ops.convert_to_tensor(grads, _dtypes.float32)
+  boxes = _ops.convert_to_tensor(boxes, _dtypes.float32)
+  box_ind = _ops.convert_to_tensor(box_ind, _dtypes.int32)
+  _inputs_flat = [grads, image, boxes, box_ind]
+  _attrs = ("T", _attr_T, "method", method)
+  _result = _execute.execute(b"CropAndResizeGradBoxes", 1,
+                             inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
+                             name=name)
   _execute.record_gradient(
       "CropAndResizeGradBoxes", _inputs_flat, _attrs, _result, name)
   _result, = _result
@@ -340,43 +522,75 @@ def crop_and_resize_grad_image(grads, boxes, box_ind, image_size, T, method="bil
       containing the original image size. Both `image_height` and `image_width` need
       to be positive.
     T: A `tf.DType` from: `tf.float32, tf.half, tf.float64`.
-    method: An optional `string` from: `"bilinear"`. Defaults to `"bilinear"`.
+    method: An optional `string` from: `"bilinear", "nearest"`. Defaults to `"bilinear"`.
       A string specifying the interpolation method. Only 'bilinear' is
       supported for now.
     name: A name for the operation (optional).
 
   Returns:
     A `Tensor` of type `T`.
-    A 4-D tensor of shape `[batch, image_height, image_width, depth]`.
   """
-  T = _execute.make_type(T, "T")
-  if method is None:
-    method = "bilinear"
-  method = _execute.make_str(method, "method")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    T = _execute.make_type(T, "T")
+    if method is None:
+      method = "bilinear"
+    method = _execute.make_str(method, "method")
     _, _, _op = _op_def_lib._apply_op_helper(
         "CropAndResizeGradImage", grads=grads, boxes=boxes, box_ind=box_ind,
         image_size=image_size, T=T, method=method, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"), "method", _op.get_attr("method"))
+    _execute.record_gradient(
+      "CropAndResizeGradImage", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    grads = _ops.convert_to_tensor(grads, _dtypes.float32)
-    boxes = _ops.convert_to_tensor(boxes, _dtypes.float32)
-    box_ind = _ops.convert_to_tensor(box_ind, _dtypes.int32)
-    image_size = _ops.convert_to_tensor(image_size, _dtypes.int32)
-    _inputs_flat = [grads, boxes, box_ind, image_size]
-    _attrs = ("T", T, "method", method)
-    _result = _execute.execute(b"CropAndResizeGradImage", 1,
-                               inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
-                               name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "CropAndResizeGradImage", name, _ctx._post_execution_callbacks, grads,
+        boxes, box_ind, image_size, "T", T, "method", method)
+      return _result
+    except _core._FallbackException:
+      return crop_and_resize_grad_image_eager_fallback(
+          grads, boxes, box_ind, image_size, T=T, method=method, name=name,
+          ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def crop_and_resize_grad_image_eager_fallback(grads, boxes, box_ind, image_size, T, method="bilinear", name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function crop_and_resize_grad_image
+  """
+  _ctx = ctx if ctx else _context.context()
+  T = _execute.make_type(T, "T")
+  if method is None:
+    method = "bilinear"
+  method = _execute.make_str(method, "method")
+  grads = _ops.convert_to_tensor(grads, _dtypes.float32)
+  boxes = _ops.convert_to_tensor(boxes, _dtypes.float32)
+  box_ind = _ops.convert_to_tensor(box_ind, _dtypes.int32)
+  image_size = _ops.convert_to_tensor(image_size, _dtypes.int32)
+  _inputs_flat = [grads, boxes, box_ind, image_size]
+  _attrs = ("T", T, "method", method)
+  _result = _execute.execute(b"CropAndResizeGradImage", 1,
+                             inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
+                             name=name)
   _execute.record_gradient(
       "CropAndResizeGradImage", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
+@tf_export('image.decode_and_crop_jpeg')
 def decode_and_crop_jpeg(contents, crop_window, channels=0, ratio=1, fancy_upscaling=True, try_recover_truncated=False, acceptable_fraction=1, dct_method="", name=None):
   r"""Decode and Crop a JPEG-encoded image to a uint8 tensor.
 
@@ -425,8 +639,76 @@ def decode_and_crop_jpeg(contents, crop_window, channels=0, ratio=1, fancy_upsca
     name: A name for the operation (optional).
 
   Returns:
-    A `Tensor` of type `uint8`. 3-D with shape `[height, width, channels]`..
+    A `Tensor` of type `uint8`.
   """
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if channels is None:
+      channels = 0
+    channels = _execute.make_int(channels, "channels")
+    if ratio is None:
+      ratio = 1
+    ratio = _execute.make_int(ratio, "ratio")
+    if fancy_upscaling is None:
+      fancy_upscaling = True
+    fancy_upscaling = _execute.make_bool(fancy_upscaling, "fancy_upscaling")
+    if try_recover_truncated is None:
+      try_recover_truncated = False
+    try_recover_truncated = _execute.make_bool(try_recover_truncated, "try_recover_truncated")
+    if acceptable_fraction is None:
+      acceptable_fraction = 1
+    acceptable_fraction = _execute.make_float(acceptable_fraction, "acceptable_fraction")
+    if dct_method is None:
+      dct_method = ""
+    dct_method = _execute.make_str(dct_method, "dct_method")
+    _, _, _op = _op_def_lib._apply_op_helper(
+        "DecodeAndCropJpeg", contents=contents, crop_window=crop_window,
+        channels=channels, ratio=ratio, fancy_upscaling=fancy_upscaling,
+        try_recover_truncated=try_recover_truncated,
+        acceptable_fraction=acceptable_fraction, dct_method=dct_method,
+        name=name)
+    _result = _op.outputs[:]
+    _inputs_flat = _op.inputs
+    _attrs = ("channels", _op.get_attr("channels"), "ratio",
+              _op.get_attr("ratio"), "fancy_upscaling",
+              _op.get_attr("fancy_upscaling"), "try_recover_truncated",
+              _op.get_attr("try_recover_truncated"), "acceptable_fraction",
+              _op.get_attr("acceptable_fraction"), "dct_method",
+              _op.get_attr("dct_method"))
+    _execute.record_gradient(
+      "DecodeAndCropJpeg", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
+  else:
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "DecodeAndCropJpeg", name, _ctx._post_execution_callbacks, contents,
+        crop_window, "channels", channels, "ratio", ratio, "fancy_upscaling",
+        fancy_upscaling, "try_recover_truncated", try_recover_truncated,
+        "acceptable_fraction", acceptable_fraction, "dct_method", dct_method)
+      return _result
+    except _core._FallbackException:
+      return decode_and_crop_jpeg_eager_fallback(
+          contents, crop_window, channels=channels, ratio=ratio,
+          fancy_upscaling=fancy_upscaling,
+          try_recover_truncated=try_recover_truncated,
+          acceptable_fraction=acceptable_fraction, dct_method=dct_method,
+          name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def decode_and_crop_jpeg_eager_fallback(contents, crop_window, channels=0, ratio=1, fancy_upscaling=True, try_recover_truncated=False, acceptable_fraction=1, dct_method="", name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function decode_and_crop_jpeg
+  """
+  _ctx = ctx if ctx else _context.context()
   if channels is None:
     channels = 0
   channels = _execute.make_int(channels, "channels")
@@ -445,38 +727,21 @@ def decode_and_crop_jpeg(contents, crop_window, channels=0, ratio=1, fancy_upsca
   if dct_method is None:
     dct_method = ""
   dct_method = _execute.make_str(dct_method, "dct_method")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
-    _, _, _op = _op_def_lib._apply_op_helper(
-        "DecodeAndCropJpeg", contents=contents, crop_window=crop_window,
-        channels=channels, ratio=ratio, fancy_upscaling=fancy_upscaling,
-        try_recover_truncated=try_recover_truncated,
-        acceptable_fraction=acceptable_fraction, dct_method=dct_method,
-        name=name)
-    _result = _op.outputs[:]
-    _inputs_flat = _op.inputs
-    _attrs = ("channels", _op.get_attr("channels"), "ratio",
-              _op.get_attr("ratio"), "fancy_upscaling",
-              _op.get_attr("fancy_upscaling"), "try_recover_truncated",
-              _op.get_attr("try_recover_truncated"), "acceptable_fraction",
-              _op.get_attr("acceptable_fraction"), "dct_method",
-              _op.get_attr("dct_method"))
-  else:
-    contents = _ops.convert_to_tensor(contents, _dtypes.string)
-    crop_window = _ops.convert_to_tensor(crop_window, _dtypes.int32)
-    _inputs_flat = [contents, crop_window]
-    _attrs = ("channels", channels, "ratio", ratio, "fancy_upscaling",
-              fancy_upscaling, "try_recover_truncated", try_recover_truncated,
-              "acceptable_fraction", acceptable_fraction, "dct_method",
-              dct_method)
-    _result = _execute.execute(b"DecodeAndCropJpeg", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+  contents = _ops.convert_to_tensor(contents, _dtypes.string)
+  crop_window = _ops.convert_to_tensor(crop_window, _dtypes.int32)
+  _inputs_flat = [contents, crop_window]
+  _attrs = ("channels", channels, "ratio", ratio, "fancy_upscaling",
+  fancy_upscaling, "try_recover_truncated", try_recover_truncated,
+  "acceptable_fraction", acceptable_fraction, "dct_method", dct_method)
+  _result = _execute.execute(b"DecodeAndCropJpeg", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "DecodeAndCropJpeg", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
+@tf_export('image.decode_bmp')
 def decode_bmp(contents, channels=0, name=None):
   r"""Decode the first frame of a BMP-encoded image to a uint8 tensor.
 
@@ -496,30 +761,59 @@ def decode_bmp(contents, channels=0, name=None):
 
   Returns:
     A `Tensor` of type `uint8`.
-    3-D with shape `[height, width, channels]`. RGB order
   """
-  if channels is None:
-    channels = 0
-  channels = _execute.make_int(channels, "channels")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if channels is None:
+      channels = 0
+    channels = _execute.make_int(channels, "channels")
     _, _, _op = _op_def_lib._apply_op_helper(
         "DecodeBmp", contents=contents, channels=channels, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("channels", _op.get_attr("channels"))
+    _execute.record_gradient(
+      "DecodeBmp", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    contents = _ops.convert_to_tensor(contents, _dtypes.string)
-    _inputs_flat = [contents]
-    _attrs = ("channels", channels)
-    _result = _execute.execute(b"DecodeBmp", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "DecodeBmp",
+        name, _ctx._post_execution_callbacks, contents, "channels", channels)
+      return _result
+    except _core._FallbackException:
+      return decode_bmp_eager_fallback(
+          contents, channels=channels, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def decode_bmp_eager_fallback(contents, channels=0, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function decode_bmp
+  """
+  _ctx = ctx if ctx else _context.context()
+  if channels is None:
+    channels = 0
+  channels = _execute.make_int(channels, "channels")
+  contents = _ops.convert_to_tensor(contents, _dtypes.string)
+  _inputs_flat = [contents]
+  _attrs = ("channels", channels)
+  _result = _execute.execute(b"DecodeBmp", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "DecodeBmp", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
+@tf_export('image.decode_gif')
 def decode_gif(contents, name=None):
   r"""Decode the first frame of a GIF-encoded image to a uint8 tensor.
 
@@ -537,27 +831,53 @@ def decode_gif(contents, name=None):
 
   Returns:
     A `Tensor` of type `uint8`.
-    4-D with shape `[num_frames, height, width, 3]`. RGB order
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "DecodeGif", contents=contents, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = None
+    _execute.record_gradient(
+      "DecodeGif", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    contents = _ops.convert_to_tensor(contents, _dtypes.string)
-    _inputs_flat = [contents]
-    _attrs = None
-    _result = _execute.execute(b"DecodeGif", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "DecodeGif",
+        name, _ctx._post_execution_callbacks, contents)
+      return _result
+    except _core._FallbackException:
+      return decode_gif_eager_fallback(
+          contents, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def decode_gif_eager_fallback(contents, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function decode_gif
+  """
+  _ctx = ctx if ctx else _context.context()
+  contents = _ops.convert_to_tensor(contents, _dtypes.string)
+  _inputs_flat = [contents]
+  _attrs = None
+  _result = _execute.execute(b"DecodeGif", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "DecodeGif", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
+@tf_export('image.decode_jpeg')
 def decode_jpeg(contents, channels=0, ratio=1, fancy_upscaling=True, try_recover_truncated=False, acceptable_fraction=1, dct_method="", name=None):
   r"""Decode a JPEG-encoded image to a uint8 tensor.
 
@@ -604,8 +924,76 @@ def decode_jpeg(contents, channels=0, ratio=1, fancy_upscaling=True, try_recover
     name: A name for the operation (optional).
 
   Returns:
-    A `Tensor` of type `uint8`. 3-D with shape `[height, width, channels]`..
+    A `Tensor` of type `uint8`.
   """
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if channels is None:
+      channels = 0
+    channels = _execute.make_int(channels, "channels")
+    if ratio is None:
+      ratio = 1
+    ratio = _execute.make_int(ratio, "ratio")
+    if fancy_upscaling is None:
+      fancy_upscaling = True
+    fancy_upscaling = _execute.make_bool(fancy_upscaling, "fancy_upscaling")
+    if try_recover_truncated is None:
+      try_recover_truncated = False
+    try_recover_truncated = _execute.make_bool(try_recover_truncated, "try_recover_truncated")
+    if acceptable_fraction is None:
+      acceptable_fraction = 1
+    acceptable_fraction = _execute.make_float(acceptable_fraction, "acceptable_fraction")
+    if dct_method is None:
+      dct_method = ""
+    dct_method = _execute.make_str(dct_method, "dct_method")
+    _, _, _op = _op_def_lib._apply_op_helper(
+        "DecodeJpeg", contents=contents, channels=channels, ratio=ratio,
+        fancy_upscaling=fancy_upscaling,
+        try_recover_truncated=try_recover_truncated,
+        acceptable_fraction=acceptable_fraction, dct_method=dct_method,
+        name=name)
+    _result = _op.outputs[:]
+    _inputs_flat = _op.inputs
+    _attrs = ("channels", _op.get_attr("channels"), "ratio",
+              _op.get_attr("ratio"), "fancy_upscaling",
+              _op.get_attr("fancy_upscaling"), "try_recover_truncated",
+              _op.get_attr("try_recover_truncated"), "acceptable_fraction",
+              _op.get_attr("acceptable_fraction"), "dct_method",
+              _op.get_attr("dct_method"))
+    _execute.record_gradient(
+      "DecodeJpeg", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
+  else:
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "DecodeJpeg",
+        name, _ctx._post_execution_callbacks, contents, "channels", channels,
+        "ratio", ratio, "fancy_upscaling", fancy_upscaling,
+        "try_recover_truncated", try_recover_truncated, "acceptable_fraction",
+        acceptable_fraction, "dct_method", dct_method)
+      return _result
+    except _core._FallbackException:
+      return decode_jpeg_eager_fallback(
+          contents, channels=channels, ratio=ratio,
+          fancy_upscaling=fancy_upscaling,
+          try_recover_truncated=try_recover_truncated,
+          acceptable_fraction=acceptable_fraction, dct_method=dct_method,
+          name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def decode_jpeg_eager_fallback(contents, channels=0, ratio=1, fancy_upscaling=True, try_recover_truncated=False, acceptable_fraction=1, dct_method="", name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function decode_jpeg
+  """
+  _ctx = ctx if ctx else _context.context()
   if channels is None:
     channels = 0
   channels = _execute.make_int(channels, "channels")
@@ -624,37 +1012,20 @@ def decode_jpeg(contents, channels=0, ratio=1, fancy_upscaling=True, try_recover
   if dct_method is None:
     dct_method = ""
   dct_method = _execute.make_str(dct_method, "dct_method")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
-    _, _, _op = _op_def_lib._apply_op_helper(
-        "DecodeJpeg", contents=contents, channels=channels, ratio=ratio,
-        fancy_upscaling=fancy_upscaling,
-        try_recover_truncated=try_recover_truncated,
-        acceptable_fraction=acceptable_fraction, dct_method=dct_method,
-        name=name)
-    _result = _op.outputs[:]
-    _inputs_flat = _op.inputs
-    _attrs = ("channels", _op.get_attr("channels"), "ratio",
-              _op.get_attr("ratio"), "fancy_upscaling",
-              _op.get_attr("fancy_upscaling"), "try_recover_truncated",
-              _op.get_attr("try_recover_truncated"), "acceptable_fraction",
-              _op.get_attr("acceptable_fraction"), "dct_method",
-              _op.get_attr("dct_method"))
-  else:
-    contents = _ops.convert_to_tensor(contents, _dtypes.string)
-    _inputs_flat = [contents]
-    _attrs = ("channels", channels, "ratio", ratio, "fancy_upscaling",
-              fancy_upscaling, "try_recover_truncated", try_recover_truncated,
-              "acceptable_fraction", acceptable_fraction, "dct_method",
-              dct_method)
-    _result = _execute.execute(b"DecodeJpeg", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+  contents = _ops.convert_to_tensor(contents, _dtypes.string)
+  _inputs_flat = [contents]
+  _attrs = ("channels", channels, "ratio", ratio, "fancy_upscaling",
+  fancy_upscaling, "try_recover_truncated", try_recover_truncated,
+  "acceptable_fraction", acceptable_fraction, "dct_method", dct_method)
+  _result = _execute.execute(b"DecodeJpeg", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "DecodeJpeg", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
+@tf_export('image.decode_png')
 def decode_png(contents, channels=0, dtype=_dtypes.uint8, name=None):
   r"""Decode a PNG-encoded image to a uint8 or uint16 tensor.
 
@@ -682,16 +1053,16 @@ def decode_png(contents, channels=0, dtype=_dtypes.uint8, name=None):
     name: A name for the operation (optional).
 
   Returns:
-    A `Tensor` of type `dtype`. 3-D with shape `[height, width, channels]`.
+    A `Tensor` of type `dtype`.
   """
-  if channels is None:
-    channels = 0
-  channels = _execute.make_int(channels, "channels")
-  if dtype is None:
-    dtype = _dtypes.uint8
-  dtype = _execute.make_type(dtype, "dtype")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if channels is None:
+      channels = 0
+    channels = _execute.make_int(channels, "channels")
+    if dtype is None:
+      dtype = _dtypes.uint8
+    dtype = _execute.make_type(dtype, "dtype")
     _, _, _op = _op_def_lib._apply_op_helper(
         "DecodePng", contents=contents, channels=channels, dtype=dtype,
         name=name)
@@ -699,18 +1070,52 @@ def decode_png(contents, channels=0, dtype=_dtypes.uint8, name=None):
     _inputs_flat = _op.inputs
     _attrs = ("channels", _op.get_attr("channels"), "dtype",
               _op.get_attr("dtype"))
+    _execute.record_gradient(
+      "DecodePng", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    contents = _ops.convert_to_tensor(contents, _dtypes.string)
-    _inputs_flat = [contents]
-    _attrs = ("channels", channels, "dtype", dtype)
-    _result = _execute.execute(b"DecodePng", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "DecodePng",
+        name, _ctx._post_execution_callbacks, contents, "channels", channels,
+        "dtype", dtype)
+      return _result
+    except _core._FallbackException:
+      return decode_png_eager_fallback(
+          contents, channels=channels, dtype=dtype, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def decode_png_eager_fallback(contents, channels=0, dtype=_dtypes.uint8, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function decode_png
+  """
+  _ctx = ctx if ctx else _context.context()
+  if channels is None:
+    channels = 0
+  channels = _execute.make_int(channels, "channels")
+  if dtype is None:
+    dtype = _dtypes.uint8
+  dtype = _execute.make_type(dtype, "dtype")
+  contents = _ops.convert_to_tensor(contents, _dtypes.string)
+  _inputs_flat = [contents]
+  _attrs = ("channels", channels, "dtype", dtype)
+  _result = _execute.execute(b"DecodePng", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "DecodePng", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
+@tf_export('image.draw_bounding_boxes')
 def draw_bounding_boxes(images, boxes, name=None):
   r"""Draw bounding boxes on a batch of images.
 
@@ -722,7 +1127,7 @@ def draw_bounding_boxes(images, boxes, name=None):
 
   For example, if an image is 100 x 200 pixels (height x width) and the bounding
   box is `[0.1, 0.2, 0.5, 0.9]`, the upper-left and bottom-right coordinates of
-  the bounding box will be `(40, 10)` to `(100, 50)` (in (x,y) coordinates).
+  the bounding box will be `(40, 10)` to `(180, 50)` (in (x,y) coordinates).
 
   Parts of the bounding box may fall outside the image.
 
@@ -736,30 +1141,55 @@ def draw_bounding_boxes(images, boxes, name=None):
 
   Returns:
     A `Tensor`. Has the same type as `images`.
-    4-D with the same shape as `images`. The batch of input images with
-    bounding boxes drawn on the images.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "DrawBoundingBoxes", images=images, boxes=boxes, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "DrawBoundingBoxes", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (images,) = _execute.args_to_matching_eager([images], _ctx, _dtypes.float32)
-    _attr_T = _attr_T.as_datatype_enum
-    boxes = _ops.convert_to_tensor(boxes, _dtypes.float32)
-    _inputs_flat = [images, boxes]
-    _attrs = ("T", _attr_T)
-    _result = _execute.execute(b"DrawBoundingBoxes", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "DrawBoundingBoxes", name, _ctx._post_execution_callbacks, images,
+        boxes)
+      return _result
+    except _core._FallbackException:
+      return draw_bounding_boxes_eager_fallback(
+          images, boxes, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def draw_bounding_boxes_eager_fallback(images, boxes, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function draw_bounding_boxes
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, (images,) = _execute.args_to_matching_eager([images], _ctx, _dtypes.float32)
+  boxes = _ops.convert_to_tensor(boxes, _dtypes.float32)
+  _inputs_flat = [images, boxes]
+  _attrs = ("T", _attr_T)
+  _result = _execute.execute(b"DrawBoundingBoxes", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "DrawBoundingBoxes", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
+@tf_export('image.encode_jpeg')
 def encode_jpeg(image, format="", quality=95, progressive=False, optimize_size=False, chroma_downsampling=True, density_unit="in", x_density=300, y_density=300, xmp_metadata="", name=None):
   r"""JPEG-encode an image.
 
@@ -805,8 +1235,89 @@ def encode_jpeg(image, format="", quality=95, progressive=False, optimize_size=F
     name: A name for the operation (optional).
 
   Returns:
-    A `Tensor` of type `string`. 0-D. JPEG-encoded image.
+    A `Tensor` of type `string`.
   """
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if format is None:
+      format = ""
+    format = _execute.make_str(format, "format")
+    if quality is None:
+      quality = 95
+    quality = _execute.make_int(quality, "quality")
+    if progressive is None:
+      progressive = False
+    progressive = _execute.make_bool(progressive, "progressive")
+    if optimize_size is None:
+      optimize_size = False
+    optimize_size = _execute.make_bool(optimize_size, "optimize_size")
+    if chroma_downsampling is None:
+      chroma_downsampling = True
+    chroma_downsampling = _execute.make_bool(chroma_downsampling, "chroma_downsampling")
+    if density_unit is None:
+      density_unit = "in"
+    density_unit = _execute.make_str(density_unit, "density_unit")
+    if x_density is None:
+      x_density = 300
+    x_density = _execute.make_int(x_density, "x_density")
+    if y_density is None:
+      y_density = 300
+    y_density = _execute.make_int(y_density, "y_density")
+    if xmp_metadata is None:
+      xmp_metadata = ""
+    xmp_metadata = _execute.make_str(xmp_metadata, "xmp_metadata")
+    _, _, _op = _op_def_lib._apply_op_helper(
+        "EncodeJpeg", image=image, format=format, quality=quality,
+        progressive=progressive, optimize_size=optimize_size,
+        chroma_downsampling=chroma_downsampling, density_unit=density_unit,
+        x_density=x_density, y_density=y_density, xmp_metadata=xmp_metadata,
+        name=name)
+    _result = _op.outputs[:]
+    _inputs_flat = _op.inputs
+    _attrs = ("format", _op.get_attr("format"), "quality",
+              _op.get_attr("quality"), "progressive",
+              _op.get_attr("progressive"), "optimize_size",
+              _op.get_attr("optimize_size"), "chroma_downsampling",
+              _op.get_attr("chroma_downsampling"), "density_unit",
+              _op.get_attr("density_unit"), "x_density",
+              _op.get_attr("x_density"), "y_density",
+              _op.get_attr("y_density"), "xmp_metadata",
+              _op.get_attr("xmp_metadata"))
+    _execute.record_gradient(
+      "EncodeJpeg", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
+  else:
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "EncodeJpeg",
+        name, _ctx._post_execution_callbacks, image, "format", format,
+        "quality", quality, "progressive", progressive, "optimize_size",
+        optimize_size, "chroma_downsampling", chroma_downsampling,
+        "density_unit", density_unit, "x_density", x_density, "y_density",
+        y_density, "xmp_metadata", xmp_metadata)
+      return _result
+    except _core._FallbackException:
+      return encode_jpeg_eager_fallback(
+          image, format=format, quality=quality, progressive=progressive,
+          optimize_size=optimize_size,
+          chroma_downsampling=chroma_downsampling, density_unit=density_unit,
+          x_density=x_density, y_density=y_density, xmp_metadata=xmp_metadata,
+          name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def encode_jpeg_eager_fallback(image, format="", quality=95, progressive=False, optimize_size=False, chroma_downsampling=True, density_unit="in", x_density=300, y_density=300, xmp_metadata="", name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function encode_jpeg
+  """
+  _ctx = ctx if ctx else _context.context()
   if format is None:
     format = ""
   format = _execute.make_str(format, "format")
@@ -834,41 +1345,21 @@ def encode_jpeg(image, format="", quality=95, progressive=False, optimize_size=F
   if xmp_metadata is None:
     xmp_metadata = ""
   xmp_metadata = _execute.make_str(xmp_metadata, "xmp_metadata")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
-    _, _, _op = _op_def_lib._apply_op_helper(
-        "EncodeJpeg", image=image, format=format, quality=quality,
-        progressive=progressive, optimize_size=optimize_size,
-        chroma_downsampling=chroma_downsampling, density_unit=density_unit,
-        x_density=x_density, y_density=y_density, xmp_metadata=xmp_metadata,
-        name=name)
-    _result = _op.outputs[:]
-    _inputs_flat = _op.inputs
-    _attrs = ("format", _op.get_attr("format"), "quality",
-              _op.get_attr("quality"), "progressive",
-              _op.get_attr("progressive"), "optimize_size",
-              _op.get_attr("optimize_size"), "chroma_downsampling",
-              _op.get_attr("chroma_downsampling"), "density_unit",
-              _op.get_attr("density_unit"), "x_density",
-              _op.get_attr("x_density"), "y_density",
-              _op.get_attr("y_density"), "xmp_metadata",
-              _op.get_attr("xmp_metadata"))
-  else:
-    image = _ops.convert_to_tensor(image, _dtypes.uint8)
-    _inputs_flat = [image]
-    _attrs = ("format", format, "quality", quality, "progressive",
-              progressive, "optimize_size", optimize_size,
-              "chroma_downsampling", chroma_downsampling, "density_unit",
-              density_unit, "x_density", x_density, "y_density", y_density,
-              "xmp_metadata", xmp_metadata)
-    _result = _execute.execute(b"EncodeJpeg", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+  image = _ops.convert_to_tensor(image, _dtypes.uint8)
+  _inputs_flat = [image]
+  _attrs = ("format", format, "quality", quality, "progressive", progressive,
+  "optimize_size", optimize_size, "chroma_downsampling", chroma_downsampling,
+  "density_unit", density_unit, "x_density", x_density, "y_density",
+  y_density, "xmp_metadata", xmp_metadata)
+  _result = _execute.execute(b"EncodeJpeg", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "EncodeJpeg", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
+@tf_export('image.encode_png')
 def encode_png(image, compression=-1, name=None):
   r"""PNG-encode an image.
 
@@ -891,32 +1382,62 @@ def encode_png(image, compression=-1, name=None):
     name: A name for the operation (optional).
 
   Returns:
-    A `Tensor` of type `string`. 0-D. PNG-encoded image.
+    A `Tensor` of type `string`.
   """
-  if compression is None:
-    compression = -1
-  compression = _execute.make_int(compression, "compression")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if compression is None:
+      compression = -1
+    compression = _execute.make_int(compression, "compression")
     _, _, _op = _op_def_lib._apply_op_helper(
         "EncodePng", image=image, compression=compression, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("compression", _op.get_attr("compression"), "T",
               _op.get_attr("T"))
+    _execute.record_gradient(
+      "EncodePng", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (image,) = _execute.args_to_matching_eager([image], _ctx, _dtypes.uint8)
-    _attr_T = _attr_T.as_datatype_enum
-    _inputs_flat = [image]
-    _attrs = ("compression", compression, "T", _attr_T)
-    _result = _execute.execute(b"EncodePng", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "EncodePng",
+        name, _ctx._post_execution_callbacks, image, "compression",
+        compression)
+      return _result
+    except _core._FallbackException:
+      return encode_png_eager_fallback(
+          image, compression=compression, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def encode_png_eager_fallback(image, compression=-1, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function encode_png
+  """
+  _ctx = ctx if ctx else _context.context()
+  if compression is None:
+    compression = -1
+  compression = _execute.make_int(compression, "compression")
+  _attr_T, (image,) = _execute.args_to_matching_eager([image], _ctx, _dtypes.uint8)
+  _inputs_flat = [image]
+  _attrs = ("compression", compression, "T", _attr_T)
+  _result = _execute.execute(b"EncodePng", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "EncodePng", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
+@tf_export('image.extract_glimpse')
 def extract_glimpse(input, size, offsets, centered=True, normalized=True, uniform_noise=True, name=None):
   r"""Extracts a glimpse from the input tensor.
 
@@ -966,20 +1487,18 @@ def extract_glimpse(input, size, offsets, centered=True, normalized=True, unifor
 
   Returns:
     A `Tensor` of type `float32`.
-    A tensor representing the glimpses `[batch_size,
-    glimpse_height, glimpse_width, channels]`.
   """
-  if centered is None:
-    centered = True
-  centered = _execute.make_bool(centered, "centered")
-  if normalized is None:
-    normalized = True
-  normalized = _execute.make_bool(normalized, "normalized")
-  if uniform_noise is None:
-    uniform_noise = True
-  uniform_noise = _execute.make_bool(uniform_noise, "uniform_noise")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if centered is None:
+      centered = True
+    centered = _execute.make_bool(centered, "centered")
+    if normalized is None:
+      normalized = True
+    normalized = _execute.make_bool(normalized, "normalized")
+    if uniform_noise is None:
+      uniform_noise = True
+    uniform_noise = _execute.make_bool(uniform_noise, "uniform_noise")
     _, _, _op = _op_def_lib._apply_op_helper(
         "ExtractGlimpse", input=input, size=size, offsets=offsets,
         centered=centered, normalized=normalized, uniform_noise=uniform_noise,
@@ -989,21 +1508,60 @@ def extract_glimpse(input, size, offsets, centered=True, normalized=True, unifor
     _attrs = ("centered", _op.get_attr("centered"), "normalized",
               _op.get_attr("normalized"), "uniform_noise",
               _op.get_attr("uniform_noise"))
+    _execute.record_gradient(
+      "ExtractGlimpse", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    input = _ops.convert_to_tensor(input, _dtypes.float32)
-    size = _ops.convert_to_tensor(size, _dtypes.int32)
-    offsets = _ops.convert_to_tensor(offsets, _dtypes.float32)
-    _inputs_flat = [input, size, offsets]
-    _attrs = ("centered", centered, "normalized", normalized, "uniform_noise",
-              uniform_noise)
-    _result = _execute.execute(b"ExtractGlimpse", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "ExtractGlimpse", name, _ctx._post_execution_callbacks, input, size,
+        offsets, "centered", centered, "normalized", normalized,
+        "uniform_noise", uniform_noise)
+      return _result
+    except _core._FallbackException:
+      return extract_glimpse_eager_fallback(
+          input, size, offsets, centered=centered, normalized=normalized,
+          uniform_noise=uniform_noise, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def extract_glimpse_eager_fallback(input, size, offsets, centered=True, normalized=True, uniform_noise=True, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function extract_glimpse
+  """
+  _ctx = ctx if ctx else _context.context()
+  if centered is None:
+    centered = True
+  centered = _execute.make_bool(centered, "centered")
+  if normalized is None:
+    normalized = True
+  normalized = _execute.make_bool(normalized, "normalized")
+  if uniform_noise is None:
+    uniform_noise = True
+  uniform_noise = _execute.make_bool(uniform_noise, "uniform_noise")
+  input = _ops.convert_to_tensor(input, _dtypes.float32)
+  size = _ops.convert_to_tensor(size, _dtypes.int32)
+  offsets = _ops.convert_to_tensor(offsets, _dtypes.float32)
+  _inputs_flat = [input, size, offsets]
+  _attrs = ("centered", centered, "normalized", normalized, "uniform_noise",
+  uniform_noise)
+  _result = _execute.execute(b"ExtractGlimpse", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "ExtractGlimpse", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
+@tf_export('image.extract_jpeg_shape')
 def extract_jpeg_shape(contents, output_type=_dtypes.int32, name=None):
   r"""Extract the shape information of a JPEG-encoded image.
 
@@ -1018,31 +1576,61 @@ def extract_jpeg_shape(contents, output_type=_dtypes.int32, name=None):
 
   Returns:
     A `Tensor` of type `output_type`.
-    1-D. The image shape with format [height, width, channels].
   """
-  if output_type is None:
-    output_type = _dtypes.int32
-  output_type = _execute.make_type(output_type, "output_type")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if output_type is None:
+      output_type = _dtypes.int32
+    output_type = _execute.make_type(output_type, "output_type")
     _, _, _op = _op_def_lib._apply_op_helper(
         "ExtractJpegShape", contents=contents, output_type=output_type,
         name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("output_type", _op.get_attr("output_type"))
+    _execute.record_gradient(
+      "ExtractJpegShape", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    contents = _ops.convert_to_tensor(contents, _dtypes.string)
-    _inputs_flat = [contents]
-    _attrs = ("output_type", output_type)
-    _result = _execute.execute(b"ExtractJpegShape", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "ExtractJpegShape", name, _ctx._post_execution_callbacks, contents,
+        "output_type", output_type)
+      return _result
+    except _core._FallbackException:
+      return extract_jpeg_shape_eager_fallback(
+          contents, output_type=output_type, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def extract_jpeg_shape_eager_fallback(contents, output_type=_dtypes.int32, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function extract_jpeg_shape
+  """
+  _ctx = ctx if ctx else _context.context()
+  if output_type is None:
+    output_type = _dtypes.int32
+  output_type = _execute.make_type(output_type, "output_type")
+  contents = _ops.convert_to_tensor(contents, _dtypes.string)
+  _inputs_flat = [contents]
+  _attrs = ("output_type", output_type)
+  _result = _execute.execute(b"ExtractJpegShape", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "ExtractJpegShape", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
+@tf_export('image.hsv_to_rgb')
 def hsv_to_rgb(images, name=None):
   r"""Convert one or more images from HSV to RGB.
 
@@ -1053,34 +1641,59 @@ def hsv_to_rgb(images, name=None):
   See `rgb_to_hsv` for a description of the HSV encoding.
 
   Args:
-    images: A `Tensor`. Must be one of the following types: `float32`, `float64`.
+    images: A `Tensor`. Must be one of the following types: `half`, `bfloat16`, `float32`, `float64`.
       1-D or higher rank. HSV data to convert. Last dimension must be size 3.
     name: A name for the operation (optional).
 
   Returns:
-    A `Tensor`. Has the same type as `images`. `images` converted to RGB.
+    A `Tensor`. Has the same type as `images`.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "HSVToRGB", images=images, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "HSVToRGB", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (images,) = _execute.args_to_matching_eager([images], _ctx, _dtypes.float32)
-    _attr_T = _attr_T.as_datatype_enum
-    _inputs_flat = [images]
-    _attrs = ("T", _attr_T)
-    _result = _execute.execute(b"HSVToRGB", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "HSVToRGB",
+        name, _ctx._post_execution_callbacks, images)
+      return _result
+    except _core._FallbackException:
+      return hsv_to_rgb_eager_fallback(
+          images, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def hsv_to_rgb_eager_fallback(images, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function hsv_to_rgb
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, (images,) = _execute.args_to_matching_eager([images], _ctx, _dtypes.float32)
+  _inputs_flat = [images]
+  _attrs = ("T", _attr_T)
+  _result = _execute.execute(b"HSVToRGB", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "HSVToRGB", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
-def _non_max_suppression(boxes, scores, max_output_size, iou_threshold=0.5, name=None):
+def non_max_suppression(boxes, scores, max_output_size, iou_threshold=0.5, name=None):
   r"""Greedily selects a subset of bounding boxes in descending order of score,
 
   pruning away boxes that have high intersection-over-union (IOU) overlap
@@ -1116,14 +1729,12 @@ def _non_max_suppression(boxes, scores, max_output_size, iou_threshold=0.5, name
 
   Returns:
     A `Tensor` of type `int32`.
-    A 1-D integer tensor of shape `[M]` representing the selected
-    indices from the boxes tensor, where `M <= max_output_size`.
   """
-  if iou_threshold is None:
-    iou_threshold = 0.5
-  iou_threshold = _execute.make_float(iou_threshold, "iou_threshold")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if iou_threshold is None:
+      iou_threshold = 0.5
+    iou_threshold = _execute.make_float(iou_threshold, "iou_threshold")
     _, _, _op = _op_def_lib._apply_op_helper(
         "NonMaxSuppression", boxes=boxes, scores=scores,
         max_output_size=max_output_size, iou_threshold=iou_threshold,
@@ -1131,21 +1742,52 @@ def _non_max_suppression(boxes, scores, max_output_size, iou_threshold=0.5, name
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("iou_threshold", _op.get_attr("iou_threshold"))
+    _execute.record_gradient(
+      "NonMaxSuppression", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    boxes = _ops.convert_to_tensor(boxes, _dtypes.float32)
-    scores = _ops.convert_to_tensor(scores, _dtypes.float32)
-    max_output_size = _ops.convert_to_tensor(max_output_size, _dtypes.int32)
-    _inputs_flat = [boxes, scores, max_output_size]
-    _attrs = ("iou_threshold", iou_threshold)
-    _result = _execute.execute(b"NonMaxSuppression", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "NonMaxSuppression", name, _ctx._post_execution_callbacks, boxes,
+        scores, max_output_size, "iou_threshold", iou_threshold)
+      return _result
+    except _core._FallbackException:
+      return non_max_suppression_eager_fallback(
+          boxes, scores, max_output_size, iou_threshold=iou_threshold,
+          name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def non_max_suppression_eager_fallback(boxes, scores, max_output_size, iou_threshold=0.5, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function non_max_suppression
+  """
+  _ctx = ctx if ctx else _context.context()
+  if iou_threshold is None:
+    iou_threshold = 0.5
+  iou_threshold = _execute.make_float(iou_threshold, "iou_threshold")
+  boxes = _ops.convert_to_tensor(boxes, _dtypes.float32)
+  scores = _ops.convert_to_tensor(scores, _dtypes.float32)
+  max_output_size = _ops.convert_to_tensor(max_output_size, _dtypes.int32)
+  _inputs_flat = [boxes, scores, max_output_size]
+  _attrs = ("iou_threshold", iou_threshold)
+  _result = _execute.execute(b"NonMaxSuppression", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "NonMaxSuppression", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
-def _non_max_suppression_v2(boxes, scores, max_output_size, iou_threshold, name=None):
+def non_max_suppression_v2(boxes, scores, max_output_size, iou_threshold, name=None):
   r"""Greedily selects a subset of bounding boxes in descending order of score,
 
   pruning away boxes that have high intersection-over-union (IOU) overlap
@@ -1183,11 +1825,9 @@ def _non_max_suppression_v2(boxes, scores, max_output_size, iou_threshold, name=
 
   Returns:
     A `Tensor` of type `int32`.
-    A 1-D integer tensor of shape `[M]` representing the selected
-    indices from the boxes tensor, where `M <= max_output_size`.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "NonMaxSuppressionV2", boxes=boxes, scores=scores,
         max_output_size=max_output_size, iou_threshold=iou_threshold,
@@ -1195,17 +1835,346 @@ def _non_max_suppression_v2(boxes, scores, max_output_size, iou_threshold, name=
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = None
+    _execute.record_gradient(
+      "NonMaxSuppressionV2", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    boxes = _ops.convert_to_tensor(boxes, _dtypes.float32)
-    scores = _ops.convert_to_tensor(scores, _dtypes.float32)
-    max_output_size = _ops.convert_to_tensor(max_output_size, _dtypes.int32)
-    iou_threshold = _ops.convert_to_tensor(iou_threshold, _dtypes.float32)
-    _inputs_flat = [boxes, scores, max_output_size, iou_threshold]
-    _attrs = None
-    _result = _execute.execute(b"NonMaxSuppressionV2", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "NonMaxSuppressionV2", name, _ctx._post_execution_callbacks, boxes,
+        scores, max_output_size, iou_threshold)
+      return _result
+    except _core._FallbackException:
+      return non_max_suppression_v2_eager_fallback(
+          boxes, scores, max_output_size, iou_threshold, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def non_max_suppression_v2_eager_fallback(boxes, scores, max_output_size, iou_threshold, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function non_max_suppression_v2
+  """
+  _ctx = ctx if ctx else _context.context()
+  boxes = _ops.convert_to_tensor(boxes, _dtypes.float32)
+  scores = _ops.convert_to_tensor(scores, _dtypes.float32)
+  max_output_size = _ops.convert_to_tensor(max_output_size, _dtypes.int32)
+  iou_threshold = _ops.convert_to_tensor(iou_threshold, _dtypes.float32)
+  _inputs_flat = [boxes, scores, max_output_size, iou_threshold]
+  _attrs = None
+  _result = _execute.execute(b"NonMaxSuppressionV2", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "NonMaxSuppressionV2", _inputs_flat, _attrs, _result, name)
+  _result, = _result
+  return _result
+
+
+def non_max_suppression_v3(boxes, scores, max_output_size, iou_threshold, score_threshold, name=None):
+  r"""Greedily selects a subset of bounding boxes in descending order of score,
+
+  pruning away boxes that have high intersection-over-union (IOU) overlap
+  with previously selected boxes.  Bounding boxes with score less than
+  `score_threshold` are removed.  Bounding boxes are supplied as
+  [y1, x1, y2, x2], where (y1, x1) and (y2, x2) are the coordinates of any
+  diagonal pair of box corners and the coordinates can be provided as normalized
+  (i.e., lying in the interval [0, 1]) or absolute.  Note that this algorithm
+  is agnostic to where the origin is in the coordinate system and more
+  generally is invariant to orthogonal transformations and translations
+  of the coordinate system; thus translating or reflections of the coordinate
+  system result in the same boxes being selected by the algorithm.
+  The output of this operation is a set of integers indexing into the input
+  collection of bounding boxes representing the selected boxes.  The bounding
+  box coordinates corresponding to the selected indices can then be obtained
+  using the `tf.gather operation`.  For example:
+    selected_indices = tf.image.non_max_suppression_v2(
+        boxes, scores, max_output_size, iou_threshold, score_threshold)
+    selected_boxes = tf.gather(boxes, selected_indices)
+
+  Args:
+    boxes: A `Tensor` of type `float32`.
+      A 2-D float tensor of shape `[num_boxes, 4]`.
+    scores: A `Tensor` of type `float32`.
+      A 1-D float tensor of shape `[num_boxes]` representing a single
+      score corresponding to each box (each row of boxes).
+    max_output_size: A `Tensor` of type `int32`.
+      A scalar integer tensor representing the maximum number of
+      boxes to be selected by non max suppression.
+    iou_threshold: A `Tensor` of type `float32`.
+      A 0-D float tensor representing the threshold for deciding whether
+      boxes overlap too much with respect to IOU.
+    score_threshold: A `Tensor` of type `float32`.
+      A 0-D float tensor representing the threshold for deciding when to remove
+      boxes based on score.
+    name: A name for the operation (optional).
+
+  Returns:
+    A `Tensor` of type `int32`.
+  """
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    _, _, _op = _op_def_lib._apply_op_helper(
+        "NonMaxSuppressionV3", boxes=boxes, scores=scores,
+        max_output_size=max_output_size, iou_threshold=iou_threshold,
+        score_threshold=score_threshold, name=name)
+    _result = _op.outputs[:]
+    _inputs_flat = _op.inputs
+    _attrs = None
+    _execute.record_gradient(
+      "NonMaxSuppressionV3", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
+  else:
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "NonMaxSuppressionV3", name, _ctx._post_execution_callbacks, boxes,
+        scores, max_output_size, iou_threshold, score_threshold)
+      return _result
+    except _core._FallbackException:
+      return non_max_suppression_v3_eager_fallback(
+          boxes, scores, max_output_size, iou_threshold, score_threshold,
+          name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def non_max_suppression_v3_eager_fallback(boxes, scores, max_output_size, iou_threshold, score_threshold, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function non_max_suppression_v3
+  """
+  _ctx = ctx if ctx else _context.context()
+  boxes = _ops.convert_to_tensor(boxes, _dtypes.float32)
+  scores = _ops.convert_to_tensor(scores, _dtypes.float32)
+  max_output_size = _ops.convert_to_tensor(max_output_size, _dtypes.int32)
+  iou_threshold = _ops.convert_to_tensor(iou_threshold, _dtypes.float32)
+  score_threshold = _ops.convert_to_tensor(score_threshold, _dtypes.float32)
+  _inputs_flat = [boxes, scores, max_output_size, iou_threshold, score_threshold]
+  _attrs = None
+  _result = _execute.execute(b"NonMaxSuppressionV3", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
+  _execute.record_gradient(
+      "NonMaxSuppressionV3", _inputs_flat, _attrs, _result, name)
+  _result, = _result
+  return _result
+
+
+_non_max_suppression_v4_outputs = ["selected_indices", "valid_outputs"]
+_NonMaxSuppressionV4Output = _collections.namedtuple(
+    "NonMaxSuppressionV4", _non_max_suppression_v4_outputs)
+
+
+def non_max_suppression_v4(boxes, scores, max_output_size, iou_threshold, score_threshold, pad_to_max_output_size=False, name=None):
+  r"""Greedily selects a subset of bounding boxes in descending order of score,
+
+  pruning away boxes that have high intersection-over-union (IOU) overlap
+  with previously selected boxes.  Bounding boxes with score less than
+  `score_threshold` are removed.  Bounding boxes are supplied as
+  [y1, x1, y2, x2], where (y1, x1) and (y2, x2) are the coordinates of any
+  diagonal pair of box corners and the coordinates can be provided as normalized
+  (i.e., lying in the interval [0, 1]) or absolute.  Note that this algorithm
+  is agnostic to where the origin is in the coordinate system and more
+  generally is invariant to orthogonal transformations and translations
+  of the coordinate system; thus translating or reflections of the coordinate
+  system result in the same boxes being selected by the algorithm.
+  The output of this operation is a set of integers indexing into the input
+  collection of bounding boxes representing the selected boxes.  The bounding
+  box coordinates corresponding to the selected indices can then be obtained
+  using the `tf.gather operation`.  For example:
+    selected_indices = tf.image.non_max_suppression_v2(
+        boxes, scores, max_output_size, iou_threshold, score_threshold)
+    selected_boxes = tf.gather(boxes, selected_indices)
+
+  Args:
+    boxes: A `Tensor` of type `float32`.
+      A 2-D float tensor of shape `[num_boxes, 4]`.
+    scores: A `Tensor` of type `float32`.
+      A 1-D float tensor of shape `[num_boxes]` representing a single
+      score corresponding to each box (each row of boxes).
+    max_output_size: A `Tensor` of type `int32`.
+      A scalar integer tensor representing the maximum number of
+      boxes to be selected by non max suppression.
+    iou_threshold: A `Tensor` of type `float32`.
+      A 0-D float tensor representing the threshold for deciding whether
+      boxes overlap too much with respect to IOU.
+    score_threshold: A `Tensor` of type `float32`.
+      A 0-D float tensor representing the threshold for deciding when to remove
+      boxes based on score.
+    pad_to_max_output_size: An optional `bool`. Defaults to `False`.
+      If true, the output `selected_indices` is padded to be of length
+      `max_output_size`. Defaults to false.
+    name: A name for the operation (optional).
+
+  Returns:
+    A tuple of `Tensor` objects (selected_indices, valid_outputs).
+
+    selected_indices: A `Tensor` of type `int32`.
+    valid_outputs: A `Tensor` of type `int32`.
+  """
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if pad_to_max_output_size is None:
+      pad_to_max_output_size = False
+    pad_to_max_output_size = _execute.make_bool(pad_to_max_output_size, "pad_to_max_output_size")
+    _, _, _op = _op_def_lib._apply_op_helper(
+        "NonMaxSuppressionV4", boxes=boxes, scores=scores,
+        max_output_size=max_output_size, iou_threshold=iou_threshold,
+        score_threshold=score_threshold,
+        pad_to_max_output_size=pad_to_max_output_size, name=name)
+    _result = _op.outputs[:]
+    _inputs_flat = _op.inputs
+    _attrs = ("pad_to_max_output_size",
+              _op.get_attr("pad_to_max_output_size"))
+    _execute.record_gradient(
+      "NonMaxSuppressionV4", _inputs_flat, _attrs, _result, name)
+    _result = _NonMaxSuppressionV4Output._make(_result)
+    return _result
+
+  else:
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "NonMaxSuppressionV4", name, _ctx._post_execution_callbacks, boxes,
+        scores, max_output_size, iou_threshold, score_threshold,
+        "pad_to_max_output_size", pad_to_max_output_size)
+      _result = _NonMaxSuppressionV4Output._make(_result)
+      return _result
+    except _core._FallbackException:
+      return non_max_suppression_v4_eager_fallback(
+          boxes, scores, max_output_size, iou_threshold, score_threshold,
+          pad_to_max_output_size=pad_to_max_output_size, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def non_max_suppression_v4_eager_fallback(boxes, scores, max_output_size, iou_threshold, score_threshold, pad_to_max_output_size=False, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function non_max_suppression_v4
+  """
+  _ctx = ctx if ctx else _context.context()
+  if pad_to_max_output_size is None:
+    pad_to_max_output_size = False
+  pad_to_max_output_size = _execute.make_bool(pad_to_max_output_size, "pad_to_max_output_size")
+  boxes = _ops.convert_to_tensor(boxes, _dtypes.float32)
+  scores = _ops.convert_to_tensor(scores, _dtypes.float32)
+  max_output_size = _ops.convert_to_tensor(max_output_size, _dtypes.int32)
+  iou_threshold = _ops.convert_to_tensor(iou_threshold, _dtypes.float32)
+  score_threshold = _ops.convert_to_tensor(score_threshold, _dtypes.float32)
+  _inputs_flat = [boxes, scores, max_output_size, iou_threshold, score_threshold]
+  _attrs = ("pad_to_max_output_size", pad_to_max_output_size)
+  _result = _execute.execute(b"NonMaxSuppressionV4", 2, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
+  _execute.record_gradient(
+      "NonMaxSuppressionV4", _inputs_flat, _attrs, _result, name)
+  _result = _NonMaxSuppressionV4Output._make(_result)
+  return _result
+
+
+def non_max_suppression_with_overlaps(overlaps, scores, max_output_size, overlap_threshold, score_threshold, name=None):
+  r"""Greedily selects a subset of bounding boxes in descending order of score,
+
+  pruning away boxes that have high overlaps
+  with previously selected boxes.  Bounding boxes with score less than
+  `score_threshold` are removed. N-by-n overlap values are supplied as square matrix,
+  which allows for defining a custom overlap criterium (eg. intersection over union,
+  intersection over area, etc.).
+
+  The output of this operation is a set of integers indexing into the input
+  collection of bounding boxes representing the selected boxes.  The bounding
+  box coordinates corresponding to the selected indices can then be obtained
+  using the `tf.gather operation`.  For example:
+
+    selected_indices = tf.image.non_max_suppression_with_overlaps(
+        overlaps, scores, max_output_size, overlap_threshold, score_threshold)
+    selected_boxes = tf.gather(boxes, selected_indices)
+
+  Args:
+    overlaps: A `Tensor` of type `float32`.
+      A 2-D float tensor of shape `[num_boxes, num_boxes]` representing
+      the n-by-n box overlap values.
+    scores: A `Tensor` of type `float32`.
+      A 1-D float tensor of shape `[num_boxes]` representing a single
+      score corresponding to each box (each row of boxes).
+    max_output_size: A `Tensor` of type `int32`.
+      A scalar integer tensor representing the maximum number of
+      boxes to be selected by non max suppression.
+    overlap_threshold: A `Tensor` of type `float32`.
+      A 0-D float tensor representing the threshold for deciding whether
+      boxes overlap too.
+    score_threshold: A `Tensor` of type `float32`.
+      A 0-D float tensor representing the threshold for deciding when to remove
+      boxes based on score.
+    name: A name for the operation (optional).
+
+  Returns:
+    A `Tensor` of type `int32`.
+  """
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    _, _, _op = _op_def_lib._apply_op_helper(
+        "NonMaxSuppressionWithOverlaps", overlaps=overlaps, scores=scores,
+        max_output_size=max_output_size, overlap_threshold=overlap_threshold,
+        score_threshold=score_threshold, name=name)
+    _result = _op.outputs[:]
+    _inputs_flat = _op.inputs
+    _attrs = None
+    _execute.record_gradient(
+      "NonMaxSuppressionWithOverlaps", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
+  else:
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "NonMaxSuppressionWithOverlaps", name, _ctx._post_execution_callbacks,
+        overlaps, scores, max_output_size, overlap_threshold, score_threshold)
+      return _result
+    except _core._FallbackException:
+      return non_max_suppression_with_overlaps_eager_fallback(
+          overlaps, scores, max_output_size, overlap_threshold,
+          score_threshold, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def non_max_suppression_with_overlaps_eager_fallback(overlaps, scores, max_output_size, overlap_threshold, score_threshold, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function non_max_suppression_with_overlaps
+  """
+  _ctx = ctx if ctx else _context.context()
+  overlaps = _ops.convert_to_tensor(overlaps, _dtypes.float32)
+  scores = _ops.convert_to_tensor(scores, _dtypes.float32)
+  max_output_size = _ops.convert_to_tensor(max_output_size, _dtypes.int32)
+  overlap_threshold = _ops.convert_to_tensor(overlap_threshold, _dtypes.float32)
+  score_threshold = _ops.convert_to_tensor(score_threshold, _dtypes.float32)
+  _inputs_flat = [overlaps, scores, max_output_size, overlap_threshold, score_threshold]
+  _attrs = None
+  _result = _execute.execute(b"NonMaxSuppressionWithOverlaps", 1,
+                             inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
+                             name=name)
+  _execute.record_gradient(
+      "NonMaxSuppressionWithOverlaps", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
@@ -1228,24 +2197,22 @@ def quantized_resize_bilinear(images, size, min, max, align_corners=False, name=
     min: A `Tensor` of type `float32`.
     max: A `Tensor` of type `float32`.
     align_corners: An optional `bool`. Defaults to `False`.
-      If true, rescale input by (new_height - 1) / (height - 1), which
-      exactly aligns the 4 corners of images and resized images. If false, rescale
-      by new_height / height. Treat similarly the width dimension.
+      If true, the centers of the 4 corner pixels of the input and output tensors are
+      aligned, preserving the values at the corner pixels. Defaults to false.
     name: A name for the operation (optional).
 
   Returns:
     A tuple of `Tensor` objects (resized_images, out_min, out_max).
 
-    resized_images: A `Tensor`. Has the same type as `images`. 4-D with shape
-      `[batch, new_height, new_width, channels]`.
+    resized_images: A `Tensor`. Has the same type as `images`.
     out_min: A `Tensor` of type `float32`.
     out_max: A `Tensor` of type `float32`.
   """
-  if align_corners is None:
-    align_corners = False
-  align_corners = _execute.make_bool(align_corners, "align_corners")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if align_corners is None:
+      align_corners = False
+    align_corners = _execute.make_bool(align_corners, "align_corners")
     _, _, _op = _op_def_lib._apply_op_helper(
         "QuantizedResizeBilinear", images=images, size=size, min=min, max=max,
         align_corners=align_corners, name=name)
@@ -1253,23 +2220,55 @@ def quantized_resize_bilinear(images, size, min, max, align_corners=False, name=
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"), "align_corners",
               _op.get_attr("align_corners"))
+    _execute.record_gradient(
+      "QuantizedResizeBilinear", _inputs_flat, _attrs, _result, name)
+    _result = _QuantizedResizeBilinearOutput._make(_result)
+    return _result
+
   else:
-    _attr_T, (images,) = _execute.args_to_matching_eager([images], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    size = _ops.convert_to_tensor(size, _dtypes.int32)
-    min = _ops.convert_to_tensor(min, _dtypes.float32)
-    max = _ops.convert_to_tensor(max, _dtypes.float32)
-    _inputs_flat = [images, size, min, max]
-    _attrs = ("T", _attr_T, "align_corners", align_corners)
-    _result = _execute.execute(b"QuantizedResizeBilinear", 3,
-                               inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
-                               name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "QuantizedResizeBilinear", name, _ctx._post_execution_callbacks,
+        images, size, min, max, "align_corners", align_corners)
+      _result = _QuantizedResizeBilinearOutput._make(_result)
+      return _result
+    except _core._FallbackException:
+      return quantized_resize_bilinear_eager_fallback(
+          images, size, min, max, align_corners=align_corners, name=name,
+          ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def quantized_resize_bilinear_eager_fallback(images, size, min, max, align_corners=False, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function quantized_resize_bilinear
+  """
+  _ctx = ctx if ctx else _context.context()
+  if align_corners is None:
+    align_corners = False
+  align_corners = _execute.make_bool(align_corners, "align_corners")
+  _attr_T, (images,) = _execute.args_to_matching_eager([images], _ctx)
+  size = _ops.convert_to_tensor(size, _dtypes.int32)
+  min = _ops.convert_to_tensor(min, _dtypes.float32)
+  max = _ops.convert_to_tensor(max, _dtypes.float32)
+  _inputs_flat = [images, size, min, max]
+  _attrs = ("T", _attr_T, "align_corners", align_corners)
+  _result = _execute.execute(b"QuantizedResizeBilinear", 3,
+                             inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
+                             name=name)
   _execute.record_gradient(
       "QuantizedResizeBilinear", _inputs_flat, _attrs, _result, name)
   _result = _QuantizedResizeBilinearOutput._make(_result)
   return _result
 
 
+@tf_export('image.rgb_to_hsv')
 def rgb_to_hsv(images, name=None):
   r"""Converts one or more images from RGB to HSV.
 
@@ -1282,34 +2281,59 @@ def rgb_to_hsv(images, name=None):
   corresponds to pure red, hue 1/3 is pure green, and 2/3 is pure blue.
 
   Args:
-    images: A `Tensor`. Must be one of the following types: `float32`, `float64`.
+    images: A `Tensor`. Must be one of the following types: `half`, `bfloat16`, `float32`, `float64`.
       1-D or higher rank. RGB data to convert. Last dimension must be size 3.
     name: A name for the operation (optional).
 
   Returns:
-    A `Tensor`. Has the same type as `images`. `images` converted to HSV.
+    A `Tensor`. Has the same type as `images`.
   """
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
     _, _, _op = _op_def_lib._apply_op_helper(
         "RGBToHSV", images=images, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"))
+    _execute.record_gradient(
+      "RGBToHSV", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (images,) = _execute.args_to_matching_eager([images], _ctx, _dtypes.float32)
-    _attr_T = _attr_T.as_datatype_enum
-    _inputs_flat = [images]
-    _attrs = ("T", _attr_T)
-    _result = _execute.execute(b"RGBToHSV", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "RGBToHSV",
+        name, _ctx._post_execution_callbacks, images)
+      return _result
+    except _core._FallbackException:
+      return rgb_to_hsv_eager_fallback(
+          images, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def rgb_to_hsv_eager_fallback(images, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function rgb_to_hsv
+  """
+  _ctx = ctx if ctx else _context.context()
+  _attr_T, (images,) = _execute.args_to_matching_eager([images], _ctx, _dtypes.float32)
+  _inputs_flat = [images]
+  _attrs = ("T", _attr_T)
+  _result = _execute.execute(b"RGBToHSV", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "RGBToHSV", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
-def _random_crop(image, size, seed=0, seed2=0, name=None):
+def random_crop(image, size, seed=0, seed2=0, name=None):
   r"""Randomly crop `image`.
 
   `size` is a 1-D int64 tensor with 2 elements representing the crop height and
@@ -1334,16 +2358,15 @@ def _random_crop(image, size, seed=0, seed2=0, name=None):
 
   Returns:
     A `Tensor`. Has the same type as `image`.
-    3-D of shape `[crop_height, crop_width, channels].`
   """
-  if seed is None:
-    seed = 0
-  seed = _execute.make_int(seed, "seed")
-  if seed2 is None:
-    seed2 = 0
-  seed2 = _execute.make_int(seed2, "seed2")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if seed is None:
+      seed = 0
+    seed = _execute.make_int(seed, "seed")
+    if seed2 is None:
+      seed2 = 0
+    seed2 = _execute.make_int(seed2, "seed2")
     _, _, _op = _op_def_lib._apply_op_helper(
         "RandomCrop", image=image, size=size, seed=seed, seed2=seed2,
         name=name)
@@ -1351,24 +2374,62 @@ def _random_crop(image, size, seed=0, seed2=0, name=None):
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"), "seed", _op.get_attr("seed"), "seed2",
               _op.get_attr("seed2"))
+    _execute.record_gradient(
+      "RandomCrop", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (image,) = _execute.args_to_matching_eager([image], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    size = _ops.convert_to_tensor(size, _dtypes.int64)
-    _inputs_flat = [image, size]
-    _attrs = ("T", _attr_T, "seed", seed, "seed2", seed2)
-    _result = _execute.execute(b"RandomCrop", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "RandomCrop",
+        name, _ctx._post_execution_callbacks, image, size, "seed", seed,
+        "seed2", seed2)
+      return _result
+    except _core._FallbackException:
+      return random_crop_eager_fallback(
+          image, size, seed=seed, seed2=seed2, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def random_crop_eager_fallback(image, size, seed=0, seed2=0, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function random_crop
+  """
+  _ctx = ctx if ctx else _context.context()
+  if seed is None:
+    seed = 0
+  seed = _execute.make_int(seed, "seed")
+  if seed2 is None:
+    seed2 = 0
+  seed2 = _execute.make_int(seed2, "seed2")
+  _attr_T, (image,) = _execute.args_to_matching_eager([image], _ctx)
+  size = _ops.convert_to_tensor(size, _dtypes.int64)
+  _inputs_flat = [image, size]
+  _attrs = ("T", _attr_T, "seed", seed, "seed2", seed2)
+  _result = _execute.execute(b"RandomCrop", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "RandomCrop", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
+@tf_export('image.resize_area')
 def resize_area(images, size, align_corners=False, name=None):
   r"""Resize `images` to `size` using area interpolation.
 
   Input images can be of different types but output images are always float.
+
+  The range of pixel values for the output image might be slightly different
+  from the range for the input image because of limited numerical precision.
+  To guarantee an output range, for example `[0.0, 1.0]`, apply
+  `tf.clip_by_value` to the output.
 
   Each output pixel is computed by first transforming the pixel's footprint into
   the input tensor and then averaging the pixels that intersect the footprint. An
@@ -1376,25 +2437,23 @@ def resize_area(images, size, align_corners=False, name=None):
   area that intersects the footprint.  This is the same as OpenCV's INTER_AREA.
 
   Args:
-    images: A `Tensor`. Must be one of the following types: `uint8`, `int8`, `int16`, `int32`, `int64`, `half`, `float32`, `float64`.
+    images: A `Tensor`. Must be one of the following types: `int8`, `uint8`, `int16`, `uint16`, `int32`, `int64`, `half`, `float32`, `float64`.
       4-D with shape `[batch, height, width, channels]`.
     size:  A 1-D int32 Tensor of 2 elements: `new_height, new_width`.  The
       new size for the images.
     align_corners: An optional `bool`. Defaults to `False`.
-      If true, rescale input by (new_height - 1) / (height - 1), which
-      exactly aligns the 4 corners of images and resized images. If false, rescale
-      by new_height / height. Treat similarly the width dimension.
+      If true, the centers of the 4 corner pixels of the input and output tensors are
+      aligned, preserving the values at the corner pixels. Defaults to false.
     name: A name for the operation (optional).
 
   Returns:
-    A `Tensor` of type `float32`. 4-D with shape
-    `[batch, new_height, new_width, channels]`.
+    A `Tensor` of type `float32`.
   """
-  if align_corners is None:
-    align_corners = False
-  align_corners = _execute.make_bool(align_corners, "align_corners")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if align_corners is None:
+      align_corners = False
+    align_corners = _execute.make_bool(align_corners, "align_corners")
     _, _, _op = _op_def_lib._apply_op_helper(
         "ResizeArea", images=images, size=size, align_corners=align_corners,
         name=name)
@@ -1402,45 +2461,73 @@ def resize_area(images, size, align_corners=False, name=None):
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"), "align_corners",
               _op.get_attr("align_corners"))
+    _execute.record_gradient(
+      "ResizeArea", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (images,) = _execute.args_to_matching_eager([images], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    size = _ops.convert_to_tensor(size, _dtypes.int32)
-    _inputs_flat = [images, size]
-    _attrs = ("T", _attr_T, "align_corners", align_corners)
-    _result = _execute.execute(b"ResizeArea", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name, "ResizeArea",
+        name, _ctx._post_execution_callbacks, images, size, "align_corners",
+        align_corners)
+      return _result
+    except _core._FallbackException:
+      return resize_area_eager_fallback(
+          images, size, align_corners=align_corners, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def resize_area_eager_fallback(images, size, align_corners=False, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function resize_area
+  """
+  _ctx = ctx if ctx else _context.context()
+  if align_corners is None:
+    align_corners = False
+  align_corners = _execute.make_bool(align_corners, "align_corners")
+  _attr_T, (images,) = _execute.args_to_matching_eager([images], _ctx)
+  size = _ops.convert_to_tensor(size, _dtypes.int32)
+  _inputs_flat = [images, size]
+  _attrs = ("T", _attr_T, "align_corners", align_corners)
+  _result = _execute.execute(b"ResizeArea", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "ResizeArea", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
+@tf_export('image.resize_bicubic')
 def resize_bicubic(images, size, align_corners=False, name=None):
   r"""Resize `images` to `size` using bicubic interpolation.
 
   Input images can be of different types but output images are always float.
 
   Args:
-    images: A `Tensor`. Must be one of the following types: `uint8`, `int8`, `int16`, `int32`, `int64`, `half`, `float32`, `float64`.
+    images: A `Tensor`. Must be one of the following types: `int8`, `uint8`, `int16`, `uint16`, `int32`, `int64`, `half`, `float32`, `float64`.
       4-D with shape `[batch, height, width, channels]`.
     size:  A 1-D int32 Tensor of 2 elements: `new_height, new_width`.  The
       new size for the images.
     align_corners: An optional `bool`. Defaults to `False`.
-      If true, rescale input by (new_height - 1) / (height - 1), which
-      exactly aligns the 4 corners of images and resized images. If false, rescale
-      by new_height / height. Treat similarly the width dimension.
+      If true, the centers of the 4 corner pixels of the input and output tensors are
+      aligned, preserving the values at the corner pixels. Defaults to false.
     name: A name for the operation (optional).
 
   Returns:
-    A `Tensor` of type `float32`. 4-D with shape
-    `[batch, new_height, new_width, channels]`.
+    A `Tensor` of type `float32`.
   """
-  if align_corners is None:
-    align_corners = False
-  align_corners = _execute.make_bool(align_corners, "align_corners")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if align_corners is None:
+      align_corners = False
+    align_corners = _execute.make_bool(align_corners, "align_corners")
     _, _, _op = _op_def_lib._apply_op_helper(
         "ResizeBicubic", images=images, size=size,
         align_corners=align_corners, name=name)
@@ -1448,21 +2535,50 @@ def resize_bicubic(images, size, align_corners=False, name=None):
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"), "align_corners",
               _op.get_attr("align_corners"))
+    _execute.record_gradient(
+      "ResizeBicubic", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (images,) = _execute.args_to_matching_eager([images], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    size = _ops.convert_to_tensor(size, _dtypes.int32)
-    _inputs_flat = [images, size]
-    _attrs = ("T", _attr_T, "align_corners", align_corners)
-    _result = _execute.execute(b"ResizeBicubic", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "ResizeBicubic", name, _ctx._post_execution_callbacks, images, size,
+        "align_corners", align_corners)
+      return _result
+    except _core._FallbackException:
+      return resize_bicubic_eager_fallback(
+          images, size, align_corners=align_corners, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def resize_bicubic_eager_fallback(images, size, align_corners=False, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function resize_bicubic
+  """
+  _ctx = ctx if ctx else _context.context()
+  if align_corners is None:
+    align_corners = False
+  align_corners = _execute.make_bool(align_corners, "align_corners")
+  _attr_T, (images,) = _execute.args_to_matching_eager([images], _ctx)
+  size = _ops.convert_to_tensor(size, _dtypes.int32)
+  _inputs_flat = [images, size]
+  _attrs = ("T", _attr_T, "align_corners", align_corners)
+  _result = _execute.execute(b"ResizeBicubic", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "ResizeBicubic", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
-def _resize_bicubic_grad(grads, original_image, align_corners=False, name=None):
+def resize_bicubic_grad(grads, original_image, align_corners=False, name=None):
   r"""Computes the gradient of bicubic interpolation.
 
   Args:
@@ -1472,22 +2588,18 @@ def _resize_bicubic_grad(grads, original_image, align_corners=False, name=None):
       4-D with shape `[batch, orig_height, orig_width, channels]`,
       The image tensor that was resized.
     align_corners: An optional `bool`. Defaults to `False`.
-      If true, rescale grads by (orig_height - 1) / (height - 1), which
-      exactly aligns the 4 corners of grads and original_image. If false, rescale by
-      orig_height / height. Treat similarly the width dimension.
+      If true, the centers of the 4 corner pixels of the input and grad tensors are
+      aligned. Defaults to false.
     name: A name for the operation (optional).
 
   Returns:
     A `Tensor`. Has the same type as `original_image`.
-    4-D with shape `[batch, orig_height, orig_width, channels]`.
-    Gradients with respect to the input image. Input image must have been
-    float or double.
   """
-  if align_corners is None:
-    align_corners = False
-  align_corners = _execute.make_bool(align_corners, "align_corners")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if align_corners is None:
+      align_corners = False
+    align_corners = _execute.make_bool(align_corners, "align_corners")
     _, _, _op = _op_def_lib._apply_op_helper(
         "ResizeBicubicGrad", grads=grads, original_image=original_image,
         align_corners=align_corners, name=name)
@@ -1495,45 +2607,74 @@ def _resize_bicubic_grad(grads, original_image, align_corners=False, name=None):
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"), "align_corners",
               _op.get_attr("align_corners"))
+    _execute.record_gradient(
+      "ResizeBicubicGrad", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (original_image,) = _execute.args_to_matching_eager([original_image], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    grads = _ops.convert_to_tensor(grads, _dtypes.float32)
-    _inputs_flat = [grads, original_image]
-    _attrs = ("T", _attr_T, "align_corners", align_corners)
-    _result = _execute.execute(b"ResizeBicubicGrad", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "ResizeBicubicGrad", name, _ctx._post_execution_callbacks, grads,
+        original_image, "align_corners", align_corners)
+      return _result
+    except _core._FallbackException:
+      return resize_bicubic_grad_eager_fallback(
+          grads, original_image, align_corners=align_corners, name=name,
+          ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def resize_bicubic_grad_eager_fallback(grads, original_image, align_corners=False, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function resize_bicubic_grad
+  """
+  _ctx = ctx if ctx else _context.context()
+  if align_corners is None:
+    align_corners = False
+  align_corners = _execute.make_bool(align_corners, "align_corners")
+  _attr_T, (original_image,) = _execute.args_to_matching_eager([original_image], _ctx)
+  grads = _ops.convert_to_tensor(grads, _dtypes.float32)
+  _inputs_flat = [grads, original_image]
+  _attrs = ("T", _attr_T, "align_corners", align_corners)
+  _result = _execute.execute(b"ResizeBicubicGrad", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "ResizeBicubicGrad", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
+@tf_export('image.resize_bilinear')
 def resize_bilinear(images, size, align_corners=False, name=None):
   r"""Resize `images` to `size` using bilinear interpolation.
 
   Input images can be of different types but output images are always float.
 
   Args:
-    images: A `Tensor`. Must be one of the following types: `uint8`, `int8`, `int16`, `int32`, `int64`, `half`, `float32`, `float64`.
+    images: A `Tensor`. Must be one of the following types: `int8`, `uint8`, `int16`, `uint16`, `int32`, `int64`, `bfloat16`, `half`, `float32`, `float64`.
       4-D with shape `[batch, height, width, channels]`.
     size:  A 1-D int32 Tensor of 2 elements: `new_height, new_width`.  The
       new size for the images.
     align_corners: An optional `bool`. Defaults to `False`.
-      If true, rescale input by (new_height - 1) / (height - 1), which
-      exactly aligns the 4 corners of images and resized images. If false, rescale
-      by new_height / height. Treat similarly the width dimension.
+      If true, the centers of the 4 corner pixels of the input and output tensors are
+      aligned, preserving the values at the corner pixels. Defaults to false.
     name: A name for the operation (optional).
 
   Returns:
-    A `Tensor` of type `float32`. 4-D with shape
-    `[batch, new_height, new_width, channels]`.
+    A `Tensor` of type `float32`.
   """
-  if align_corners is None:
-    align_corners = False
-  align_corners = _execute.make_bool(align_corners, "align_corners")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if align_corners is None:
+      align_corners = False
+    align_corners = _execute.make_bool(align_corners, "align_corners")
     _, _, _op = _op_def_lib._apply_op_helper(
         "ResizeBilinear", images=images, size=size,
         align_corners=align_corners, name=name)
@@ -1541,46 +2682,71 @@ def resize_bilinear(images, size, align_corners=False, name=None):
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"), "align_corners",
               _op.get_attr("align_corners"))
+    _execute.record_gradient(
+      "ResizeBilinear", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (images,) = _execute.args_to_matching_eager([images], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    size = _ops.convert_to_tensor(size, _dtypes.int32)
-    _inputs_flat = [images, size]
-    _attrs = ("T", _attr_T, "align_corners", align_corners)
-    _result = _execute.execute(b"ResizeBilinear", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "ResizeBilinear", name, _ctx._post_execution_callbacks, images, size,
+        "align_corners", align_corners)
+      return _result
+    except _core._FallbackException:
+      return resize_bilinear_eager_fallback(
+          images, size, align_corners=align_corners, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def resize_bilinear_eager_fallback(images, size, align_corners=False, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function resize_bilinear
+  """
+  _ctx = ctx if ctx else _context.context()
+  if align_corners is None:
+    align_corners = False
+  align_corners = _execute.make_bool(align_corners, "align_corners")
+  _attr_T, (images,) = _execute.args_to_matching_eager([images], _ctx)
+  size = _ops.convert_to_tensor(size, _dtypes.int32)
+  _inputs_flat = [images, size]
+  _attrs = ("T", _attr_T, "align_corners", align_corners)
+  _result = _execute.execute(b"ResizeBilinear", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "ResizeBilinear", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
-def _resize_bilinear_grad(grads, original_image, align_corners=False, name=None):
+def resize_bilinear_grad(grads, original_image, align_corners=False, name=None):
   r"""Computes the gradient of bilinear interpolation.
 
   Args:
     grads: A `Tensor` of type `float32`.
       4-D with shape `[batch, height, width, channels]`.
-    original_image: A `Tensor`. Must be one of the following types: `float32`, `half`, `float64`.
+    original_image: A `Tensor`. Must be one of the following types: `float32`, `bfloat16`, `half`, `float64`.
       4-D with shape `[batch, orig_height, orig_width, channels]`,
       The image tensor that was resized.
     align_corners: An optional `bool`. Defaults to `False`.
-      If true, rescale grads by (orig_height - 1) / (height - 1), which
-      exactly aligns the 4 corners of grads and original_image. If false, rescale by
-      orig_height / height. Treat similarly the width dimension.
+      If true, the centers of the 4 corner pixels of the input and grad tensors are
+      aligned. Defaults to false.
     name: A name for the operation (optional).
 
   Returns:
     A `Tensor`. Has the same type as `original_image`.
-    4-D with shape `[batch, orig_height, orig_width, channels]`.
-    Gradients with respect to the input image. Input image must have been
-    float or double.
   """
-  if align_corners is None:
-    align_corners = False
-  align_corners = _execute.make_bool(align_corners, "align_corners")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if align_corners is None:
+      align_corners = False
+    align_corners = _execute.make_bool(align_corners, "align_corners")
     _, _, _op = _op_def_lib._apply_op_helper(
         "ResizeBilinearGrad", grads=grads, original_image=original_image,
         align_corners=align_corners, name=name)
@@ -1588,43 +2754,72 @@ def _resize_bilinear_grad(grads, original_image, align_corners=False, name=None)
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"), "align_corners",
               _op.get_attr("align_corners"))
+    _execute.record_gradient(
+      "ResizeBilinearGrad", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (original_image,) = _execute.args_to_matching_eager([original_image], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    grads = _ops.convert_to_tensor(grads, _dtypes.float32)
-    _inputs_flat = [grads, original_image]
-    _attrs = ("T", _attr_T, "align_corners", align_corners)
-    _result = _execute.execute(b"ResizeBilinearGrad", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "ResizeBilinearGrad", name, _ctx._post_execution_callbacks, grads,
+        original_image, "align_corners", align_corners)
+      return _result
+    except _core._FallbackException:
+      return resize_bilinear_grad_eager_fallback(
+          grads, original_image, align_corners=align_corners, name=name,
+          ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def resize_bilinear_grad_eager_fallback(grads, original_image, align_corners=False, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function resize_bilinear_grad
+  """
+  _ctx = ctx if ctx else _context.context()
+  if align_corners is None:
+    align_corners = False
+  align_corners = _execute.make_bool(align_corners, "align_corners")
+  _attr_T, (original_image,) = _execute.args_to_matching_eager([original_image], _ctx)
+  grads = _ops.convert_to_tensor(grads, _dtypes.float32)
+  _inputs_flat = [grads, original_image]
+  _attrs = ("T", _attr_T, "align_corners", align_corners)
+  _result = _execute.execute(b"ResizeBilinearGrad", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "ResizeBilinearGrad", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
+@tf_export('image.resize_nearest_neighbor')
 def resize_nearest_neighbor(images, size, align_corners=False, name=None):
   r"""Resize `images` to `size` using nearest neighbor interpolation.
 
   Args:
-    images: A `Tensor`. Must be one of the following types: `uint8`, `int8`, `int16`, `int32`, `int64`, `half`, `float32`, `float64`.
+    images: A `Tensor`. Must be one of the following types: `int8`, `uint8`, `int16`, `uint16`, `int32`, `int64`, `half`, `float32`, `float64`.
       4-D with shape `[batch, height, width, channels]`.
     size:  A 1-D int32 Tensor of 2 elements: `new_height, new_width`.  The
       new size for the images.
     align_corners: An optional `bool`. Defaults to `False`.
-      If true, rescale input by (new_height - 1) / (height - 1), which
-      exactly aligns the 4 corners of images and resized images. If false, rescale
-      by new_height / height. Treat similarly the width dimension.
+      If true, the centers of the 4 corner pixels of the input and output tensors are
+      aligned, preserving the values at the corner pixels. Defaults to false.
     name: A name for the operation (optional).
 
   Returns:
-    A `Tensor`. Has the same type as `images`. 4-D with shape
-    `[batch, new_height, new_width, channels]`.
+    A `Tensor`. Has the same type as `images`.
   """
-  if align_corners is None:
-    align_corners = False
-  align_corners = _execute.make_bool(align_corners, "align_corners")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if align_corners is None:
+      align_corners = False
+    align_corners = _execute.make_bool(align_corners, "align_corners")
     _, _, _op = _op_def_lib._apply_op_helper(
         "ResizeNearestNeighbor", images=images, size=size,
         align_corners=align_corners, name=name)
@@ -1632,22 +2827,50 @@ def resize_nearest_neighbor(images, size, align_corners=False, name=None):
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"), "align_corners",
               _op.get_attr("align_corners"))
+    _execute.record_gradient(
+      "ResizeNearestNeighbor", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (images,) = _execute.args_to_matching_eager([images], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    size = _ops.convert_to_tensor(size, _dtypes.int32)
-    _inputs_flat = [images, size]
-    _attrs = ("T", _attr_T, "align_corners", align_corners)
-    _result = _execute.execute(b"ResizeNearestNeighbor", 1,
-                               inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
-                               name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "ResizeNearestNeighbor", name, _ctx._post_execution_callbacks, images,
+        size, "align_corners", align_corners)
+      return _result
+    except _core._FallbackException:
+      return resize_nearest_neighbor_eager_fallback(
+          images, size, align_corners=align_corners, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def resize_nearest_neighbor_eager_fallback(images, size, align_corners=False, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function resize_nearest_neighbor
+  """
+  _ctx = ctx if ctx else _context.context()
+  if align_corners is None:
+    align_corners = False
+  align_corners = _execute.make_bool(align_corners, "align_corners")
+  _attr_T, (images,) = _execute.args_to_matching_eager([images], _ctx)
+  size = _ops.convert_to_tensor(size, _dtypes.int32)
+  _inputs_flat = [images, size]
+  _attrs = ("T", _attr_T, "align_corners", align_corners)
+  _result = _execute.execute(b"ResizeNearestNeighbor", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "ResizeNearestNeighbor", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
-def _resize_nearest_neighbor_grad(grads, size, align_corners=False, name=None):
+def resize_nearest_neighbor_grad(grads, size, align_corners=False, name=None):
   r"""Computes the gradient of nearest neighbor interpolation.
 
   Args:
@@ -1656,21 +2879,18 @@ def _resize_nearest_neighbor_grad(grads, size, align_corners=False, name=None):
     size:  A 1-D int32 Tensor of 2 elements: `orig_height, orig_width`. The
       original input size.
     align_corners: An optional `bool`. Defaults to `False`.
-      If true, rescale grads by (orig_height - 1) / (height - 1), which
-      exactly aligns the 4 corners of grads and original_image. If false, rescale by
-      orig_height / height. Treat similarly the width dimension.
+      If true, the centers of the 4 corner pixels of the input and grad tensors are
+      aligned. Defaults to false.
     name: A name for the operation (optional).
 
   Returns:
     A `Tensor`. Has the same type as `grads`.
-    4-D with shape `[batch, orig_height, orig_width, channels]`. Gradients
-    with respect to the input image.
   """
-  if align_corners is None:
-    align_corners = False
-  align_corners = _execute.make_bool(align_corners, "align_corners")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if align_corners is None:
+      align_corners = False
+    align_corners = _execute.make_bool(align_corners, "align_corners")
     _, _, _op = _op_def_lib._apply_op_helper(
         "ResizeNearestNeighborGrad", grads=grads, size=size,
         align_corners=align_corners, name=name)
@@ -1678,27 +2898,56 @@ def _resize_nearest_neighbor_grad(grads, size, align_corners=False, name=None):
     _inputs_flat = _op.inputs
     _attrs = ("T", _op.get_attr("T"), "align_corners",
               _op.get_attr("align_corners"))
+    _execute.record_gradient(
+      "ResizeNearestNeighborGrad", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    _attr_T, (grads,) = _execute.args_to_matching_eager([grads], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    size = _ops.convert_to_tensor(size, _dtypes.int32)
-    _inputs_flat = [grads, size]
-    _attrs = ("T", _attr_T, "align_corners", align_corners)
-    _result = _execute.execute(b"ResizeNearestNeighborGrad", 1,
-                               inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
-                               name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "ResizeNearestNeighborGrad", name, _ctx._post_execution_callbacks,
+        grads, size, "align_corners", align_corners)
+      return _result
+    except _core._FallbackException:
+      return resize_nearest_neighbor_grad_eager_fallback(
+          grads, size, align_corners=align_corners, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def resize_nearest_neighbor_grad_eager_fallback(grads, size, align_corners=False, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function resize_nearest_neighbor_grad
+  """
+  _ctx = ctx if ctx else _context.context()
+  if align_corners is None:
+    align_corners = False
+  align_corners = _execute.make_bool(align_corners, "align_corners")
+  _attr_T, (grads,) = _execute.args_to_matching_eager([grads], _ctx)
+  size = _ops.convert_to_tensor(size, _dtypes.int32)
+  _inputs_flat = [grads, size]
+  _attrs = ("T", _attr_T, "align_corners", align_corners)
+  _result = _execute.execute(b"ResizeNearestNeighborGrad", 1,
+                             inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
+                             name=name)
   _execute.record_gradient(
       "ResizeNearestNeighborGrad", _inputs_flat, _attrs, _result, name)
   _result, = _result
   return _result
 
 
-__sample_distorted_bounding_box_outputs = ["begin", "size", "bboxes"]
+_sample_distorted_bounding_box_outputs = ["begin", "size", "bboxes"]
 _SampleDistortedBoundingBoxOutput = _collections.namedtuple(
-    "SampleDistortedBoundingBox", __sample_distorted_bounding_box_outputs)
+    "SampleDistortedBoundingBox", _sample_distorted_bounding_box_outputs)
 
 
-def _sample_distorted_bounding_box(image_size, bounding_boxes, seed=0, seed2=0, min_object_covered=0.1, aspect_ratio_range=[0.75, 1.33], area_range=[0.05, 1], max_attempts=100, use_image_if_no_bounding_boxes=False, name=None):
+def sample_distorted_bounding_box(image_size, bounding_boxes, seed=0, seed2=0, min_object_covered=0.1, aspect_ratio_range=[0.75, 1.33], area_range=[0.05, 1], max_attempts=100, use_image_if_no_bounding_boxes=False, name=None):
   r"""Generate a single randomly distorted bounding box for an image.
 
   Bounding box annotations are often supplied in addition to ground-truth labels
@@ -1729,7 +2978,7 @@ def _sample_distorted_bounding_box(image_size, bounding_boxes, seed=0, seed2=0, 
       # Draw the bounding box in an image summary.
       image_with_box = tf.image.draw_bounding_boxes(tf.expand_dims(image, 0),
                                                     bbox_for_draw)
-      tf.image_summary('images_with_box', image_with_box)
+      tf.summary.image('images_with_box', image_with_box)
 
       # Employ the bounding box to distort the image.
       distorted_image = tf.slice(image, begin, size)
@@ -1762,7 +3011,7 @@ def _sample_distorted_bounding_box(image_size, bounding_boxes, seed=0, seed2=0, 
       width / height within this range.
     area_range: An optional list of `floats`. Defaults to `[0.05, 1]`.
       The cropped area of the image must contain a fraction of the
-      supplied image within in this range.
+      supplied image within this range.
     max_attempts: An optional `int`. Defaults to `100`.
       Number of attempts at generating a cropped region of the image
       of the specified constraints. After `max_attempts` failures, return the entire
@@ -1776,13 +3025,96 @@ def _sample_distorted_bounding_box(image_size, bounding_boxes, seed=0, seed2=0, 
   Returns:
     A tuple of `Tensor` objects (begin, size, bboxes).
 
-    begin: A `Tensor`. Has the same type as `image_size`. 1-D, containing `[offset_height, offset_width, 0]`. Provide as input to
-      `tf.slice`.
-    size: A `Tensor`. Has the same type as `image_size`. 1-D, containing `[target_height, target_width, -1]`. Provide as input to
-      `tf.slice`.
-    bboxes: A `Tensor` of type `float32`. 3-D with shape `[1, 1, 4]` containing the distorted bounding box.
-      Provide as input to `tf.image.draw_bounding_boxes`.
+    begin: A `Tensor`. Has the same type as `image_size`.
+    size: A `Tensor`. Has the same type as `image_size`.
+    bboxes: A `Tensor` of type `float32`.
   """
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if seed is None:
+      seed = 0
+    seed = _execute.make_int(seed, "seed")
+    if seed2 is None:
+      seed2 = 0
+    seed2 = _execute.make_int(seed2, "seed2")
+    if min_object_covered is None:
+      min_object_covered = 0.1
+    min_object_covered = _execute.make_float(min_object_covered, "min_object_covered")
+    if aspect_ratio_range is None:
+      aspect_ratio_range = [0.75, 1.33]
+    if not isinstance(aspect_ratio_range, (list, tuple)):
+      raise TypeError(
+          "Expected list for 'aspect_ratio_range' argument to "
+          "'sample_distorted_bounding_box' Op, not %r." % aspect_ratio_range)
+    aspect_ratio_range = [_execute.make_float(_f, "aspect_ratio_range") for _f in aspect_ratio_range]
+    if area_range is None:
+      area_range = [0.05, 1]
+    if not isinstance(area_range, (list, tuple)):
+      raise TypeError(
+          "Expected list for 'area_range' argument to "
+          "'sample_distorted_bounding_box' Op, not %r." % area_range)
+    area_range = [_execute.make_float(_f, "area_range") for _f in area_range]
+    if max_attempts is None:
+      max_attempts = 100
+    max_attempts = _execute.make_int(max_attempts, "max_attempts")
+    if use_image_if_no_bounding_boxes is None:
+      use_image_if_no_bounding_boxes = False
+    use_image_if_no_bounding_boxes = _execute.make_bool(use_image_if_no_bounding_boxes, "use_image_if_no_bounding_boxes")
+    _, _, _op = _op_def_lib._apply_op_helper(
+        "SampleDistortedBoundingBox", image_size=image_size,
+        bounding_boxes=bounding_boxes, seed=seed, seed2=seed2,
+        min_object_covered=min_object_covered,
+        aspect_ratio_range=aspect_ratio_range, area_range=area_range,
+        max_attempts=max_attempts,
+        use_image_if_no_bounding_boxes=use_image_if_no_bounding_boxes,
+        name=name)
+    _result = _op.outputs[:]
+    _inputs_flat = _op.inputs
+    _attrs = ("T", _op.get_attr("T"), "seed", _op.get_attr("seed"), "seed2",
+              _op.get_attr("seed2"), "min_object_covered",
+              _op.get_attr("min_object_covered"), "aspect_ratio_range",
+              _op.get_attr("aspect_ratio_range"), "area_range",
+              _op.get_attr("area_range"), "max_attempts",
+              _op.get_attr("max_attempts"), "use_image_if_no_bounding_boxes",
+              _op.get_attr("use_image_if_no_bounding_boxes"))
+    _execute.record_gradient(
+      "SampleDistortedBoundingBox", _inputs_flat, _attrs, _result, name)
+    _result = _SampleDistortedBoundingBoxOutput._make(_result)
+    return _result
+
+  else:
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "SampleDistortedBoundingBox", name, _ctx._post_execution_callbacks,
+        image_size, bounding_boxes, "seed", seed, "seed2", seed2,
+        "min_object_covered", min_object_covered, "aspect_ratio_range",
+        aspect_ratio_range, "area_range", area_range, "max_attempts",
+        max_attempts, "use_image_if_no_bounding_boxes",
+        use_image_if_no_bounding_boxes)
+      _result = _SampleDistortedBoundingBoxOutput._make(_result)
+      return _result
+    except _core._FallbackException:
+      return sample_distorted_bounding_box_eager_fallback(
+          image_size, bounding_boxes, seed=seed, seed2=seed2,
+          min_object_covered=min_object_covered,
+          aspect_ratio_range=aspect_ratio_range, area_range=area_range,
+          max_attempts=max_attempts,
+          use_image_if_no_bounding_boxes=use_image_if_no_bounding_boxes,
+          name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def sample_distorted_bounding_box_eager_fallback(image_size, bounding_boxes, seed=0, seed2=0, min_object_covered=0.1, aspect_ratio_range=[0.75, 1.33], area_range=[0.05, 1], max_attempts=100, use_image_if_no_bounding_boxes=False, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function sample_distorted_bounding_box
+  """
+  _ctx = ctx if ctx else _context.context()
   if seed is None:
     seed = 0
   seed = _execute.make_int(seed, "seed")
@@ -1812,51 +3144,28 @@ def _sample_distorted_bounding_box(image_size, bounding_boxes, seed=0, seed2=0, 
   if use_image_if_no_bounding_boxes is None:
     use_image_if_no_bounding_boxes = False
   use_image_if_no_bounding_boxes = _execute.make_bool(use_image_if_no_bounding_boxes, "use_image_if_no_bounding_boxes")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
-    _, _, _op = _op_def_lib._apply_op_helper(
-        "SampleDistortedBoundingBox", image_size=image_size,
-        bounding_boxes=bounding_boxes, seed=seed, seed2=seed2,
-        min_object_covered=min_object_covered,
-        aspect_ratio_range=aspect_ratio_range, area_range=area_range,
-        max_attempts=max_attempts,
-        use_image_if_no_bounding_boxes=use_image_if_no_bounding_boxes,
-        name=name)
-    _result = _op.outputs[:]
-    _inputs_flat = _op.inputs
-    _attrs = ("T", _op.get_attr("T"), "seed", _op.get_attr("seed"), "seed2",
-              _op.get_attr("seed2"), "min_object_covered",
-              _op.get_attr("min_object_covered"), "aspect_ratio_range",
-              _op.get_attr("aspect_ratio_range"), "area_range",
-              _op.get_attr("area_range"), "max_attempts",
-              _op.get_attr("max_attempts"), "use_image_if_no_bounding_boxes",
-              _op.get_attr("use_image_if_no_bounding_boxes"))
-  else:
-    _attr_T, (image_size,) = _execute.args_to_matching_eager([image_size], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    bounding_boxes = _ops.convert_to_tensor(bounding_boxes, _dtypes.float32)
-    _inputs_flat = [image_size, bounding_boxes]
-    _attrs = ("T", _attr_T, "seed", seed, "seed2", seed2,
-              "min_object_covered", min_object_covered, "aspect_ratio_range",
-              aspect_ratio_range, "area_range", area_range, "max_attempts",
-              max_attempts, "use_image_if_no_bounding_boxes",
-              use_image_if_no_bounding_boxes)
-    _result = _execute.execute(b"SampleDistortedBoundingBox", 3,
-                               inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
-                               name=name)
+  _attr_T, (image_size,) = _execute.args_to_matching_eager([image_size], _ctx)
+  bounding_boxes = _ops.convert_to_tensor(bounding_boxes, _dtypes.float32)
+  _inputs_flat = [image_size, bounding_boxes]
+  _attrs = ("T", _attr_T, "seed", seed, "seed2", seed2, "min_object_covered",
+  min_object_covered, "aspect_ratio_range", aspect_ratio_range, "area_range",
+  area_range, "max_attempts", max_attempts, "use_image_if_no_bounding_boxes",
+  use_image_if_no_bounding_boxes)
+  _result = _execute.execute(b"SampleDistortedBoundingBox", 3,
+                             inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
+                             name=name)
   _execute.record_gradient(
       "SampleDistortedBoundingBox", _inputs_flat, _attrs, _result, name)
   _result = _SampleDistortedBoundingBoxOutput._make(_result)
   return _result
 
 
-__sample_distorted_bounding_box_v2_outputs = ["begin", "size", "bboxes"]
+_sample_distorted_bounding_box_v2_outputs = ["begin", "size", "bboxes"]
 _SampleDistortedBoundingBoxV2Output = _collections.namedtuple(
-    "SampleDistortedBoundingBoxV2",
-    __sample_distorted_bounding_box_v2_outputs)
+    "SampleDistortedBoundingBoxV2", _sample_distorted_bounding_box_v2_outputs)
 
 
-def _sample_distorted_bounding_box_v2(image_size, bounding_boxes, min_object_covered, seed=0, seed2=0, aspect_ratio_range=[0.75, 1.33], area_range=[0.05, 1], max_attempts=100, use_image_if_no_bounding_boxes=False, name=None):
+def sample_distorted_bounding_box_v2(image_size, bounding_boxes, min_object_covered, seed=0, seed2=0, aspect_ratio_range=[0.75, 1.33], area_range=[0.05, 1], max_attempts=100, use_image_if_no_bounding_boxes=False, name=None):
   r"""Generate a single randomly distorted bounding box for an image.
 
   Bounding box annotations are often supplied in addition to ground-truth labels
@@ -1887,7 +3196,7 @@ def _sample_distorted_bounding_box_v2(image_size, bounding_boxes, min_object_cov
       # Draw the bounding box in an image summary.
       image_with_box = tf.image.draw_bounding_boxes(tf.expand_dims(image, 0),
                                                     bbox_for_draw)
-      tf.image_summary('images_with_box', image_with_box)
+      tf.summary.image('images_with_box', image_with_box)
 
       # Employ the bounding box to distort the image.
       distorted_image = tf.slice(image, begin, size)
@@ -1920,7 +3229,7 @@ def _sample_distorted_bounding_box_v2(image_size, bounding_boxes, min_object_cov
       width / height within this range.
     area_range: An optional list of `floats`. Defaults to `[0.05, 1]`.
       The cropped area of the image must contain a fraction of the
-      supplied image within in this range.
+      supplied image within this range.
     max_attempts: An optional `int`. Defaults to `100`.
       Number of attempts at generating a cropped region of the image
       of the specified constraints. After `max_attempts` failures, return the entire
@@ -1934,13 +3243,89 @@ def _sample_distorted_bounding_box_v2(image_size, bounding_boxes, min_object_cov
   Returns:
     A tuple of `Tensor` objects (begin, size, bboxes).
 
-    begin: A `Tensor`. Has the same type as `image_size`. 1-D, containing `[offset_height, offset_width, 0]`. Provide as input to
-      `tf.slice`.
-    size: A `Tensor`. Has the same type as `image_size`. 1-D, containing `[target_height, target_width, -1]`. Provide as input to
-      `tf.slice`.
-    bboxes: A `Tensor` of type `float32`. 3-D with shape `[1, 1, 4]` containing the distorted bounding box.
-      Provide as input to `tf.image.draw_bounding_boxes`.
+    begin: A `Tensor`. Has the same type as `image_size`.
+    size: A `Tensor`. Has the same type as `image_size`.
+    bboxes: A `Tensor` of type `float32`.
   """
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    if seed is None:
+      seed = 0
+    seed = _execute.make_int(seed, "seed")
+    if seed2 is None:
+      seed2 = 0
+    seed2 = _execute.make_int(seed2, "seed2")
+    if aspect_ratio_range is None:
+      aspect_ratio_range = [0.75, 1.33]
+    if not isinstance(aspect_ratio_range, (list, tuple)):
+      raise TypeError(
+          "Expected list for 'aspect_ratio_range' argument to "
+          "'sample_distorted_bounding_box_v2' Op, not %r." % aspect_ratio_range)
+    aspect_ratio_range = [_execute.make_float(_f, "aspect_ratio_range") for _f in aspect_ratio_range]
+    if area_range is None:
+      area_range = [0.05, 1]
+    if not isinstance(area_range, (list, tuple)):
+      raise TypeError(
+          "Expected list for 'area_range' argument to "
+          "'sample_distorted_bounding_box_v2' Op, not %r." % area_range)
+    area_range = [_execute.make_float(_f, "area_range") for _f in area_range]
+    if max_attempts is None:
+      max_attempts = 100
+    max_attempts = _execute.make_int(max_attempts, "max_attempts")
+    if use_image_if_no_bounding_boxes is None:
+      use_image_if_no_bounding_boxes = False
+    use_image_if_no_bounding_boxes = _execute.make_bool(use_image_if_no_bounding_boxes, "use_image_if_no_bounding_boxes")
+    _, _, _op = _op_def_lib._apply_op_helper(
+        "SampleDistortedBoundingBoxV2", image_size=image_size,
+        bounding_boxes=bounding_boxes, min_object_covered=min_object_covered,
+        seed=seed, seed2=seed2, aspect_ratio_range=aspect_ratio_range,
+        area_range=area_range, max_attempts=max_attempts,
+        use_image_if_no_bounding_boxes=use_image_if_no_bounding_boxes,
+        name=name)
+    _result = _op.outputs[:]
+    _inputs_flat = _op.inputs
+    _attrs = ("T", _op.get_attr("T"), "seed", _op.get_attr("seed"), "seed2",
+              _op.get_attr("seed2"), "aspect_ratio_range",
+              _op.get_attr("aspect_ratio_range"), "area_range",
+              _op.get_attr("area_range"), "max_attempts",
+              _op.get_attr("max_attempts"), "use_image_if_no_bounding_boxes",
+              _op.get_attr("use_image_if_no_bounding_boxes"))
+    _execute.record_gradient(
+      "SampleDistortedBoundingBoxV2", _inputs_flat, _attrs, _result, name)
+    _result = _SampleDistortedBoundingBoxV2Output._make(_result)
+    return _result
+
+  else:
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "SampleDistortedBoundingBoxV2", name, _ctx._post_execution_callbacks,
+        image_size, bounding_boxes, min_object_covered, "seed", seed, "seed2",
+        seed2, "aspect_ratio_range", aspect_ratio_range, "area_range",
+        area_range, "max_attempts", max_attempts,
+        "use_image_if_no_bounding_boxes", use_image_if_no_bounding_boxes)
+      _result = _SampleDistortedBoundingBoxV2Output._make(_result)
+      return _result
+    except _core._FallbackException:
+      return sample_distorted_bounding_box_v2_eager_fallback(
+          image_size, bounding_boxes, min_object_covered, seed=seed,
+          seed2=seed2, aspect_ratio_range=aspect_ratio_range,
+          area_range=area_range, max_attempts=max_attempts,
+          use_image_if_no_bounding_boxes=use_image_if_no_bounding_boxes,
+          name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def sample_distorted_bounding_box_v2_eager_fallback(image_size, bounding_boxes, min_object_covered, seed=0, seed2=0, aspect_ratio_range=[0.75, 1.33], area_range=[0.05, 1], max_attempts=100, use_image_if_no_bounding_boxes=False, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function sample_distorted_bounding_box_v2
+  """
+  _ctx = ctx if ctx else _context.context()
   if seed is None:
     seed = 0
   seed = _execute.make_int(seed, "seed")
@@ -1967,37 +3352,16 @@ def _sample_distorted_bounding_box_v2(image_size, bounding_boxes, min_object_cov
   if use_image_if_no_bounding_boxes is None:
     use_image_if_no_bounding_boxes = False
   use_image_if_no_bounding_boxes = _execute.make_bool(use_image_if_no_bounding_boxes, "use_image_if_no_bounding_boxes")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
-    _, _, _op = _op_def_lib._apply_op_helper(
-        "SampleDistortedBoundingBoxV2", image_size=image_size,
-        bounding_boxes=bounding_boxes, min_object_covered=min_object_covered,
-        seed=seed, seed2=seed2, aspect_ratio_range=aspect_ratio_range,
-        area_range=area_range, max_attempts=max_attempts,
-        use_image_if_no_bounding_boxes=use_image_if_no_bounding_boxes,
-        name=name)
-    _result = _op.outputs[:]
-    _inputs_flat = _op.inputs
-    _attrs = ("T", _op.get_attr("T"), "seed", _op.get_attr("seed"), "seed2",
-              _op.get_attr("seed2"), "aspect_ratio_range",
-              _op.get_attr("aspect_ratio_range"), "area_range",
-              _op.get_attr("area_range"), "max_attempts",
-              _op.get_attr("max_attempts"), "use_image_if_no_bounding_boxes",
-              _op.get_attr("use_image_if_no_bounding_boxes"))
-  else:
-    _attr_T, (image_size,) = _execute.args_to_matching_eager([image_size], _ctx)
-    _attr_T = _attr_T.as_datatype_enum
-    bounding_boxes = _ops.convert_to_tensor(bounding_boxes, _dtypes.float32)
-    min_object_covered = _ops.convert_to_tensor(min_object_covered, _dtypes.float32)
-    _inputs_flat = [image_size, bounding_boxes, min_object_covered]
-    _attrs = ("T", _attr_T, "seed", seed, "seed2", seed2,
-              "aspect_ratio_range", aspect_ratio_range, "area_range",
-              area_range, "max_attempts", max_attempts,
-              "use_image_if_no_bounding_boxes",
-              use_image_if_no_bounding_boxes)
-    _result = _execute.execute(b"SampleDistortedBoundingBoxV2", 3,
-                               inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
-                               name=name)
+  _attr_T, (image_size,) = _execute.args_to_matching_eager([image_size], _ctx)
+  bounding_boxes = _ops.convert_to_tensor(bounding_boxes, _dtypes.float32)
+  min_object_covered = _ops.convert_to_tensor(min_object_covered, _dtypes.float32)
+  _inputs_flat = [image_size, bounding_boxes, min_object_covered]
+  _attrs = ("T", _attr_T, "seed", seed, "seed2", seed2, "aspect_ratio_range",
+  aspect_ratio_range, "area_range", area_range, "max_attempts", max_attempts,
+  "use_image_if_no_bounding_boxes", use_image_if_no_bounding_boxes)
+  _result = _execute.execute(b"SampleDistortedBoundingBoxV2", 3,
+                             inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
+                             name=name)
   _execute.record_gradient(
       "SampleDistortedBoundingBoxV2", _inputs_flat, _attrs, _result, name)
   _result = _SampleDistortedBoundingBoxV2Output._make(_result)
@@ -2125,6 +3489,7 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #     allowed_values {
 #       list {
 #         type: DT_UINT8
+#         type: DT_UINT16
 #         type: DT_INT8
 #         type: DT_INT16
 #         type: DT_INT32
@@ -2144,6 +3509,7 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #     allowed_values {
 #       list {
 #         s: "bilinear"
+#         s: "nearest"
 #       }
 #     }
 #   }
@@ -2183,6 +3549,7 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #     allowed_values {
 #       list {
 #         type: DT_UINT8
+#         type: DT_UINT16
 #         type: DT_INT8
 #         type: DT_INT16
 #         type: DT_INT32
@@ -2248,6 +3615,7 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #     allowed_values {
 #       list {
 #         s: "bilinear"
+#         s: "nearest"
 #       }
 #     }
 #   }
@@ -2650,6 +4018,8 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #     }
 #     allowed_values {
 #       list {
+#         type: DT_HALF
+#         type: DT_BFLOAT16
 #         type: DT_FLOAT
 #         type: DT_DOUBLE
 #       }
@@ -2698,6 +4068,98 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #   }
 #   input_arg {
 #     name: "iou_threshold"
+#     type: DT_FLOAT
+#   }
+#   output_arg {
+#     name: "selected_indices"
+#     type: DT_INT32
+#   }
+# }
+# op {
+#   name: "NonMaxSuppressionV3"
+#   input_arg {
+#     name: "boxes"
+#     type: DT_FLOAT
+#   }
+#   input_arg {
+#     name: "scores"
+#     type: DT_FLOAT
+#   }
+#   input_arg {
+#     name: "max_output_size"
+#     type: DT_INT32
+#   }
+#   input_arg {
+#     name: "iou_threshold"
+#     type: DT_FLOAT
+#   }
+#   input_arg {
+#     name: "score_threshold"
+#     type: DT_FLOAT
+#   }
+#   output_arg {
+#     name: "selected_indices"
+#     type: DT_INT32
+#   }
+# }
+# op {
+#   name: "NonMaxSuppressionV4"
+#   input_arg {
+#     name: "boxes"
+#     type: DT_FLOAT
+#   }
+#   input_arg {
+#     name: "scores"
+#     type: DT_FLOAT
+#   }
+#   input_arg {
+#     name: "max_output_size"
+#     type: DT_INT32
+#   }
+#   input_arg {
+#     name: "iou_threshold"
+#     type: DT_FLOAT
+#   }
+#   input_arg {
+#     name: "score_threshold"
+#     type: DT_FLOAT
+#   }
+#   output_arg {
+#     name: "selected_indices"
+#     type: DT_INT32
+#   }
+#   output_arg {
+#     name: "valid_outputs"
+#     type: DT_INT32
+#   }
+#   attr {
+#     name: "pad_to_max_output_size"
+#     type: "bool"
+#     default_value {
+#       b: false
+#     }
+#   }
+# }
+# op {
+#   name: "NonMaxSuppressionWithOverlaps"
+#   input_arg {
+#     name: "overlaps"
+#     type: DT_FLOAT
+#   }
+#   input_arg {
+#     name: "scores"
+#     type: DT_FLOAT
+#   }
+#   input_arg {
+#     name: "max_output_size"
+#     type: DT_INT32
+#   }
+#   input_arg {
+#     name: "overlap_threshold"
+#     type: DT_FLOAT
+#   }
+#   input_arg {
+#     name: "score_threshold"
 #     type: DT_FLOAT
 #   }
 #   output_arg {
@@ -2772,6 +4234,8 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #     }
 #     allowed_values {
 #       list {
+#         type: DT_HALF
+#         type: DT_BFLOAT16
 #         type: DT_FLOAT
 #         type: DT_DOUBLE
 #       }
@@ -2846,9 +4310,10 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #     type: "type"
 #     allowed_values {
 #       list {
-#         type: DT_UINT8
 #         type: DT_INT8
+#         type: DT_UINT8
 #         type: DT_INT16
+#         type: DT_UINT16
 #         type: DT_INT32
 #         type: DT_INT64
 #         type: DT_HALF
@@ -2884,9 +4349,10 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #     type: "type"
 #     allowed_values {
 #       list {
-#         type: DT_UINT8
 #         type: DT_INT8
+#         type: DT_UINT8
 #         type: DT_INT16
+#         type: DT_UINT16
 #         type: DT_INT32
 #         type: DT_INT64
 #         type: DT_HALF
@@ -2954,11 +4420,13 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #     type: "type"
 #     allowed_values {
 #       list {
-#         type: DT_UINT8
 #         type: DT_INT8
+#         type: DT_UINT8
 #         type: DT_INT16
+#         type: DT_UINT16
 #         type: DT_INT32
 #         type: DT_INT64
+#         type: DT_BFLOAT16
 #         type: DT_HALF
 #         type: DT_FLOAT
 #         type: DT_DOUBLE
@@ -2993,6 +4461,7 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #     allowed_values {
 #       list {
 #         type: DT_FLOAT
+#         type: DT_BFLOAT16
 #         type: DT_HALF
 #         type: DT_DOUBLE
 #       }
@@ -3025,9 +4494,10 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #     type: "type"
 #     allowed_values {
 #       list {
-#         type: DT_UINT8
 #         type: DT_INT8
+#         type: DT_UINT8
 #         type: DT_INT16
+#         type: DT_UINT16
 #         type: DT_INT32
 #         type: DT_INT64
 #         type: DT_HALF
@@ -3261,4 +4731,4 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #   }
 #   is_stateful: true
 # }
-_op_def_lib = _InitOpDefLibrary(b"\n\226\001\n\016AdjustContrast\022\013\n\006images\"\001T\022\023\n\017contrast_factor\030\001\022\r\n\tmin_value\030\001\022\r\n\tmax_value\030\001\032\n\n\006output\030\001\"\026\n\001T\022\004type:\013\n\t2\007\004\006\005\003\t\001\002B \010\002\022\034Use AdjustContrastv2 instead\n?\n\020AdjustContrastv2\022\n\n\006images\030\001\022\023\n\017contrast_factor\030\001\032\n\n\006output\030\001\n.\n\tAdjustHue\022\n\n\006images\030\001\022\t\n\005delta\030\001\032\n\n\006output\030\001\n5\n\020AdjustSaturation\022\n\n\006images\030\001\022\t\n\005scale\030\001\032\n\n\006output\030\001\n\267\001\n\rCropAndResize\022\n\n\005image\"\001T\022\t\n\005boxes\030\001\022\013\n\007box_ind\030\003\022\r\n\tcrop_size\030\003\032\t\n\005crops\030\001\"\027\n\001T\022\004type:\014\n\n2\010\004\006\005\003\t\023\001\002\"*\n\006method\022\006string\032\n\022\010bilinear:\014\n\n\022\010bilinear\"#\n\023extrapolation_value\022\005float\032\005%\000\000\000\000\n\230\001\n\026CropAndResizeGradBoxes\022\t\n\005grads\030\001\022\n\n\005image\"\001T\022\t\n\005boxes\030\001\022\013\n\007box_ind\030\003\032\n\n\006output\030\001\"\027\n\001T\022\004type:\014\n\n2\010\004\006\005\003\t\023\001\002\"*\n\006method\022\006string\032\n\022\010bilinear:\014\n\n\022\010bilinear\n\230\001\n\026CropAndResizeGradImage\022\t\n\005grads\030\001\022\t\n\005boxes\030\001\022\013\n\007box_ind\030\003\022\016\n\nimage_size\030\003\032\013\n\006output\"\001T\"\022\n\001T\022\004type:\007\n\0052\003\001\023\002\"*\n\006method\022\006string\032\n\022\010bilinear:\014\n\n\022\010bilinear\n\343\001\n\021DecodeAndCropJpeg\022\014\n\010contents\030\007\022\017\n\013crop_window\030\003\032\t\n\005image\030\004\"\023\n\010channels\022\003int\032\002\030\000\"\020\n\005ratio\022\003int\032\002\030\001\"\033\n\017fancy_upscaling\022\004bool\032\002(\001\"!\n\025try_recover_truncated\022\004bool\032\002(\000\"#\n\023acceptable_fraction\022\005float\032\005%\000\000\200?\"\030\n\ndct_method\022\006string\032\002\022\000\n9\n\tDecodeBmp\022\014\n\010contents\030\007\032\t\n\005image\030\004\"\023\n\010channels\022\003int\032\002\030\000\n$\n\tDecodeGif\022\014\n\010contents\030\007\032\t\n\005image\030\004\n\313\001\n\nDecodeJpeg\022\014\n\010contents\030\007\032\t\n\005image\030\004\"\023\n\010channels\022\003int\032\002\030\000\"\020\n\005ratio\022\003int\032\002\030\001\"\033\n\017fancy_upscaling\022\004bool\032\002(\001\"!\n\025try_recover_truncated\022\004bool\032\002(\000\"#\n\023acceptable_fraction\022\005float\032\005%\000\000\200?\"\030\n\ndct_method\022\006string\032\002\022\000\nY\n\tDecodePng\022\014\n\010contents\030\007\032\016\n\005image\"\005dtype\"\023\n\010channels\022\003int\032\002\030\000\"\031\n\005dtype\022\004type\032\0020\004:\006\n\0042\002\004\021\nO\n\021DrawBoundingBoxes\022\013\n\006images\"\001T\022\t\n\005boxes\030\001\032\013\n\006output\"\001T\"\025\n\001T\022\004type\032\0020\001:\006\n\0042\002\001\023\n\256\002\n\nEncodeJpeg\022\t\n\005image\030\004\032\014\n\010contents\030\007\"*\n\006format\022\006string\032\002\022\000:\024\n\022\022\000\022\tgrayscale\022\003rgb\"\022\n\007quality\022\003int\032\002\030_\"\027\n\013progressive\022\004bool\032\002(\000\"\031\n\roptimize_size\022\004bool\032\002(\000\"\037\n\023chroma_downsampling\022\004bool\032\002(\001\"(\n\014density_unit\022\006string\032\004\022\002in:\n\n\010\022\002in\022\002cm\"\025\n\tx_density\022\003int\032\003\030\254\002\"\025\n\ty_density\022\003int\032\003\030\254\002\"\032\n\014xmp_metadata\022\006string\032\002\022\000\n]\n\tEncodePng\022\n\n\005image\"\001T\032\014\n\010contents\030\007\"\037\n\013compression\022\003int\032\013\030\377\377\377\377\377\377\377\377\377\001\"\025\n\001T\022\004type\032\0020\004:\006\n\0042\002\004\021\n\210\001\n\016ExtractGlimpse\022\t\n\005input\030\001\022\010\n\004size\030\003\022\013\n\007offsets\030\001\032\013\n\007glimpse\030\001\"\024\n\010centered\022\004bool\032\002(\001\"\026\n\nnormalized\022\004bool\032\002(\001\"\031\n\runiform_noise\022\004bool\032\002(\001\n]\n\020ExtractJpegShape\022\014\n\010contents\030\007\032\032\n\013image_shape\"\013output_type\"\037\n\013output_type\022\004type\032\0020\003:\006\n\0042\002\003\t\n;\n\010HSVToRGB\022\013\n\006images\"\001T\032\013\n\006output\"\001T\"\025\n\001T\022\004type\032\0020\001:\006\n\0042\002\001\002\nt\n\021NonMaxSuppression\022\t\n\005boxes\030\001\022\n\n\006scores\030\001\022\023\n\017max_output_size\030\003\032\024\n\020selected_indices\030\003\"\035\n\riou_threshold\022\005float\032\005%\000\000\000?\nj\n\023NonMaxSuppressionV2\022\t\n\005boxes\030\001\022\n\n\006scores\030\001\022\023\n\017max_output_size\030\003\022\021\n\riou_threshold\030\001\032\024\n\020selected_indices\030\003\n\240\001\n\027QuantizedResizeBilinear\022\013\n\006images\"\001T\022\010\n\004size\030\003\022\007\n\003min\030\001\022\007\n\003max\030\001\032\023\n\016resized_images\"\001T\032\013\n\007out_min\030\001\032\013\n\007out_max\030\001\"\022\n\001T\022\004type:\007\n\0052\003\014\r\001\"\031\n\ralign_corners\022\004bool\032\002(\000\n;\n\010RGBToHSV\022\013\n\006images\"\001T\032\013\n\006output\"\001T\"\025\n\001T\022\004type\032\0020\001:\006\n\0042\002\001\002\n\221\001\n\nRandomCrop\022\n\n\005image\"\001T\022\010\n\004size\030\t\032\013\n\006output\"\001T\"\026\n\001T\022\004type:\013\n\t2\007\004\006\005\003\t\001\002\"\017\n\004seed\022\003int\032\002\030\000\"\020\n\005seed2\022\003int\032\002\030\000B\"\010\010\022\036Random crop is now pure Python\210\001\001\nk\n\nResizeArea\022\013\n\006images\"\001T\022\010\n\004size\030\003\032\022\n\016resized_images\030\001\"\027\n\001T\022\004type:\014\n\n2\010\004\006\005\003\t\023\001\002\"\031\n\ralign_corners\022\004bool\032\002(\000\nn\n\rResizeBicubic\022\013\n\006images\"\001T\022\010\n\004size\030\003\032\022\n\016resized_images\030\001\"\027\n\001T\022\004type:\014\n\n2\010\004\006\005\003\t\023\001\002\"\031\n\ralign_corners\022\004bool\032\002(\000\nn\n\021ResizeBicubicGrad\022\t\n\005grads\030\001\022\023\n\016original_image\"\001T\032\013\n\006output\"\001T\"\021\n\001T\022\004type:\006\n\0042\002\001\002\"\031\n\ralign_corners\022\004bool\032\002(\000\no\n\016ResizeBilinear\022\013\n\006images\"\001T\022\010\n\004size\030\003\032\022\n\016resized_images\030\001\"\027\n\001T\022\004type:\014\n\n2\010\004\006\005\003\t\023\001\002\"\031\n\ralign_corners\022\004bool\032\002(\000\np\n\022ResizeBilinearGrad\022\t\n\005grads\030\001\022\023\n\016original_image\"\001T\032\013\n\006output\"\001T\"\022\n\001T\022\004type:\007\n\0052\003\001\023\002\"\031\n\ralign_corners\022\004bool\032\002(\000\nw\n\025ResizeNearestNeighbor\022\013\n\006images\"\001T\022\010\n\004size\030\003\032\023\n\016resized_images\"\001T\"\027\n\001T\022\004type:\014\n\n2\010\004\006\005\003\t\023\001\002\"\031\n\ralign_corners\022\004bool\032\002(\000\np\n\031ResizeNearestNeighborGrad\022\n\n\005grads\"\001T\022\010\n\004size\030\003\032\013\n\006output\"\001T\"\025\n\001T\022\004type:\n\n\0102\006\004\006\003\023\001\002\"\031\n\ralign_corners\022\004bool\032\002(\000\n\343\002\n\032SampleDistortedBoundingBox\022\017\n\nimage_size\"\001T\022\022\n\016bounding_boxes\030\001\032\n\n\005begin\"\001T\032\t\n\004size\"\001T\032\n\n\006bboxes\030\001\"\024\n\001T\022\004type:\t\n\0072\005\004\006\005\003\t\"\017\n\004seed\022\003int\032\002\030\000\"\020\n\005seed2\022\003int\032\002\030\000\"\"\n\022min_object_covered\022\005float\032\005%\315\314\314=\"/\n\022aspect_ratio_range\022\013list(float)\032\014\n\n\"\010\000\000@?q=\252?\"\'\n\narea_range\022\013list(float)\032\014\n\n\"\010\315\314L=\000\000\200?\"\027\n\014max_attempts\022\003int\032\002\030d\"*\n\036use_image_if_no_bounding_boxes\022\004bool\032\002(\000\210\001\001\n\331\002\n\034SampleDistortedBoundingBoxV2\022\017\n\nimage_size\"\001T\022\022\n\016bounding_boxes\030\001\022\026\n\022min_object_covered\030\001\032\n\n\005begin\"\001T\032\t\n\004size\"\001T\032\n\n\006bboxes\030\001\"\024\n\001T\022\004type:\t\n\0072\005\004\006\005\003\t\"\017\n\004seed\022\003int\032\002\030\000\"\020\n\005seed2\022\003int\032\002\030\000\"/\n\022aspect_ratio_range\022\013list(float)\032\014\n\n\"\010\000\000@?q=\252?\"\'\n\narea_range\022\013list(float)\032\014\n\n\"\010\315\314L=\000\000\200?\"\027\n\014max_attempts\022\003int\032\002\030d\"*\n\036use_image_if_no_bounding_boxes\022\004bool\032\002(\000\210\001\001")
+_op_def_lib = _InitOpDefLibrary(b"\n\226\001\n\016AdjustContrast\022\013\n\006images\"\001T\022\023\n\017contrast_factor\030\001\022\r\n\tmin_value\030\001\022\r\n\tmax_value\030\001\032\n\n\006output\030\001\"\026\n\001T\022\004type:\013\n\t2\007\004\006\005\003\t\001\002B \010\002\022\034Use AdjustContrastv2 instead\n?\n\020AdjustContrastv2\022\n\n\006images\030\001\022\023\n\017contrast_factor\030\001\032\n\n\006output\030\001\n.\n\tAdjustHue\022\n\n\006images\030\001\022\t\n\005delta\030\001\032\n\n\006output\030\001\n5\n\020AdjustSaturation\022\n\n\006images\030\001\022\t\n\005scale\030\001\032\n\n\006output\030\001\n\301\001\n\rCropAndResize\022\n\n\005image\"\001T\022\t\n\005boxes\030\001\022\013\n\007box_ind\030\003\022\r\n\tcrop_size\030\003\032\t\n\005crops\030\001\"\030\n\001T\022\004type:\r\n\0132\t\004\021\006\005\003\t\023\001\002\"3\n\006method\022\006string\032\n\022\010bilinear:\025\n\023\022\010bilinear\022\007nearest\"#\n\023extrapolation_value\022\005float\032\005%\000\000\000\000\n\231\001\n\026CropAndResizeGradBoxes\022\t\n\005grads\030\001\022\n\n\005image\"\001T\022\t\n\005boxes\030\001\022\013\n\007box_ind\030\003\032\n\n\006output\030\001\"\030\n\001T\022\004type:\r\n\0132\t\004\021\006\005\003\t\023\001\002\"*\n\006method\022\006string\032\n\022\010bilinear:\014\n\n\022\010bilinear\n\241\001\n\026CropAndResizeGradImage\022\t\n\005grads\030\001\022\t\n\005boxes\030\001\022\013\n\007box_ind\030\003\022\016\n\nimage_size\030\003\032\013\n\006output\"\001T\"\022\n\001T\022\004type:\007\n\0052\003\001\023\002\"3\n\006method\022\006string\032\n\022\010bilinear:\025\n\023\022\010bilinear\022\007nearest\n\343\001\n\021DecodeAndCropJpeg\022\014\n\010contents\030\007\022\017\n\013crop_window\030\003\032\t\n\005image\030\004\"\023\n\010channels\022\003int\032\002\030\000\"\020\n\005ratio\022\003int\032\002\030\001\"\033\n\017fancy_upscaling\022\004bool\032\002(\001\"!\n\025try_recover_truncated\022\004bool\032\002(\000\"#\n\023acceptable_fraction\022\005float\032\005%\000\000\200?\"\030\n\ndct_method\022\006string\032\002\022\000\n9\n\tDecodeBmp\022\014\n\010contents\030\007\032\t\n\005image\030\004\"\023\n\010channels\022\003int\032\002\030\000\n$\n\tDecodeGif\022\014\n\010contents\030\007\032\t\n\005image\030\004\n\313\001\n\nDecodeJpeg\022\014\n\010contents\030\007\032\t\n\005image\030\004\"\023\n\010channels\022\003int\032\002\030\000\"\020\n\005ratio\022\003int\032\002\030\001\"\033\n\017fancy_upscaling\022\004bool\032\002(\001\"!\n\025try_recover_truncated\022\004bool\032\002(\000\"#\n\023acceptable_fraction\022\005float\032\005%\000\000\200?\"\030\n\ndct_method\022\006string\032\002\022\000\nY\n\tDecodePng\022\014\n\010contents\030\007\032\016\n\005image\"\005dtype\"\023\n\010channels\022\003int\032\002\030\000\"\031\n\005dtype\022\004type\032\0020\004:\006\n\0042\002\004\021\nO\n\021DrawBoundingBoxes\022\013\n\006images\"\001T\022\t\n\005boxes\030\001\032\013\n\006output\"\001T\"\025\n\001T\022\004type\032\0020\001:\006\n\0042\002\001\023\n\256\002\n\nEncodeJpeg\022\t\n\005image\030\004\032\014\n\010contents\030\007\"*\n\006format\022\006string\032\002\022\000:\024\n\022\022\000\022\tgrayscale\022\003rgb\"\022\n\007quality\022\003int\032\002\030_\"\027\n\013progressive\022\004bool\032\002(\000\"\031\n\roptimize_size\022\004bool\032\002(\000\"\037\n\023chroma_downsampling\022\004bool\032\002(\001\"(\n\014density_unit\022\006string\032\004\022\002in:\n\n\010\022\002in\022\002cm\"\025\n\tx_density\022\003int\032\003\030\254\002\"\025\n\ty_density\022\003int\032\003\030\254\002\"\032\n\014xmp_metadata\022\006string\032\002\022\000\n]\n\tEncodePng\022\n\n\005image\"\001T\032\014\n\010contents\030\007\"\037\n\013compression\022\003int\032\013\030\377\377\377\377\377\377\377\377\377\001\"\025\n\001T\022\004type\032\0020\004:\006\n\0042\002\004\021\n\210\001\n\016ExtractGlimpse\022\t\n\005input\030\001\022\010\n\004size\030\003\022\013\n\007offsets\030\001\032\013\n\007glimpse\030\001\"\024\n\010centered\022\004bool\032\002(\001\"\026\n\nnormalized\022\004bool\032\002(\001\"\031\n\runiform_noise\022\004bool\032\002(\001\n]\n\020ExtractJpegShape\022\014\n\010contents\030\007\032\032\n\013image_shape\"\013output_type\"\037\n\013output_type\022\004type\032\0020\003:\006\n\0042\002\003\t\n=\n\010HSVToRGB\022\013\n\006images\"\001T\032\013\n\006output\"\001T\"\027\n\001T\022\004type\032\0020\001:\010\n\0062\004\023\016\001\002\nt\n\021NonMaxSuppression\022\t\n\005boxes\030\001\022\n\n\006scores\030\001\022\023\n\017max_output_size\030\003\032\024\n\020selected_indices\030\003\"\035\n\riou_threshold\022\005float\032\005%\000\000\000?\nj\n\023NonMaxSuppressionV2\022\t\n\005boxes\030\001\022\n\n\006scores\030\001\022\023\n\017max_output_size\030\003\022\021\n\riou_threshold\030\001\032\024\n\020selected_indices\030\003\n\177\n\023NonMaxSuppressionV3\022\t\n\005boxes\030\001\022\n\n\006scores\030\001\022\023\n\017max_output_size\030\003\022\021\n\riou_threshold\030\001\022\023\n\017score_threshold\030\001\032\024\n\020selected_indices\030\003\n\266\001\n\023NonMaxSuppressionV4\022\t\n\005boxes\030\001\022\n\n\006scores\030\001\022\023\n\017max_output_size\030\003\022\021\n\riou_threshold\030\001\022\023\n\017score_threshold\030\001\032\024\n\020selected_indices\030\003\032\021\n\rvalid_outputs\030\003\"\"\n\026pad_to_max_output_size\022\004bool\032\002(\000\n\220\001\n\035NonMaxSuppressionWithOverlaps\022\014\n\010overlaps\030\001\022\n\n\006scores\030\001\022\023\n\017max_output_size\030\003\022\025\n\021overlap_threshold\030\001\022\023\n\017score_threshold\030\001\032\024\n\020selected_indices\030\003\n\240\001\n\027QuantizedResizeBilinear\022\013\n\006images\"\001T\022\010\n\004size\030\003\022\007\n\003min\030\001\022\007\n\003max\030\001\032\023\n\016resized_images\"\001T\032\013\n\007out_min\030\001\032\013\n\007out_max\030\001\"\022\n\001T\022\004type:\007\n\0052\003\014\r\001\"\031\n\ralign_corners\022\004bool\032\002(\000\n=\n\010RGBToHSV\022\013\n\006images\"\001T\032\013\n\006output\"\001T\"\027\n\001T\022\004type\032\0020\001:\010\n\0062\004\023\016\001\002\n\221\001\n\nRandomCrop\022\n\n\005image\"\001T\022\010\n\004size\030\t\032\013\n\006output\"\001T\"\026\n\001T\022\004type:\013\n\t2\007\004\006\005\003\t\001\002\"\017\n\004seed\022\003int\032\002\030\000\"\020\n\005seed2\022\003int\032\002\030\000B\"\010\010\022\036Random crop is now pure Python\210\001\001\nl\n\nResizeArea\022\013\n\006images\"\001T\022\010\n\004size\030\003\032\022\n\016resized_images\030\001\"\030\n\001T\022\004type:\r\n\0132\t\006\004\005\021\003\t\023\001\002\"\031\n\ralign_corners\022\004bool\032\002(\000\no\n\rResizeBicubic\022\013\n\006images\"\001T\022\010\n\004size\030\003\032\022\n\016resized_images\030\001\"\030\n\001T\022\004type:\r\n\0132\t\006\004\005\021\003\t\023\001\002\"\031\n\ralign_corners\022\004bool\032\002(\000\nn\n\021ResizeBicubicGrad\022\t\n\005grads\030\001\022\023\n\016original_image\"\001T\032\013\n\006output\"\001T\"\021\n\001T\022\004type:\006\n\0042\002\001\002\"\031\n\ralign_corners\022\004bool\032\002(\000\nq\n\016ResizeBilinear\022\013\n\006images\"\001T\022\010\n\004size\030\003\032\022\n\016resized_images\030\001\"\031\n\001T\022\004type:\016\n\0142\n\006\004\005\021\003\t\016\023\001\002\"\031\n\ralign_corners\022\004bool\032\002(\000\nq\n\022ResizeBilinearGrad\022\t\n\005grads\030\001\022\023\n\016original_image\"\001T\032\013\n\006output\"\001T\"\023\n\001T\022\004type:\010\n\0062\004\001\016\023\002\"\031\n\ralign_corners\022\004bool\032\002(\000\nx\n\025ResizeNearestNeighbor\022\013\n\006images\"\001T\022\010\n\004size\030\003\032\023\n\016resized_images\"\001T\"\030\n\001T\022\004type:\r\n\0132\t\006\004\005\021\003\t\023\001\002\"\031\n\ralign_corners\022\004bool\032\002(\000\np\n\031ResizeNearestNeighborGrad\022\n\n\005grads\"\001T\022\010\n\004size\030\003\032\013\n\006output\"\001T\"\025\n\001T\022\004type:\n\n\0102\006\004\006\003\023\001\002\"\031\n\ralign_corners\022\004bool\032\002(\000\n\343\002\n\032SampleDistortedBoundingBox\022\017\n\nimage_size\"\001T\022\022\n\016bounding_boxes\030\001\032\n\n\005begin\"\001T\032\t\n\004size\"\001T\032\n\n\006bboxes\030\001\"\024\n\001T\022\004type:\t\n\0072\005\004\006\005\003\t\"\017\n\004seed\022\003int\032\002\030\000\"\020\n\005seed2\022\003int\032\002\030\000\"\"\n\022min_object_covered\022\005float\032\005%\315\314\314=\"/\n\022aspect_ratio_range\022\013list(float)\032\014\n\n\"\010\000\000@?q=\252?\"\'\n\narea_range\022\013list(float)\032\014\n\n\"\010\315\314L=\000\000\200?\"\027\n\014max_attempts\022\003int\032\002\030d\"*\n\036use_image_if_no_bounding_boxes\022\004bool\032\002(\000\210\001\001\n\331\002\n\034SampleDistortedBoundingBoxV2\022\017\n\nimage_size\"\001T\022\022\n\016bounding_boxes\030\001\022\026\n\022min_object_covered\030\001\032\n\n\005begin\"\001T\032\t\n\004size\"\001T\032\n\n\006bboxes\030\001\"\024\n\001T\022\004type:\t\n\0072\005\004\006\005\003\t\"\017\n\004seed\022\003int\032\002\030\000\"\020\n\005seed2\022\003int\032\002\030\000\"/\n\022aspect_ratio_range\022\013list(float)\032\014\n\n\"\010\000\000@?q=\252?\"\'\n\narea_range\022\013list(float)\032\014\n\n\"\010\315\314L=\000\000\200?\"\027\n\014max_attempts\022\003int\032\002\030d\"*\n\036use_image_if_no_bounding_boxes\022\004bool\032\002(\000\210\001\001")

@@ -54,9 +54,9 @@
     #endif
 
     #define EIGEN_DEVICE_FUNC __host__ __device__
-    // We need math_functions.hpp to ensure that that EIGEN_USING_STD_MATH macro
+    // We need cuda_runtime.h to ensure that that EIGEN_USING_STD_MATH macro
     // works properly on the device side
-    #include <math_functions.hpp>
+    #include <cuda_runtime.h>
   #else
     #define EIGEN_DEVICE_FUNC
   #endif
@@ -182,6 +182,9 @@
       #define EIGEN_VECTORIZE_SSE4_2
       #ifdef __AVX512DQ__
         #define EIGEN_VECTORIZE_AVX512DQ
+      #endif
+      #ifdef __AVX512ER__
+        #define EIGEN_VECTORIZE_AVX512ER
       #endif
     #endif
 
@@ -360,7 +363,7 @@ inline static const char *SimdInstructionSetsInUse(void) {
 
 namespace Eigen {
 
-// we use size_t frequently and we'll never remember to prepend it with std:: everytime just to
+// we use size_t frequently and we'll never remember to prepend it with std:: every time just to
 // ensure QNX/QCC support
 using std::size_t;
 // gcc 4.6.0 wants std:: for ptrdiff_t
@@ -410,6 +413,7 @@ using std::ptrdiff_t;
   #include "src/Core/arch/AVX/MathFunctions.h"
   #include "src/Core/arch/AVX/Complex.h"
   #include "src/Core/arch/AVX/TypeCasting.h"
+  #include "src/Core/arch/SSE/TypeCasting.h"
 #elif defined EIGEN_VECTORIZE_SSE
   #include "src/Core/arch/SSE/PacketMath.h"
   #include "src/Core/arch/SSE/MathFunctions.h"

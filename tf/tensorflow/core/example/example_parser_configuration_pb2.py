@@ -7,7 +7,6 @@ from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
 from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
-from google.protobuf import descriptor_pb2
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -22,7 +21,8 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='tensorflow/core/example/example_parser_configuration.proto',
   package='tensorflow',
   syntax='proto3',
-  serialized_pb=_b('\n:tensorflow/core/example/example_parser_configuration.proto\x12\ntensorflow\x1a,tensorflow/core/framework/tensor_shape.proto\x1a&tensorflow/core/framework/tensor.proto\x1a%tensorflow/core/framework/types.proto\"\xa3\x01\n\x12VarLenFeatureProto\x12#\n\x05\x64type\x18\x01 \x01(\x0e\x32\x14.tensorflow.DataType\x12!\n\x19values_output_tensor_name\x18\x02 \x01(\t\x12\"\n\x1aindices_output_tensor_name\x18\x03 \x01(\t\x12!\n\x19shapes_output_tensor_name\x18\x04 \x01(\t\"\xbb\x01\n\x14\x46ixedLenFeatureProto\x12#\n\x05\x64type\x18\x01 \x01(\x0e\x32\x14.tensorflow.DataType\x12+\n\x05shape\x18\x02 \x01(\x0b\x32\x1c.tensorflow.TensorShapeProto\x12.\n\rdefault_value\x18\x03 \x01(\x0b\x32\x17.tensorflow.TensorProto\x12!\n\x19values_output_tensor_name\x18\x04 \x01(\t\"\x9a\x01\n\x14\x46\x65\x61tureConfiguration\x12=\n\x11\x66ixed_len_feature\x18\x01 \x01(\x0b\x32 .tensorflow.FixedLenFeatureProtoH\x00\x12\x39\n\x0fvar_len_feature\x18\x02 \x01(\x0b\x32\x1e.tensorflow.VarLenFeatureProtoH\x00\x42\x08\n\x06\x63onfig\"\xbe\x01\n\x1a\x45xampleParserConfiguration\x12K\n\x0b\x66\x65\x61ture_map\x18\x01 \x03(\x0b\x32\x36.tensorflow.ExampleParserConfiguration.FeatureMapEntry\x1aS\n\x0f\x46\x65\x61tureMapEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12/\n\x05value\x18\x02 \x01(\x0b\x32 .tensorflow.FeatureConfiguration:\x02\x38\x01\x42?\n\x16org.tensorflow.exampleB ExampleParserConfigurationProtosP\x01\xf8\x01\x01\x62\x06proto3')
+  serialized_options=_b('\n\026org.tensorflow.exampleB ExampleParserConfigurationProtosP\001Z;github.com/tensorflow/tensorflow/tensorflow/go/core/example\370\001\001'),
+  serialized_pb=_b('\n:tensorflow/core/example/example_parser_configuration.proto\x12\ntensorflow\x1a,tensorflow/core/framework/tensor_shape.proto\x1a&tensorflow/core/framework/tensor.proto\x1a%tensorflow/core/framework/types.proto\"\xa3\x01\n\x12VarLenFeatureProto\x12#\n\x05\x64type\x18\x01 \x01(\x0e\x32\x14.tensorflow.DataType\x12!\n\x19values_output_tensor_name\x18\x02 \x01(\t\x12\"\n\x1aindices_output_tensor_name\x18\x03 \x01(\t\x12!\n\x19shapes_output_tensor_name\x18\x04 \x01(\t\"\xbb\x01\n\x14\x46ixedLenFeatureProto\x12#\n\x05\x64type\x18\x01 \x01(\x0e\x32\x14.tensorflow.DataType\x12+\n\x05shape\x18\x02 \x01(\x0b\x32\x1c.tensorflow.TensorShapeProto\x12.\n\rdefault_value\x18\x03 \x01(\x0b\x32\x17.tensorflow.TensorProto\x12!\n\x19values_output_tensor_name\x18\x04 \x01(\t\"\x9a\x01\n\x14\x46\x65\x61tureConfiguration\x12=\n\x11\x66ixed_len_feature\x18\x01 \x01(\x0b\x32 .tensorflow.FixedLenFeatureProtoH\x00\x12\x39\n\x0fvar_len_feature\x18\x02 \x01(\x0b\x32\x1e.tensorflow.VarLenFeatureProtoH\x00\x42\x08\n\x06\x63onfig\"\xbe\x01\n\x1a\x45xampleParserConfiguration\x12K\n\x0b\x66\x65\x61ture_map\x18\x01 \x03(\x0b\x32\x36.tensorflow.ExampleParserConfiguration.FeatureMapEntry\x1aS\n\x0f\x46\x65\x61tureMapEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12/\n\x05value\x18\x02 \x01(\x0b\x32 .tensorflow.FeatureConfiguration:\x02\x38\x01\x42|\n\x16org.tensorflow.exampleB ExampleParserConfigurationProtosP\x01Z;github.com/tensorflow/tensorflow/tensorflow/go/core/example\xf8\x01\x01\x62\x06proto3')
   ,
   dependencies=[tensorflow_dot_core_dot_framework_dot_tensor__shape__pb2.DESCRIPTOR,tensorflow_dot_core_dot_framework_dot_tensor__pb2.DESCRIPTOR,tensorflow_dot_core_dot_framework_dot_types__pb2.DESCRIPTOR,])
 
@@ -42,35 +42,35 @@ _VARLENFEATUREPROTO = _descriptor.Descriptor(
       has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None),
+      serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
       name='values_output_tensor_name', full_name='tensorflow.VarLenFeatureProto.values_output_tensor_name', index=1,
       number=2, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=_b("").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None),
+      serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
       name='indices_output_tensor_name', full_name='tensorflow.VarLenFeatureProto.indices_output_tensor_name', index=2,
       number=3, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=_b("").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None),
+      serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
       name='shapes_output_tensor_name', full_name='tensorflow.VarLenFeatureProto.shapes_output_tensor_name', index=3,
       number=4, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=_b("").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None),
+      serialized_options=None, file=DESCRIPTOR),
   ],
   extensions=[
   ],
   nested_types=[],
   enum_types=[
   ],
-  options=None,
+  serialized_options=None,
   is_extendable=False,
   syntax='proto3',
   extension_ranges=[],
@@ -94,35 +94,35 @@ _FIXEDLENFEATUREPROTO = _descriptor.Descriptor(
       has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None),
+      serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
       name='shape', full_name='tensorflow.FixedLenFeatureProto.shape', index=1,
       number=2, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None),
+      serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
       name='default_value', full_name='tensorflow.FixedLenFeatureProto.default_value', index=2,
       number=3, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None),
+      serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
       name='values_output_tensor_name', full_name='tensorflow.FixedLenFeatureProto.values_output_tensor_name', index=3,
       number=4, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=_b("").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None),
+      serialized_options=None, file=DESCRIPTOR),
   ],
   extensions=[
   ],
   nested_types=[],
   enum_types=[
   ],
-  options=None,
+  serialized_options=None,
   is_extendable=False,
   syntax='proto3',
   extension_ranges=[],
@@ -146,21 +146,21 @@ _FEATURECONFIGURATION = _descriptor.Descriptor(
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None),
+      serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
       name='var_len_feature', full_name='tensorflow.FeatureConfiguration.var_len_feature', index=1,
       number=2, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None),
+      serialized_options=None, file=DESCRIPTOR),
   ],
   extensions=[
   ],
   nested_types=[],
   enum_types=[
   ],
-  options=None,
+  serialized_options=None,
   is_extendable=False,
   syntax='proto3',
   extension_ranges=[],
@@ -187,21 +187,21 @@ _EXAMPLEPARSERCONFIGURATION_FEATUREMAPENTRY = _descriptor.Descriptor(
       has_default_value=False, default_value=_b("").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None),
+      serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
       name='value', full_name='tensorflow.ExampleParserConfiguration.FeatureMapEntry.value', index=1,
       number=2, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None),
+      serialized_options=None, file=DESCRIPTOR),
   ],
   extensions=[
   ],
   nested_types=[],
   enum_types=[
   ],
-  options=_descriptor._ParseOptions(descriptor_pb2.MessageOptions(), _b('8\001')),
+  serialized_options=_b('8\001'),
   is_extendable=False,
   syntax='proto3',
   extension_ranges=[],
@@ -224,14 +224,14 @@ _EXAMPLEPARSERCONFIGURATION = _descriptor.Descriptor(
       has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None),
+      serialized_options=None, file=DESCRIPTOR),
   ],
   extensions=[
   ],
   nested_types=[_EXAMPLEPARSERCONFIGURATION_FEATUREMAPENTRY, ],
   enum_types=[
   ],
-  options=None,
+  serialized_options=None,
   is_extendable=False,
   syntax='proto3',
   extension_ranges=[],
@@ -299,8 +299,6 @@ _sym_db.RegisterMessage(ExampleParserConfiguration)
 _sym_db.RegisterMessage(ExampleParserConfiguration.FeatureMapEntry)
 
 
-DESCRIPTOR.has_options = True
-DESCRIPTOR._options = _descriptor._ParseOptions(descriptor_pb2.FileOptions(), _b('\n\026org.tensorflow.exampleB ExampleParserConfigurationProtosP\001\370\001\001'))
-_EXAMPLEPARSERCONFIGURATION_FEATUREMAPENTRY.has_options = True
-_EXAMPLEPARSERCONFIGURATION_FEATUREMAPENTRY._options = _descriptor._ParseOptions(descriptor_pb2.MessageOptions(), _b('8\001'))
+DESCRIPTOR._options = None
+_EXAMPLEPARSERCONFIGURATION_FEATUREMAPENTRY._options = None
 # @@protoc_insertion_point(module_scope)

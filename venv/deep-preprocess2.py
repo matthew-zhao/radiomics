@@ -22,9 +22,11 @@ ImageFile.LOAD_TRUNCATED_IMAGES = True
 # add to special extensions that cannot be resized with PIL/need special attention
 SPECIAL_EXTENSION = set(["dcm", "npy", "nrrd"])
 
-def stream_from_s3(key):
+def stream_from_s3(bucket=None, key_name=None, key=None):
+    if not key:
+        key = bucket.get_key(key_name)
     data_string = StringIO(key.get_contents_to_string())
-    return np.load(data_string)
+    return data_string
 
 def download_from_s3(bucket, key_name, filename):
     key = bucket.get_key(key_name)
@@ -47,9 +49,9 @@ def squish(event, context):
     x_scale = event["x_scale"]
     y_scale = event["y_scale"]
 
-    is_dcm_series = False
-    if "is_dcm_series" in event:
-        is_dcm_series = event["is_dcm_series"]
+    is_nrrd_labels = False
+    if "label_type" in event and event["label_type"] == "nrrd":
+        is_nrrd_labels = True
 
     final_trainimages_bucket = 'train-deepnorm'
     final_testimages_bucket = 'test-deepnorm'
@@ -82,7 +84,7 @@ def squish(event, context):
         elif extension == "npy":
             # the reason why we decide to stream is because we don't want to put too much
             # stuff in tmp folder, which can only hold like 500 MB, while there is 3 GB memory available
-            img_raw = stream_from_s3(img_key)
+            img_raw = np.load(stream_from_s3(key=img_key))
         else:
             img_key.get_contents_to_filename('/tmp/' + image_path)
             img_raw = Image.open('/tmp/' + image_path)
@@ -106,37 +108,43 @@ def squish(event, context):
     if has_labels:
         label = event["label"]
         if event["label_style"] == "array":
-            if is_dcm_series:
+            if is_nrrd_labels:
                 # label is actually a path to label in s3, image_num is the slice # we need to use in the nrrd file (3rd dimension)
                 # read in nrrd file from S3, it's stored in the same bucket as training images
                 local_labels_path = os.path.normpath(label).split(os.path.sep)
                 local_path_as_string = '_'.join(local_labels_path)
-                final_local_path = os.path.join("/tmp", local_path_as_string)
-                download_from_s3(labels, label, final_local_path)
+                # final_local_path = os.path.join("/tmp", local_path_as_string)
+                fh = stream_from_s3(bucket=labels, key_name=label)
+                header = nrrd.read_header(fh, custom_field_map=None)
+                readdata = nrrd.read_data(header, fh, filename=None)
                 # readdata is the np array
-                readdata, _ = nrrd.read(final_local_path)
+                # readdata, _ = nrrd.read(final_local_path)
 
                 # get the appropriate slice of the image
-                label_arr = readdata[...,int(image_num)]
             else:
                 npy_filename = actual_name + ".npy"
                 print(npy_filename)
-                download_from_s3(labels, npy_filename, "/tmp/labels-" + npy_filename)
+                readdata = np.load(stream_from_s3(bucket=labels, key_name=npy_filename))
 
-                with open("/tmp/labels-" + npy_filename, "rb") as npy:
-                    label_arr = np.load(npy)
+                #with open("/tmp/labels-" + npy_filename, "rb") as npy:
+                    # label_arr = np.load(npy)
+
+            if len(readdata.shape) > 2:
+                y_train = readdata[...,int(image_num)]
+            else:
+                y_train = readdata
+
         elif event["label_style"] == "single":
             label_arr = np.array([label])
+
+            y_converted = label_arr.astype(np.float16)
+            targets = y_converted.reshape(-1)
+            y_train = np.eye(int(event["num_classes"]))[targets.astype('int8')]
 
     training_arr = img
 
     X_converted = training_arr.astype(np.float16)
     X_train = X_converted / 255
-
-    if has_labels:
-        y_converted = label_arr.astype(np.float16)
-        targets = y_converted.reshape(-1)
-        y_train = np.eye(int(event["num_classes"]))[targets.astype('int8')]
 
     # Create new buckets for the array and its corresponding labels
     if is_train:
@@ -148,7 +156,7 @@ def squish(event, context):
     else:
         b2 = conn.get_bucket(final_testimages_bucket)
 
-    k = b2.new_key(actual_name + str(image_num) + "-processed.npy")
+    k = b2.new_key(os.path.join(actual_name, str(image_num) + "-processed.npy"))
 
     # Save the numpy arrays to temp .npy files on lambda
     upload_path = '/tmp/resized-matrix.npy'
@@ -164,16 +172,13 @@ def squish(event, context):
 
     if has_labels:
         labels2 = conn.get_bucket(final_labels_bucket)
-        k2 = labels2.new_key(actual_name + str(image_num) + "label-processed.npy")
+        k2 = labels2.new_key(os.path.join(actual_name, str(image_num) + "label-processed.npy"))
 
         upload_path_labels = '/tmp/resized-labels.npy'
         np.save(upload_path_labels, y_train)
-        #np.save(upload_path_labels, label_arr)
 
         k2.set_contents_from_filename(upload_path_labels)
         k2.make_public()
-
-
 
     #if not training, each deep-preprocess2 calls a predict
     if not is_train:
@@ -215,7 +220,8 @@ def squish(event, context):
 
             args = {"bucket_from": final_trainimages_bucket, "bucket_from_labels" : final_labels_bucket, "model_bucket_name": model_bucket_name, 
                     "image_num": str(image_num), "xscale": x_scale, "yscale": y_scale, "queue_name": queue_name, "queue_name1": queue_name1, 
-                    "num_classes": event["num_classes"], "num_machines": event["num_machines"], "called_from": "pre3", "num_channels": event["num_channels"]}
+                    "num_classes": event["num_classes"], "num_machines": event["num_machines"], "called_from": "pre3", "num_channels": event["num_channels"],
+                    "num_epochs": event["num_epochs"], "epoch": 1}
             invoke_response = lambda_client.invoke(FunctionName="deep-averager", InvocationType='Event', Payload=json.dumps(args))
             print(invoke_response)
 

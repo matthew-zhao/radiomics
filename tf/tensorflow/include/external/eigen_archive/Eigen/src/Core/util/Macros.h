@@ -73,12 +73,17 @@
 
 // For the record, here is a table summarizing the possible values for EIGEN_COMP_MSVC:
 //  name  ver   MSC_VER
-//  2008    9      1500
-//  2010   10      1600
-//  2012   11      1700
-//  2013   12      1800
-//  2015   14      1900
-//  "15"   15      1900
+//  2008         9      1500
+//  2010        10      1600
+//  2012        11      1700
+//  2013        12      1800
+//  2015        14      1900
+//  "15"        15      1900
+//  2017-14.1   15.0    1910
+//  2017-14.11  15.3    1911
+//  2017-14.12  15.5    1912
+//  2017-14.13  15.6    1913
+//  2017-14.14  15.7    1914
 
 /// \internal EIGEN_COMP_MSVC_STRICT set to 1 if the compiler is really Microsoft Visual C++ and not ,e.g., ICC or clang-cl
 #if EIGEN_COMP_MSVC && !(EIGEN_COMP_ICC || EIGEN_COMP_LLVM || EIGEN_COMP_CLANG)
@@ -514,10 +519,12 @@
 // EIGEN_STRONG_INLINE is a stronger version of the inline, using __forceinline on MSVC,
 // but it still doesn't use GCC's always_inline. This is useful in (common) situations where MSVC needs forceinline
 // but GCC is still doing fine with just inline.
+#ifndef EIGEN_STRONG_INLINE
 #if EIGEN_COMP_MSVC || EIGEN_COMP_ICC
 #define EIGEN_STRONG_INLINE __forceinline
 #else
 #define EIGEN_STRONG_INLINE inline
+#endif
 #endif
 
 // EIGEN_ALWAYS_INLINE is the stronget, it has the effect of making the function inline and adding every possible
@@ -695,11 +702,11 @@ namespace Eigen {
 // If the user explicitly disable vectorization, then we also disable alignment
 #if defined(EIGEN_DONT_VECTORIZE)
   #define EIGEN_IDEAL_MAX_ALIGN_BYTES 0
-#elif defined(EIGEN_VECTORIZE_AVX512)
-  // 64 bytes static alignmeent is preferred only if really required
+#elif defined(__AVX512F__)
+  // 64 bytes static alignment is preferred only if really required
   #define EIGEN_IDEAL_MAX_ALIGN_BYTES 64
 #elif defined(__AVX__)
-  // 32 bytes static alignmeent is preferred only if really required
+  // 32 bytes static alignment is preferred only if really required
   #define EIGEN_IDEAL_MAX_ALIGN_BYTES 32
 #else
   #define EIGEN_IDEAL_MAX_ALIGN_BYTES 16
@@ -717,7 +724,7 @@ namespace Eigen {
 #error EIGEN_MAX_STATIC_ALIGN_BYTES and EIGEN_DONT_ALIGN[_STATICALLY] are both defined with EIGEN_MAX_STATIC_ALIGN_BYTES!=0. Use EIGEN_MAX_STATIC_ALIGN_BYTES=0 as a synonym of EIGEN_DONT_ALIGN_STATICALLY.
 #endif
 
-// EIGEN_DONT_ALIGN_STATICALLY and EIGEN_DONT_ALIGN are deprectated
+// EIGEN_DONT_ALIGN_STATICALLY and EIGEN_DONT_ALIGN are deprecated
 // They imply EIGEN_MAX_STATIC_ALIGN_BYTES=0
 #if defined(EIGEN_DONT_ALIGN_STATICALLY) || defined(EIGEN_DONT_ALIGN)
   #ifdef EIGEN_MAX_STATIC_ALIGN_BYTES
@@ -776,7 +783,7 @@ namespace Eigen {
 #endif
 
 // At this stage, EIGEN_MAX_STATIC_ALIGN_BYTES>0 is the true test whether we want to align arrays on the stack or not.
-// It takes into account both the user choice to explicitly enable/disable alignment (by settting EIGEN_MAX_STATIC_ALIGN_BYTES)
+// It takes into account both the user choice to explicitly enable/disable alignment (by setting EIGEN_MAX_STATIC_ALIGN_BYTES)
 // and the architecture config (EIGEN_ARCH_WANTS_STACK_ALIGNMENT).
 // Henceforth, only EIGEN_MAX_STATIC_ALIGN_BYTES should be used.
 
@@ -1023,7 +1030,13 @@ namespace Eigen {
 #   define EIGEN_NOEXCEPT
 #   define EIGEN_NOEXCEPT_IF(x)
 #   define EIGEN_NO_THROW throw()
-#   define EIGEN_EXCEPTION_SPEC(X) throw(X)
+#   if EIGEN_COMP_MSVC
+      // MSVC does not support exception specifications (warning C4290),
+      // and they are deprecated in c++11 anyway.
+#     define EIGEN_EXCEPTION_SPEC(X) throw()
+#   else
+#     define EIGEN_EXCEPTION_SPEC(X) throw(X)
+#   endif
 #endif
 
 #endif // EIGEN_MACROS_H

@@ -295,7 +295,7 @@ def classify(event, context):
 
     args = {"bucket_from": event['bucket_from'], "bucket_from_labels": event['bucket_from_labels'], "model_bucket_name": model_bucket_name,
             "queue_name": event['queue_name'], "queue_name1": event["queue_name1"], "num_classes": event["num_classes"], "num_machines": event["num_machines"],
-            "num_channels": event["num_channels"], "dropout_rate": dropout_rate, "train_layers": train_layers, "batch_size": batch_size}
+            "num_channels": event["num_channels"], "dropout_rate": dropout_rate, "train_layers": train_layers, "batch_size": batch_size, "num_epochs": num_epochs, "epoch": epoch_num}
     for i in range(int(event["num_machines"])):
         if i >= len(image_name_pairs):
             continue

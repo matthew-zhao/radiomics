@@ -5,11 +5,14 @@ Original C++ source file: checkpoint_ops.cc
 """
 
 import collections as _collections
+import six as _six
 
-from tensorflow.python.eager import execute as _execute
+from tensorflow.python import pywrap_tensorflow as _pywrap_tensorflow
 from tensorflow.python.eager import context as _context
 from tensorflow.python.eager import core as _core
+from tensorflow.python.eager import execute as _execute
 from tensorflow.python.framework import dtypes as _dtypes
+from tensorflow.python.framework import errors as _errors
 from tensorflow.python.framework import tensor_shape as _tensor_shape
 
 from tensorflow.core.framework import op_def_pb2 as _op_def_pb2
@@ -18,20 +21,26 @@ from tensorflow.python.framework import common_shapes as _common_shapes
 from tensorflow.python.framework import op_def_registry as _op_def_registry
 from tensorflow.python.framework import ops as _ops
 from tensorflow.python.framework import op_def_library as _op_def_library
+from tensorflow.python.util.deprecation import deprecated_endpoints
+from tensorflow.python.util.tf_export import tf_export
 
 
-__generate_vocab_remapping_outputs = ["remapping", "num_present"]
+_generate_vocab_remapping_outputs = ["remapping", "num_present"]
 _GenerateVocabRemappingOutput = _collections.namedtuple(
-    "GenerateVocabRemapping", __generate_vocab_remapping_outputs)
+    "GenerateVocabRemapping", _generate_vocab_remapping_outputs)
 
 
-def _generate_vocab_remapping(new_vocab_file, old_vocab_file, new_vocab_offset, num_new_vocab, name=None):
+def generate_vocab_remapping(new_vocab_file, old_vocab_file, new_vocab_offset, num_new_vocab, old_vocab_size=-1, name=None):
   r"""Given a path to new and old vocabulary files, returns a remapping Tensor of
 
   length `num_new_vocab`, where `remapping[i]` contains the row number in the old
   vocabulary that corresponds to row `i` in the new vocabulary (starting at line
   `new_vocab_offset` and up to `num_new_vocab` entities), or `-1` if entry `i`
-  in the new vocabulary is not in the old vocabulary.  `num_vocab_offset` enables
+  in the new vocabulary is not in the old vocabulary.  The old vocabulary is
+  constrained to the first `old_vocab_size` entries if `old_vocab_size` is not the
+  default value of -1.
+
+  `num_vocab_offset` enables
   use in the partitioned variable case, and should generally be set through
   examining partitioning info.  The format of the files should be a text file,
   with each line containing a single entity within the vocabulary.
@@ -60,44 +69,85 @@ def _generate_vocab_remapping(new_vocab_file, old_vocab_file, new_vocab_offset, 
       How many entries into the new vocab file to start reading.
     num_new_vocab: An `int` that is `>= 0`.
       Number of entries in the new vocab file to remap.
+    old_vocab_size: An optional `int` that is `>= -1`. Defaults to `-1`.
+      Number of entries in the old vocab file to consider.  If -1,
+      use the entire old vocabulary.
     name: A name for the operation (optional).
 
   Returns:
     A tuple of `Tensor` objects (remapping, num_present).
 
-    remapping: A `Tensor` of type `int64`. A Tensor of length num_new_vocab where the element at index i
-      is equal to the old ID that maps to the new ID i.  This element is -1 for any
-      new ID that is not found in the old vocabulary.
-    num_present: A `Tensor` of type `int32`. Number of new vocab entries found in old vocab.
+    remapping: A `Tensor` of type `int64`.
+    num_present: A `Tensor` of type `int32`.
   """
-  new_vocab_offset = _execute.make_int(new_vocab_offset, "new_vocab_offset")
-  num_new_vocab = _execute.make_int(num_new_vocab, "num_new_vocab")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    new_vocab_offset = _execute.make_int(new_vocab_offset, "new_vocab_offset")
+    num_new_vocab = _execute.make_int(num_new_vocab, "num_new_vocab")
+    if old_vocab_size is None:
+      old_vocab_size = -1
+    old_vocab_size = _execute.make_int(old_vocab_size, "old_vocab_size")
     _, _, _op = _op_def_lib._apply_op_helper(
         "GenerateVocabRemapping", new_vocab_file=new_vocab_file,
         old_vocab_file=old_vocab_file, new_vocab_offset=new_vocab_offset,
-        num_new_vocab=num_new_vocab, name=name)
+        num_new_vocab=num_new_vocab, old_vocab_size=old_vocab_size, name=name)
     _result = _op.outputs[:]
     _inputs_flat = _op.inputs
     _attrs = ("new_vocab_offset", _op.get_attr("new_vocab_offset"),
-              "num_new_vocab", _op.get_attr("num_new_vocab"))
+              "num_new_vocab", _op.get_attr("num_new_vocab"),
+              "old_vocab_size", _op.get_attr("old_vocab_size"))
+    _execute.record_gradient(
+      "GenerateVocabRemapping", _inputs_flat, _attrs, _result, name)
+    _result = _GenerateVocabRemappingOutput._make(_result)
+    return _result
+
   else:
-    new_vocab_file = _ops.convert_to_tensor(new_vocab_file, _dtypes.string)
-    old_vocab_file = _ops.convert_to_tensor(old_vocab_file, _dtypes.string)
-    _inputs_flat = [new_vocab_file, old_vocab_file]
-    _attrs = ("new_vocab_offset", new_vocab_offset, "num_new_vocab",
-              num_new_vocab)
-    _result = _execute.execute(b"GenerateVocabRemapping", 2,
-                               inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
-                               name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "GenerateVocabRemapping", name, _ctx._post_execution_callbacks,
+        new_vocab_file, old_vocab_file, "new_vocab_offset", new_vocab_offset,
+        "num_new_vocab", num_new_vocab, "old_vocab_size", old_vocab_size)
+      _result = _GenerateVocabRemappingOutput._make(_result)
+      return _result
+    except _core._FallbackException:
+      return generate_vocab_remapping_eager_fallback(
+          new_vocab_file, old_vocab_file, new_vocab_offset=new_vocab_offset,
+          num_new_vocab=num_new_vocab, old_vocab_size=old_vocab_size,
+          name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def generate_vocab_remapping_eager_fallback(new_vocab_file, old_vocab_file, new_vocab_offset, num_new_vocab, old_vocab_size=-1, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function generate_vocab_remapping
+  """
+  _ctx = ctx if ctx else _context.context()
+  new_vocab_offset = _execute.make_int(new_vocab_offset, "new_vocab_offset")
+  num_new_vocab = _execute.make_int(num_new_vocab, "num_new_vocab")
+  if old_vocab_size is None:
+    old_vocab_size = -1
+  old_vocab_size = _execute.make_int(old_vocab_size, "old_vocab_size")
+  new_vocab_file = _ops.convert_to_tensor(new_vocab_file, _dtypes.string)
+  old_vocab_file = _ops.convert_to_tensor(old_vocab_file, _dtypes.string)
+  _inputs_flat = [new_vocab_file, old_vocab_file]
+  _attrs = ("new_vocab_offset", new_vocab_offset, "num_new_vocab",
+  num_new_vocab, "old_vocab_size", old_vocab_size)
+  _result = _execute.execute(b"GenerateVocabRemapping", 2,
+                             inputs=_inputs_flat, attrs=_attrs, ctx=_ctx,
+                             name=name)
   _execute.record_gradient(
       "GenerateVocabRemapping", _inputs_flat, _attrs, _result, name)
   _result = _GenerateVocabRemappingOutput._make(_result)
   return _result
 
 
-def _load_and_remap_matrix(ckpt_path, old_tensor_name, row_remapping, col_remapping, initializing_values, num_rows, num_cols, max_rows_in_memory=-1, name=None):
+def load_and_remap_matrix(ckpt_path, old_tensor_name, row_remapping, col_remapping, initializing_values, num_rows, num_cols, max_rows_in_memory=-1, name=None):
   r"""Loads a 2-D (matrix) `Tensor` with name `old_tensor_name` from the checkpoint
 
   at `ckpt_path` and potentially reorders its rows and columns using the
@@ -166,16 +216,14 @@ def _load_and_remap_matrix(ckpt_path, old_tensor_name, row_remapping, col_remapp
 
   Returns:
     A `Tensor` of type `float32`.
-    Output matrix containing existing values loaded from the
-    checkpoint, and with any missing values filled in from initializing_values.
   """
-  num_rows = _execute.make_int(num_rows, "num_rows")
-  num_cols = _execute.make_int(num_cols, "num_cols")
-  if max_rows_in_memory is None:
-    max_rows_in_memory = -1
-  max_rows_in_memory = _execute.make_int(max_rows_in_memory, "max_rows_in_memory")
-  _ctx = _context.context()
-  if _ctx.in_graph_mode():
+  _ctx = _context._context
+  if _ctx is None or not _ctx._eager_context.is_eager:
+    num_rows = _execute.make_int(num_rows, "num_rows")
+    num_cols = _execute.make_int(num_cols, "num_cols")
+    if max_rows_in_memory is None:
+      max_rows_in_memory = -1
+    max_rows_in_memory = _execute.make_int(max_rows_in_memory, "max_rows_in_memory")
     _, _, _op = _op_def_lib._apply_op_helper(
         "LoadAndRemapMatrix", ckpt_path=ckpt_path,
         old_tensor_name=old_tensor_name, row_remapping=row_remapping,
@@ -187,17 +235,53 @@ def _load_and_remap_matrix(ckpt_path, old_tensor_name, row_remapping, col_remapp
     _attrs = ("num_rows", _op.get_attr("num_rows"), "num_cols",
               _op.get_attr("num_cols"), "max_rows_in_memory",
               _op.get_attr("max_rows_in_memory"))
+    _execute.record_gradient(
+      "LoadAndRemapMatrix", _inputs_flat, _attrs, _result, name)
+    _result, = _result
+    return _result
+
   else:
-    ckpt_path = _ops.convert_to_tensor(ckpt_path, _dtypes.string)
-    old_tensor_name = _ops.convert_to_tensor(old_tensor_name, _dtypes.string)
-    row_remapping = _ops.convert_to_tensor(row_remapping, _dtypes.int64)
-    col_remapping = _ops.convert_to_tensor(col_remapping, _dtypes.int64)
-    initializing_values = _ops.convert_to_tensor(initializing_values, _dtypes.float32)
-    _inputs_flat = [ckpt_path, old_tensor_name, row_remapping, col_remapping, initializing_values]
-    _attrs = ("num_rows", num_rows, "num_cols", num_cols,
-              "max_rows_in_memory", max_rows_in_memory)
-    _result = _execute.execute(b"LoadAndRemapMatrix", 1, inputs=_inputs_flat,
-                               attrs=_attrs, ctx=_ctx, name=name)
+    try:
+      _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+        _ctx._context_handle, _ctx._eager_context.device_name,
+        "LoadAndRemapMatrix", name, _ctx._post_execution_callbacks, ckpt_path,
+        old_tensor_name, row_remapping, col_remapping, initializing_values,
+        "num_rows", num_rows, "num_cols", num_cols, "max_rows_in_memory",
+        max_rows_in_memory)
+      return _result
+    except _core._FallbackException:
+      return load_and_remap_matrix_eager_fallback(
+          ckpt_path, old_tensor_name, row_remapping, col_remapping,
+          initializing_values, num_rows=num_rows, num_cols=num_cols,
+          max_rows_in_memory=max_rows_in_memory, name=name, ctx=_ctx)
+    except _core._NotOkStatusException as e:
+      if name is not None:
+        message = e.message + " name: " + name
+      else:
+        message = e.message
+      _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+def load_and_remap_matrix_eager_fallback(ckpt_path, old_tensor_name, row_remapping, col_remapping, initializing_values, num_rows, num_cols, max_rows_in_memory=-1, name=None, ctx=None):
+  r"""This is the slowpath function for Eager mode.
+  This is for function load_and_remap_matrix
+  """
+  _ctx = ctx if ctx else _context.context()
+  num_rows = _execute.make_int(num_rows, "num_rows")
+  num_cols = _execute.make_int(num_cols, "num_cols")
+  if max_rows_in_memory is None:
+    max_rows_in_memory = -1
+  max_rows_in_memory = _execute.make_int(max_rows_in_memory, "max_rows_in_memory")
+  ckpt_path = _ops.convert_to_tensor(ckpt_path, _dtypes.string)
+  old_tensor_name = _ops.convert_to_tensor(old_tensor_name, _dtypes.string)
+  row_remapping = _ops.convert_to_tensor(row_remapping, _dtypes.int64)
+  col_remapping = _ops.convert_to_tensor(col_remapping, _dtypes.int64)
+  initializing_values = _ops.convert_to_tensor(initializing_values, _dtypes.float32)
+  _inputs_flat = [ckpt_path, old_tensor_name, row_remapping, col_remapping, initializing_values]
+  _attrs = ("num_rows", num_rows, "num_cols", num_cols, "max_rows_in_memory",
+  max_rows_in_memory)
+  _result = _execute.execute(b"LoadAndRemapMatrix", 1, inputs=_inputs_flat,
+                             attrs=_attrs, ctx=_ctx, name=name)
   _execute.record_gradient(
       "LoadAndRemapMatrix", _inputs_flat, _attrs, _result, name)
   _result, = _result
@@ -237,6 +321,15 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #     name: "num_new_vocab"
 #     type: "int"
 #     has_minimum: true
+#   }
+#   attr {
+#     name: "old_vocab_size"
+#     type: "int"
+#     default_value {
+#       i: -1
+#     }
+#     has_minimum: true
+#     minimum: -1
 #   }
 # }
 # op {
@@ -285,4 +378,4 @@ def _InitOpDefLibrary(op_list_proto_bytes):
 #   }
 #   is_stateful: true
 # }
-_op_def_lib = _InitOpDefLibrary(b"\n\223\001\n\026GenerateVocabRemapping\022\022\n\016new_vocab_file\030\007\022\022\n\016old_vocab_file\030\007\032\r\n\tremapping\030\t\032\017\n\013num_present\030\003\"\031\n\020new_vocab_offset\022\003int(\001\"\026\n\rnum_new_vocab\022\003int(\001\n\335\001\n\022LoadAndRemapMatrix\022\r\n\tckpt_path\030\007\022\023\n\017old_tensor_name\030\007\022\021\n\rrow_remapping\030\t\022\021\n\rcol_remapping\030\t\022\027\n\023initializing_values\030\001\032\021\n\routput_matrix\030\001\"\021\n\010num_rows\022\003int(\001\"\023\n\010num_cols\022\003int(\0010\001\"&\n\022max_rows_in_memory\022\003int\032\013\030\377\377\377\377\377\377\377\377\377\001\210\001\001")
+_op_def_lib = _InitOpDefLibrary(b"\n\304\001\n\026GenerateVocabRemapping\022\022\n\016new_vocab_file\030\007\022\022\n\016old_vocab_file\030\007\032\r\n\tremapping\030\t\032\017\n\013num_present\030\003\"\031\n\020new_vocab_offset\022\003int(\001\"\026\n\rnum_new_vocab\022\003int(\001\"/\n\016old_vocab_size\022\003int\032\013\030\377\377\377\377\377\377\377\377\377\001(\0010\377\377\377\377\377\377\377\377\377\001\n\335\001\n\022LoadAndRemapMatrix\022\r\n\tckpt_path\030\007\022\023\n\017old_tensor_name\030\007\022\021\n\rrow_remapping\030\t\022\021\n\rcol_remapping\030\t\022\027\n\023initializing_values\030\001\032\021\n\routput_matrix\030\001\"\021\n\010num_rows\022\003int(\001\"\023\n\010num_cols\022\003int(\0010\001\"&\n\022max_rows_in_memory\022\003int\032\013\030\377\377\377\377\377\377\377\377\377\001\210\001\001")

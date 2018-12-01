@@ -66,7 +66,7 @@ def create_unet(X, training, name='final'):
     block3, pool3 = conv_block(pool2, 256, training, name='block03')
     block4, pool4 = conv_block(pool3, 512, training, name='block04')
     block5, pool5 = conv_block(pool4, 1024, training, name='block05', pool=False)
-
+    tf.add_to_collection('checkpoints', block5)
     # --- Expanding arm
     block6 = convt_block(block5, block4, 512, name='block06')
     block7, _ = conv_block(block6, 512, training, name='block07', pool=False)
@@ -90,9 +90,9 @@ def get_train_layers():
     return ['block01', 'block02', 'block03', 'block04', 'block05', 'block06', 'block07', 'block08', 'block09', 'block10', 'block11', 'block12', 'block13']
 
 def dice_score(y_pred, y_true, smooth=1e-7):
-    intersection = 2 * tf.reduce_sum(y_pred * y_true)
-    union = tf.reduce_sum(y_pred) + tf.reduce_sum(y_true)
-    return (2. * intersection + smooth) / (union + smooth)
+    intersection = 2 * tf.reduce_sum(y_pred * y_true, axis=[1,2,3])
+    union = tf.reduce_sum(y_pred, axis=[1,2,3]) + tf.reduce_sum(y_true, axis=[1,2,3])
+    return tf.div(2. * intersection + smooth, union + smooth)
 
 def loss_dice(y_pred, y_true, smooth=1e-7):
     """
