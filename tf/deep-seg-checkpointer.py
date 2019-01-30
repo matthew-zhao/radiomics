@@ -18,6 +18,8 @@ import memory_saving_gradients
 # https://medium.com/tensorflow/fitting-larger-networks-into-memory-583e3c758ff9
 #tf.__dict__["gradients"] = memory_saving_gradients.gradients_memory
 
+lambda_client = boto3.client('lambda')
+
 def classify(event, context):
     if "num_trainer" not in event:
         # averager doesn't pass num_trainer, so we know its just been averaged
@@ -74,7 +76,7 @@ def classify(event, context):
         WaitTimeSeconds=20
     )
 
-    if 'Messages' in response and len(response['Messages'] > 0):
+    if 'Messages' in response and len(response['Messages']) > 0:
         messages = response['Messages']
 
         for message in messages:
@@ -91,7 +93,7 @@ def classify(event, context):
                 QueueUrl=queue_url1,
                 ReceiptHandle=receipt_handle
             )
-    elif 'Messages' in response2 and len(response2['Messages'] > 0):
+    elif 'Messages' in response2 and len(response2['Messages']) > 0:
         messages2 = response2['Messages']
 
         for message in messages2:
@@ -233,7 +235,7 @@ def classify(event, context):
     if num_trainer < 9:
         args = {"bucket_from": event['bucket_from'], "bucket_from_labels": event['bucket_from_labels'], "model_bucket_name": model_bucket_name,
                 "queue_name": event['queue_name'], "queue_name1": event["queue_name1"], "num_classes": event["num_classes"], "num_machines": event["num_machines"],
-                "num_channels": event["num_channels"], "dropout_rate": event["dropout_rate"], "train_layers": event["train_layers"], "batch_size": event["batch_size"], "epoch": event["epoch_num"],
-                "num_epochs": num_epochs, "machine_num": i, "num_trainer": num_trainer + 1}
+                "num_channels": event["num_channels"], "dropout_rate": event["dropout_rate"], "train_layers": event["train_layers"], "batch_size": event["batch_size"], "epoch": event["epoch"],
+                "num_epochs": event["num_epochs"], "machine_num": i, "num_trainer": num_trainer + 1}
         invoke_response = lambda_client.invoke(FunctionName="deep-seg-checkpointer", InvocationType='Event', Payload=json.dumps(args))
     return 0
